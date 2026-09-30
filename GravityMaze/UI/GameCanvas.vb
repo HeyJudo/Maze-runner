@@ -21,6 +21,12 @@ Namespace UI
         Private _ballX As Single
         Private _ballY As Single
 
+        ' Space kept free around the board (e.g. for the HUD bar). The board is laid out inside the rest.
+        Public Property BoardInsets As Padding = Padding.Empty
+
+        ' Screens (menus, HUD, panels) paint on top of the board through this hook. Nothing = board only.
+        Public Property OverlayPainter As Action(Of Graphics, Rectangle)
+
         ' Transient visual feedback effects
         Private ReadOnly activeImpacts As New List(Of ImpactEffect)()
         Private ReadOnly goalCelebration As New GoalCelebrationEffect()
@@ -98,9 +104,13 @@ Namespace UI
                     End If
                 End SyncLock
 
-                renderer.Draw(e.Graphics, ClientRectangle, currentMaze, _ballX, _ballY,
+                Dim boardArea As New Rectangle(BoardInsets.Left, BoardInsets.Top,
+                                               Math.Max(0, ClientSize.Width - BoardInsets.Horizontal),
+                                               Math.Max(0, ClientSize.Height - BoardInsets.Vertical))
+                renderer.Draw(e.Graphics, boardArea, currentMaze, _ballX, _ballY,
                               currentTheme, impactSnapshot, goalCelebration)
             End If
+            OverlayPainter?.Invoke(e.Graphics, ClientRectangle)
         End Sub
     End Class
 End Namespace
