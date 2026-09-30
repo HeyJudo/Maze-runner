@@ -70,7 +70,7 @@ Namespace Rendering
                 ' 6. Local Wall Impact Feedback Effects
                 If impacts IsNot Nothing Then
                     For Each impact As ImpactEffect In impacts
-                        DrawImpact(graphics, left, top, tileSize, impact)
+                        DrawImpact(graphics, left, top, tileSize, impact, themeName)
                     Next
                 End If
             Finally
@@ -103,14 +103,25 @@ Namespace Rendering
                             DrawWall(graphics, tileBounds, themeName, rowIndex, columnIndex)
                         Case "G"c
                             DrawGoal(graphics, tileBounds, themeName)
-                        Case "I"c, "M"c, "F"c
+                        Case "H"c
+                            DrawHole(graphics, tileBounds)
+                        Case "F"c
+                            If themeName = "Neon Velocity" Then
+                                DrawBoost(graphics, tileBounds, BoostAngle(maze, rowIndex, columnIndex))
+                            Else
+                                DrawZone(graphics, tileBounds, tileChar, themeName)
+                            End If
+                        Case "I"c, "M"c
                             DrawZone(graphics, tileBounds, tileChar, themeName)
                     End Select
                 Next
             Next
 
             ' 4. Board Border and entrance/exit arrows
-            DrawBoardBorder(graphics, board.Left, board.Top, board.Width, board.Height, tileSize, themeName)
+            If themeName = "Neon Velocity" Then
+                DrawNeonEdges(graphics, board, tileSize, maze)
+            End If
+            DrawBoardBorder(graphics, board.Left, board.Top, board.Width, board.Height, tileSize, themeName, maze)
             DrawEdgeArrow(graphics, board, tileSize, maze.StartRow, maze.StartColumn, maze, themeName)
             DrawEdgeArrow(graphics, board, tileSize, maze.GoalRow, maze.GoalColumn, maze, themeName)
         End Sub
@@ -248,13 +259,9 @@ Namespace Rendering
                     Next
                 End Using
             ElseIf theme = "Neon Velocity" Then
-                Using wallBrush As New SolidBrush(Color.FromArgb(24, 20, 45))
+                ' Solid dark slab; the glowing outline comes from DrawNeonEdges (only faces that touch floor).
+                Using wallBrush As New SolidBrush(Color.FromArgb(30, 22, 54))
                     graphics.FillRectangle(wallBrush, tile)
-                End Using
-                Using neonPen As New Pen(Color.FromArgb(255, 0, 180), Math.Max(1.0F, tile.Width * 0.04F)),
-                      glowPen As New Pen(Color.FromArgb(60, 255, 0, 180), Math.Max(2.5F, tile.Width * 0.09F))
-                    graphics.DrawRectangle(glowPen, tile.Left, tile.Top, tile.Width, tile.Height)
-                    graphics.DrawRectangle(neonPen, tile.Left, tile.Top, tile.Width, tile.Height)
                 End Using
             Else
                 ' Classic Wooden Workshop wall
@@ -269,6 +276,131 @@ Namespace Rendering
                     graphics.DrawLine(shadePen,     tile.Left,        tile.Bottom - 1.0F, tile.Right, tile.Bottom - 1.0F)
                 End Using
             End If
+        End Sub
+
+        ' ── Neon Wall Edges ─────────────────────────────────────────────────
+        ' Glowing tube along every wall face that touches floor, so corridors read as lit channels.
+        Private Shared Sub DrawNeonEdges(graphics As Graphics, board As RectangleF, tileSize As Single,
+                                         maze As MazeDefinition)
+            Dim segments As New List(Of RectangleF)() ' X1,Y1 in Location; X2,Y2 packed in Size
+            For r As Integer = 0 To maze.RowCount - 1
+                For c As Integer = 0 To maze.ColumnCount - 1
+                    If maze.GetTile(r, c) <> "1"c Then Continue For
+                    Dim x0 As Single = board.Left + c * tileSize
+                    Dim y0 As Single = board.Top + r * tileSize
+                    Dim x1 As Single = x0 + tileSize
+                    Dim y1 As Single = y0 + tileSize
+                    If IsOpen(maze, r - 1, c) Then segments.Add(New RectangleF(x0, y0, x1, y0))
+                    If IsOpen(maze, r + 1, c) Then segments.Add(New RectangleF(x0, y1, x1, y1))
+                    If IsOpen(maze, r, c - 1) Then segments.Add(New RectangleF(x0, y0, x0, y1))
+                    If IsOpen(maze, r, c + 1) Then segments.Add(New RectangleF(x1, y0, x1, y1))
+                Next
+            Next
+
+            ' Three passes (wide haze, mid glow, hot core) so overlapping segments blend cleanly.
+            Dim passes As (Color, Single)() = {
+                (Color.FromArgb(38, 255, 40, 200), tileSize * 0.34F),
+                (Color.FromArgb(110, 255, 60, 210), tileSize * 0.14F),
+                (Color.FromArgb(255, 255, 170, 240), Math.Max(1.2F, tileSize * 0.045F))}
+            For Each pass In passes
+                Using pen As New Pen(pass.Item1, pass.Item2)
+                    pen.StartCap = LineCap.Round
+                    pen.EndCap = LineCap.Round
+                    For Each s As RectangleF In segments
+                        graphics.DrawLine(pen, s.X, s.Y, s.Width, s.Height)
+                    Next
+                End Using
+            Next
+        End Sub
+
+        Private Shared Function IsOpen(maze As MazeDefinition, r As Integer, c As Integer) As Boolean
+            If r < 0 OrElse c < 0 OrElse r >= maze.RowCount OrElse c >= maze.ColumnCount Then Return False
+            Return maze.GetTile(r, c) <> "1"c
+        End Function
+
+        ' ── Holes ───────────────────────────────────────────────────────────
+        ' Visual radius matches the engine's fall radius (0.40 tile) so what you see is what drops you.
+        Private Shared Sub DrawHole(graphics As Graphics, tile As RectangleF)
+            Dim cx As Single = tile.Left + tile.Width / 2.0F
+            Dim cy As Single = tile.Top + tile.Height / 2.0F
+            Dim rad As Single = tile.Width * 0.42F
+            Dim pit As New RectangleF(cx - rad, cy - rad, rad * 2.0F, rad * 2.0F)
+
+            Using glowPen As New Pen(Color.FromArgb(70, 255, 60, 90), tile.Width * 0.14F)
+                graphics.DrawEllipse(glowPen, pit)
+            End Using
+            Using pitPath As New GraphicsPath()
+                pitPath.AddEllipse(pit)
+                Using pitBrush As New PathGradientBrush(pitPath)
+                    pitBrush.CenterPoint = New PointF(cx, cy + rad * 0.15F)
+                    pitBrush.CenterColor = Color.Black
+                    pitBrush.SurroundColors = New Color() {Color.FromArgb(70, 12, 30)}
+                    graphics.FillEllipse(pitBrush, pit)
+                End Using
+            End Using
+            ' Depth rings sinking toward the bottom of the pit
+            Using ringPen As New Pen(Color.FromArgb(60, 255, 80, 120), Math.Max(0.8F, tile.Width * 0.02F))
+                For i As Integer = 1 To 2
+                    Dim rr As Single = rad * (1.0F - i * 0.3F)
+                    graphics.DrawEllipse(ringPen, cx - rr, cy - rr + rad * 0.08F * i, rr * 2.0F, rr * 2.0F)
+                Next
+            End Using
+            Using rimPen As New Pen(Color.FromArgb(255, 90, 120), Math.Max(1.5F, tile.Width * 0.05F))
+                graphics.DrawEllipse(rimPen, pit)
+            End Using
+        End Sub
+
+        ' ── Boost Strips (Neon) ─────────────────────────────────────────────
+        ' Chevrons point toward the strip end that has a pit waiting past the corner (the danger end).
+        Private Shared Function BoostAngle(maze As MazeDefinition, r As Integer, c As Integer) As Single
+            Dim horizontal As Boolean = (c > 0 AndAlso maze.GetTile(r, c - 1) = "F"c) OrElse
+                                        (c < maze.ColumnCount - 1 AndAlso maze.GetTile(r, c + 1) = "F"c)
+            Dim dr As Integer = If(horizontal, 0, 1)
+            Dim dc As Integer = If(horizontal, 1, 0)
+            If Not PitAhead(maze, r, c, dr, dc) AndAlso PitAhead(maze, r, c, -dr, -dc) Then
+                dr = -dr
+                dc = -dc
+            End If
+            Return CSng(Math.Atan2(dr, dc) * 180.0 / Math.PI)
+        End Function
+
+        Private Shared Function PitAhead(maze As MazeDefinition, r As Integer, c As Integer, dr As Integer, dc As Integer) As Boolean
+            While r >= 0 AndAlso c >= 0 AndAlso r < maze.RowCount AndAlso c < maze.ColumnCount AndAlso maze.GetTile(r, c) = "F"c
+                r += dr
+                c += dc
+            End While
+            For k As Integer = 0 To 3
+                Dim rr As Integer = r + dr * k
+                Dim cc As Integer = c + dc * k
+                If rr < 0 OrElse cc < 0 OrElse rr >= maze.RowCount OrElse cc >= maze.ColumnCount Then Return False
+                If maze.GetTile(rr, cc) = "H"c Then Return True
+            Next
+            Return False
+        End Function
+
+        Private Shared Sub DrawBoost(graphics As Graphics, tile As RectangleF, angle As Single)
+            Using baseBrush As New LinearGradientBrush(tile, Color.FromArgb(70, 40, 8), Color.FromArgb(40, 20, 6), angle)
+                graphics.FillRectangle(baseBrush, tile)
+            End Using
+            Dim state As GraphicsState = graphics.Save()
+            graphics.TranslateTransform(tile.Left + tile.Width / 2.0F, tile.Top + tile.Height / 2.0F)
+            graphics.RotateTransform(angle)
+            Dim s As Single = tile.Width
+            Using glowPen As New Pen(Color.FromArgb(90, 255, 170, 30), s * 0.16F),
+                  corePen As New Pen(Color.FromArgb(255, 220, 90), Math.Max(1.5F, s * 0.06F))
+                For Each p As Pen In {glowPen, corePen}
+                    p.LineJoin = LineJoin.Round
+                    p.StartCap = LineCap.Round
+                    p.EndCap = LineCap.Round
+                    For Each ox As Single In {-0.2F, 0.12F}
+                        graphics.DrawLines(p, New PointF() {
+                            New PointF(s * (ox - 0.1F), -s * 0.24F),
+                            New PointF(s * (ox + 0.12F), 0.0F),
+                            New PointF(s * (ox - 0.1F), s * 0.24F)})
+                    Next
+                Next
+            End Using
+            graphics.Restore(state)
         End Sub
 
         ' ── Zones (Ice, Fast, Mud) ──────────────────────────────────────────
@@ -407,59 +539,113 @@ Namespace Rendering
 
         ' ── Wall Impact Visual Effect ────────────────────────────────────────
         Private Shared Sub DrawImpact(graphics As Graphics, left As Single, top As Single,
-                                      tileSize As Single, impact As ImpactEffect)
+                                      tileSize As Single, impact As ImpactEffect, themeName As String)
             Dim progress As Single = impact.ElapsedMs / impact.LifetimeMs
             If progress < 0.0F OrElse progress >= 1.0F Then Return
 
             Dim alpha As Single = 1.0F - progress
-            Dim speedScale As Single = Math.Min(1.4F, Math.Max(0.6F, impact.Speed / 0.12F))
+            Dim ease As Single = 1.0F - alpha * alpha * alpha ' fast start, slow finish
+            ' 1.0 (gentle) .. 1.8 (fast): a soft hit is still clearly visible
+            Dim speedScale As Single = Math.Min(1.8F, Math.Max(1.0F, impact.Speed / 0.08F))
 
-            ' Contact point in screen coordinates
             Dim px As Single = left + impact.TileX * tileSize
             Dim py As Single = top  + impact.TileY * tileSize
+            Dim nx As Single = impact.NormalX
+            Dim ny As Single = impact.NormalY
 
-            ' Expanding arc radius
-            Dim radius As Single = (tileSize * 0.10F + tileSize * 0.22F * progress) * speedScale
-            Dim arcRect As New RectangleF(px - radius, py - radius, radius * 2.0F, radius * 2.0F)
+            ' Theme palette: core flash, glow, spark A, spark B
+            Dim glow As Color, sparkA As Color, sparkB As Color
+            Select Case themeName
+                Case "Frozen Labyrinth"
+                    glow = Color.FromArgb(70, 200, 255) : sparkA = Color.FromArgb(255, 255, 255) : sparkB = Color.FromArgb(120, 210, 255)
+                Case "Neon Velocity"
+                    glow = Color.FromArgb(255, 60, 220) : sparkA = Color.FromArgb(255, 90, 235) : sparkB = Color.FromArgb(70, 240, 255)
+                Case Else
+                    glow = Color.FromArgb(255, 170, 60) : sparkA = Color.FromArgb(255, 210, 110) : sparkB = Color.FromArgb(200, 140, 80)
+            End Select
 
-            ' Determine start angle for arc based on normal vector pointing outward from wall
-            ' Normal (-1, 0): wall is to right, arc points left (into open space)
-            Dim startAngle As Single
-            Dim sweepAngle As Single = 120.0F
+            Dim state As GraphicsState = graphics.Save()
+            Try
+                graphics.SmoothingMode = SmoothingMode.AntiAlias
 
-            If impact.NormalX < -0.5F Then
-                startAngle = 120.0F
-            ElseIf impact.NormalX > 0.5F Then
-                startAngle = 300.0F
-            ElseIf impact.NormalY < -0.5F Then
-                startAngle = 210.0F
-            Else
-                startAngle = 30.0F
-            End If
+                ' 0. Whole struck wall block pulses with the theme glow
+                Dim wallCol As Single = CSng(Math.Floor(impact.TileX - nx * 0.5F))
+                Dim wallRow As Single = CSng(Math.Floor(impact.TileY - ny * 0.5F))
+                Using blockBrush As New SolidBrush(Color.FromArgb(ClampAlpha(150.0F * alpha * alpha), glow))
+                    graphics.FillRectangle(blockBrush, left + wallCol * tileSize, top + wallRow * tileSize, tileSize, tileSize)
+                End Using
 
-            Dim glowAlpha As Integer = CInt(Math.Max(0.0F, Math.Min(255.0F, 190.0F * alpha)))
-            Dim coreAlpha As Integer = CInt(Math.Max(0.0F, Math.Min(255.0F, 240.0F * alpha)))
+                ' 1. Struck wall face glow: a line longer than a tile, perpendicular to the normal
+                Dim halfLen As Single = tileSize * 0.75F * (0.8F + 0.2F * speedScale)
+                Dim tx As Single = -ny
+                Dim ty As Single = nx
+                Dim wallA As Integer = ClampAlpha(255.0F * alpha)
+                Using wide As New Pen(Color.FromArgb(ClampAlpha(90.0F * alpha), glow), tileSize * 0.24F),
+                      mid As New Pen(Color.FromArgb(ClampAlpha(190.0F * alpha), glow), tileSize * 0.12F),
+                      core As New Pen(Color.FromArgb(wallA, 255, 255, 255), Math.Max(1.5F, tileSize * 0.03F))
+                    wide.StartCap = LineCap.Round : wide.EndCap = LineCap.Round
+                    mid.StartCap = LineCap.Round : mid.EndCap = LineCap.Round
+                    For Each pen As Pen In {wide, mid, core}
+                        graphics.DrawLine(pen, px - tx * halfLen, py - ty * halfLen, px + tx * halfLen, py + ty * halfLen)
+                    Next
+                End Using
 
-            ' Outer cyan glow arc
-            Using glowPen As New Pen(Color.FromArgb(glowAlpha, 130, 230, 255), Math.Max(2.0F, 3.5F * speedScale)),
-                  corePen As New Pen(Color.FromArgb(coreAlpha, 255, 255, 255), Math.Max(1.0F, 1.8F * speedScale)),
-                  flashBrush As New SolidBrush(Color.FromArgb(coreAlpha, 255, 255, 255))
+                ' 2. Shockwave half-ring on the open side (two staggered rings)
+                For ring As Integer = 0 To 1
+                    Dim rp As Single = Math.Min(1.0F, progress * (1.0F + 0.4F * (1 - ring)) - 0.08F * ring)
+                    If rp > 0.0F Then
+                        Dim r As Single = tileSize * (0.3F + 1.1F * rp) * speedScale
+                        Dim center As Single = CSng(Math.Atan2(ny, nx) * 180.0 / Math.PI)
+                        Using ringPen As New Pen(Color.FromArgb(ClampAlpha(230.0F * (1.0F - rp)), If(ring = 0, Color.White, glow)),
+                                                 Math.Max(2.0F, tileSize * 0.09F * (1.0F - rp) * speedScale))
+                            graphics.DrawArc(ringPen, px - r, py - r, r * 2.0F, r * 2.0F, center - 85.0F, 170.0F)
+                        End Using
+                    End If
+                Next
 
-                graphics.DrawArc(glowPen, arcRect, startAngle, sweepAngle)
-                graphics.DrawArc(corePen, arcRect, startAngle, sweepAngle)
+                ' 3. Sparks spraying along the normal, decelerating and fading
+                Dim baseAngle As Double = Math.Atan2(ny, nx)
+                Using sparkBrush As New SolidBrush(sparkA),
+                      trailPen As New Pen(sparkA, 1.5F)
+                    For i As Integer = 0 To impact.SparkAngles.Length - 1
+                        Dim ang As Double = baseAngle + impact.SparkAngles(i)
+                        Dim dist As Single = tileSize * (0.3F + 1.3F * speedScale * impact.SparkDistances(i) * ease)
+                        Dim prevA As Single = Math.Min(1.0F, alpha + 0.15F)
+                        Dim prev As Single = tileSize * (0.3F + 1.3F * speedScale * impact.SparkDistances(i) * (1.0F - prevA * prevA * prevA))
+                        Dim dx As Single = CSng(Math.Cos(ang))
+                        Dim dy As Single = CSng(Math.Sin(ang))
+                        Dim sx As Single = px + dx * dist
+                        Dim sy As Single = py + dy * dist
+                        Dim c As Color = If(i Mod 2 = 0, sparkA, sparkB)
+                        Dim a As Integer = ClampAlpha(255.0F * alpha)
+                        trailPen.Color = Color.FromArgb(a \ 2, c)
+                        trailPen.Width = Math.Max(1.2F, tileSize * 0.03F * impact.SparkSizes(i))
+                        graphics.DrawLine(trailPen, px + dx * Math.Max(0.0F, prev), py + dy * Math.Max(0.0F, prev), sx, sy)
+                        sparkBrush.Color = Color.FromArgb(a, c)
+                        Dim ss As Single = Math.Max(3.0F, tileSize * 0.10F * impact.SparkSizes(i) * (0.4F + alpha))
+                        graphics.FillEllipse(sparkBrush, sx - ss / 2.0F, sy - ss / 2.0F, ss, ss)
+                    Next
+                End Using
 
-                ' Small contact flash point
-                Dim dotSize As Single = Math.Max(2.0F, 4.0F * speedScale * alpha)
-                graphics.FillEllipse(flashBrush, px - dotSize / 2.0F, py - dotSize / 2.0F, dotSize, dotSize)
-
-                ' Subtle sparks along the normal
-                Dim sparkDist As Single = (tileSize * 0.15F * progress) * speedScale
-                Dim sx As Single = px + impact.NormalX * sparkDist
-                Dim sy As Single = py + impact.NormalY * sparkDist
-                Dim sparkSize As Single = Math.Max(1.5F, 2.5F * alpha)
-                graphics.FillEllipse(flashBrush, sx - sparkSize / 2.0F, sy - sparkSize / 2.0F, sparkSize, sparkSize)
-            End Using
+                ' 4. Bright contact flash (strongest in the first ~40% of life)
+                Dim flash As Single = Math.Max(0.0F, 1.0F - progress * 2.5F)
+                Dim fr As Single = tileSize * (0.45F + 0.35F * speedScale) * (0.5F + 0.5F * flash)
+                Using path As New GraphicsPath()
+                    path.AddEllipse(px - fr, py - fr, fr * 2.0F, fr * 2.0F)
+                    Using pgb As New PathGradientBrush(path)
+                        pgb.CenterColor = Color.FromArgb(ClampAlpha(255.0F * (0.25F + 0.75F * flash)), 255, 255, 255)
+                        pgb.SurroundColors = New Color() {Color.FromArgb(0, glow)}
+                        graphics.FillPath(pgb, path)
+                    End Using
+                End Using
+            Finally
+                graphics.Restore(state)
+            End Try
         End Sub
+
+        Private Shared Function ClampAlpha(value As Single) As Integer
+            Return CInt(Math.Max(0.0F, Math.Min(255.0F, value)))
+        End Function
 
         ' ── Goal Celebration Rings ──────────────────────────────────────────
         Private Shared Sub DrawGoalCelebration(graphics As Graphics, left As Single, top As Single,
@@ -503,12 +689,27 @@ Namespace Rendering
         ' ── Board Border ────────────────────────────────────────────────────
         Private Shared Sub DrawBoardBorder(graphics As Graphics, left As Single, top As Single,
                                            boardWidth As Single, boardHeight As Single,
-                                           tileSize As Single, theme As String)
+                                           tileSize As Single, theme As String, maze As MazeDefinition)
             If theme = "Frozen Labyrinth" Then
                 Return
             ElseIf theme = "Neon Velocity" Then
+                ' Cyan frame with gaps at edge openings (entrance/exit).
+                Dim right As Single = left + boardWidth
+                Dim bottom As Single = top + boardHeight
                 Using neonPen As New Pen(Color.FromArgb(0, 240, 255), Math.Max(2.0F, tileSize * 0.045F))
-                    graphics.DrawRectangle(neonPen, left, top, boardWidth, boardHeight)
+                    graphics.DrawLine(neonPen, left, top, right, top)
+                    graphics.DrawLine(neonPen, left, bottom, right, bottom)
+                    For Each x As Single In {left, right}
+                        Dim col As Integer = If(x = left, 0, maze.ColumnCount - 1)
+                        Dim y As Single = top
+                        For r As Integer = 0 To maze.RowCount - 1
+                            If maze.GetTile(r, col) <> "1"c Then
+                                graphics.DrawLine(neonPen, x, y, x, top + r * tileSize)
+                                y = top + (r + 1) * tileSize
+                            End If
+                        Next
+                        graphics.DrawLine(neonPen, x, y, x, bottom)
+                    Next
                 End Using
             Else
                 Using borderPen As New Pen(Color.FromArgb(197, 157, 105), Math.Max(1.0F, tileSize * 0.035F))

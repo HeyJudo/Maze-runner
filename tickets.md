@@ -261,11 +261,15 @@ Storage.
 
 **Blocked by:** Phase 1.
 
--   [ ] `Mazes\Level3.txt` is 25x25, entrance left edge, exit right edge.
--   [ ] Fast zones (`F`) are boost corridors that throw the ball into turns.
--   [ ] Holes (`H`): falling in respawns the ball at start; timer keeps running; attempts do not increase.
--   [ ] Timer set to ~1.4x the keyboard bot's measured clear time.
--   [ ] No ice on Level 3.
+-   [x] `Mazes\Level3.txt` is 25x25 (`tools\gen_maze.py level3`, seed 4670), entrance left edge, exit right edge, straight-biased "highway" corridors.
+-   [x] Four boost strips (`F`, max 6 tiles) end one grippy tile before a corner, with an overshoot pit (`H`) straight past the corner. Chevrons point toward the pit end.
+-   [x] Two 5x5 hole plazas with a diagonal slalom of pits (the outer ring always stays open).
+-   [x] Holes: ball centre within 0.40 tile of a hole centre respawns at start; timer keeps running; attempts unchanged; `GameEngine.BallFell` event for effects/SFX.
+-   [x] Timer 40 s = 1.4x the keyboard bot's clear time (28.5 s, zero falls).
+-   [x] No ice on Level 3.
+-   [x] Neon rendering: dark wall slabs with glowing edges only on corridor-facing faces, glowing pits, amber chevron boosts, cyan frame with gaps at the openings.
+-   [x] Wall-impact feedback made much more visible (all themes): struck block pulses, glowing wall face, double shockwave, theme-tinted sparks, bright flash; scales with impact speed.
+-   [ ] Play-test the 40 s limit with real players; raise it if most runs time out.
 
 ------------------------------------------------------------------------
 

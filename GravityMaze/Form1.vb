@@ -54,7 +54,7 @@ Public Class Form1
         levels = New List(Of LevelConfig) From {
             New LevelConfig(1, "Wooden Workshop", "Mazes\Level1.txt", 0),
             New LevelConfig(2, "Frozen Labyrinth", "Mazes\Level2.txt", 0),
-            New LevelConfig(3, "Neon Velocity",   "Mazes\Level3.txt", 30)
+            New LevelConfig(3, "Neon Velocity",   "Mazes\Level3.txt", 40)  ' ~1.4x keyboard-bot clear time (28.5s)
         }
 
         ' Main Layout -------------------------------------------------------

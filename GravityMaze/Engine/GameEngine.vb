@@ -39,6 +39,10 @@ Namespace Engine
         ' Events exposed by the engine (does not reference UI or rendering directly).
         Public Event WallImpacted As EventHandler(Of WallImpactEventArgs)
         Public Event LevelCompleted As EventHandler
+        Public Event BallFell As EventHandler(Of BallFellEventArgs)
+
+        ' Ball drops when its centre is this close to a hole's centre (edges can be grazed).
+        Private Const HoleRadius As Single = 0.40F
 
         ' Ball state in tile-space.
         Private _ballX     As Single
@@ -257,7 +261,25 @@ Namespace Engine
                 Return
             End If
 
-            ' 7. Goal detection — ball centre within GoalRadius of goal centre.
+            ' 7. Holes — ball centre within HoleRadius of a hole centre drops it back to start.
+            ' Timer keeps running; attempts do not change.
+            Dim hRow As Integer = CInt(Math.Floor(_ballY))
+            Dim hCol As Integer = CInt(Math.Floor(_ballX))
+            If hRow >= 0 AndAlso hRow < _maze.RowCount AndAlso hCol >= 0 AndAlso hCol < _maze.ColumnCount AndAlso
+               _maze.GetTile(hRow, hCol) = "H"c Then
+                Dim hdx As Single = _ballX - (hCol + 0.5F)
+                Dim hdy As Single = _ballY - (hRow + 0.5F)
+                If hdx * hdx + hdy * hdy <= HoleRadius * HoleRadius Then
+                    RaiseEvent BallFell(Me, New BallFellEventArgs(hCol + 0.5F, hRow + 0.5F))
+                    _ballX = _maze.StartColumn + 0.5F
+                    _ballY = _maze.StartRow + 0.5F
+                    _velocityX = 0.0F
+                    _velocityY = 0.0F
+                    Return
+                End If
+            End If
+
+            ' 8. Goal detection — ball centre within GoalRadius of goal centre.
             Dim gdx As Single = _ballX - _goalCenterX
             Dim gdy As Single = _ballY - _goalCenterY
             If gdx * gdx + gdy * gdy <= GoalRadius * GoalRadius Then
@@ -305,6 +327,19 @@ Namespace Engine
             Next
             Return False
         End Function
+    End Class
+
+    ' Hole centre (tile-space) where the ball fell, for effects and sound.
+    Public NotInheritable Class BallFellEventArgs
+        Inherits EventArgs
+
+        Public ReadOnly Property HoleX As Single
+        Public ReadOnly Property HoleY As Single
+
+        Public Sub New(holeX As Single, holeY As Single)
+            Me.HoleX = holeX
+            Me.HoleY = holeY
+        End Sub
     End Class
 
     ' Holds impact information exposed by GameEngine for renderer visual effects.

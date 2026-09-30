@@ -56,6 +56,8 @@ Namespace VerificationRunner
             ' --- TEST 6: Goal Completion Single-Trigger & Timer Stop ---
             TestGoalCompletion(maze2)
 
+            TestLevel3(maze3)
+
             ' --- TEST 7: Screenshot Generation ---
             GenerateScreenshots(maze1, maze2, maze3, localScreenshotsDir, ArtifactDir)
 
@@ -151,10 +153,12 @@ Namespace VerificationRunner
         Private Function KeyboardBotRun(maze As MazeDefinition) As Integer
             Dim path As List(Of Point) = FindShortestPath(maze)
             Dim engine As New GameEngine(maze, 0)
+            Dim falls As Integer = 0
+            AddHandler engine.BallFell, Sub(s As Object, e As BallFellEventArgs) falls += 1
             Dim waypointIndex As Integer = 1
             Dim ticks As Integer = 0
 
-            While ticks < 20000 AndAlso engine.State = GameState.Playing
+            While ticks < 20000 AndAlso engine.State = GameState.Playing AndAlso falls = 0
                 Dim target As Point = path(Math.Min(waypointIndex, path.Count - 1))
                 Dim dx As Single = target.X + 0.5F - engine.BallX
                 Dim dy As Single = target.Y + 0.5F - engine.BallY
@@ -162,12 +166,15 @@ Namespace VerificationRunner
                     waypointIndex += 1
                     Continue While
                 End If
-                Dim onIce As Boolean = maze.GetTile(CInt(Math.Floor(engine.BallY)), CInt(Math.Floor(engine.BallX))) = "I"c
-                Dim cap As Single = If(onIce, 0.05F, 0.09F)
+                Dim tile As Char = maze.GetTile(CInt(Math.Floor(engine.BallY)), CInt(Math.Floor(engine.BallX)))
+                Dim cap As Single = If(tile = "I"c, 0.05F, If(tile = "F"c, 0.14F, 0.09F))
                 engine.Update(Key(dx, engine.VelocityX, cap), Key(dy, engine.VelocityY, cap))
                 ticks += 1
             End While
 
+            If falls > 0 Then
+                Throw New Exception($"Keyboard bot fell into a hole near waypoint {waypointIndex}/{path.Count} ({path(waypointIndex)}).")
+            End If
             If engine.State <> GameState.LevelComplete Then
                 Throw New Exception($"Keyboard bot stalled at waypoint {waypointIndex}/{path.Count} ({path(waypointIndex)}) after {ticks} ticks.")
             End If
@@ -189,6 +196,38 @@ Namespace VerificationRunner
             If secs < 20.0F OrElse secs > 60.0F Then
                 Throw New Exception($"Bot clear time {secs:F1}s outside 20-60s (human target ~45-75s).")
             End If
+        End Sub
+
+        Private Sub TestLevel3(maze As MazeDefinition)
+            Console.WriteLine("[TEST 8] Verifying Level 3 Neon Velocity...")
+            If maze.RowCount <> 25 OrElse maze.ColumnCount <> 25 Then
+                Throw New Exception($"Level 3 must be 25x25, got {maze.RowCount}x{maze.ColumnCount}")
+            End If
+            If maze.StartColumn <> 0 OrElse maze.GoalColumn <> maze.ColumnCount - 1 Then
+                Throw New Exception("Level 3 entrance/exit must be on the left/right edges.")
+            End If
+            Dim holes As Integer = 0, fast As Integer = 0, ice As Integer = 0, open As Integer = 0
+            For r As Integer = 0 To maze.RowCount - 1
+                For c As Integer = 0 To maze.ColumnCount - 1
+                    Select Case maze.GetTile(r, c)
+                        Case "H"c : holes += 1
+                        Case "F"c : fast += 1 : open += 1
+                        Case "I"c : ice += 1
+                        Case "1"c
+                        Case Else : open += 1
+                    End Select
+                Next
+            Next
+            If ice > 0 Then Throw New Exception("Level 3 must not contain ice.")
+            If holes < 8 Then Throw New Exception($"Expected at least 8 holes, found {holes}")
+            If fast < 12 Then Throw New Exception($"Expected at least 12 fast tiles, found {fast}")
+            Dim reach As Integer = Flood(maze, Function(t) t <> "1"c AndAlso t <> "H"c).Count
+            If reach <> open Then Throw New Exception($"Unreachable tiles (holes treated as blocked): open={open}, reachable={reach}")
+            Console.WriteLine($"  -> 25x25, {holes} holes, {fast} fast tiles, all {open} floor tiles reachable without crossing a hole.")
+
+            Dim ticks As Integer = KeyboardBotRun(maze)
+            Dim secs As Single = ticks * 0.016F
+            Console.WriteLine($"  -> Keyboard bot cleared Level 3 in {ticks} ticks (~{secs:F1}s) without falling; suggested limit {Math.Ceiling(secs * 1.4F / 5.0F) * 5.0F}s.")
         End Sub
 
         Private Sub TestIceFrictionReductionAndRestoration(maze As MazeDefinition)
@@ -356,7 +395,7 @@ Namespace VerificationRunner
                 Using g As Graphics = Graphics.FromImage(bmp)
                     g.Clear(Color.FromArgb(10, 18, 30))
                     Dim impacts As New List(Of ImpactEffect) From {
-                        New ImpactEffect(2.0F, maze2.StartRow + 0.5F, -1.0F, 0.0F, 0.10F) With {.ElapsedMs = 45.0F}
+                        New ImpactEffect(2.0F, maze2.StartRow + 0.5F, -1.0F, 0.0F, 0.10F) With {.ElapsedMs = 70.0F}
                     }
                     renderer.Draw(g, New Rectangle(0, 0, width, height), maze2,
                                   2.0F - GameEngine.BallRadius, maze2.StartRow + 0.5F, "Frozen Labyrinth", impacts, Nothing)
@@ -410,7 +449,7 @@ Namespace VerificationRunner
                                   maze3.StartColumn + 0.5F, maze3.StartRow + 0.5F,
                                   "Neon Velocity", Nothing, Nothing)
                     DrawHudOverlay(g, width, height, "GRAVITY MAZE", "03 / Neon Velocity",
-                                   "Controls: Arrow keys or WASD  |  Time: 00:05 | Limit: 30s | Rem: 25s  |  Attempt: 1",
+                                   "Controls: Arrow keys or WASD  |  Time: 00:05 | Limit: 40s | Rem: 35s  |  Attempt: 1",
                                    Color.FromArgb(255, 110, 220), Color.FromArgb(90, 220, 255), Color.FromArgb(120, 255, 180))
                 End Using
                 SaveImage(bmp, "screenshot_level3_neon_velocity.png", localDir, artifactDir)
@@ -439,7 +478,7 @@ Namespace VerificationRunner
                     Dim ny As Integer = curr.Y + d.Y
                     If nx >= 0 AndAlso nx < maze.ColumnCount AndAlso ny >= 0 AndAlso ny < maze.RowCount Then
                         Dim tile As Char = maze.GetTile(ny, nx)
-                        If tile <> "1"c Then
+                        If tile <> "1"c AndAlso tile <> "H"c Then
                             Dim nextPt As New Point(nx, ny)
                             If Not visited.ContainsKey(nextPt) Then
                                 visited(nextPt) = curr
