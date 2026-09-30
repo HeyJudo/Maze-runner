@@ -1,4 +1,4 @@
-Option Strict On
+﻿Option Strict On
 Option Explicit On
 
 Imports System
@@ -12,6 +12,7 @@ Imports GravityMaze.Engine
 Imports GravityMaze.Levels
 Imports GravityMaze.Rendering
 Imports GravityMaze.UI
+Imports GravityMaze.Data
 
 Namespace VerificationRunner
     Public Module Program
@@ -58,12 +59,93 @@ Namespace VerificationRunner
 
             TestLevel3(maze3)
 
+            TestScoreManager()
+            TestFonts()
+
             ' --- TEST 7: Screenshot Generation ---
             GenerateScreenshots(maze1, maze2, maze3, localScreenshotsDir, ArtifactDir)
 
             Console.WriteLine("==================================================")
             Console.WriteLine(" ALL VERIFICATIONS PASSED SUCCESSFULLY!")
             Console.WriteLine("==================================================")
+        End Sub
+
+        Private Sub Check(cond As Boolean, msg As String)
+            If Not cond Then Throw New Exception(msg)
+        End Sub
+
+        Private Sub TestScoreManager()
+            Console.WriteLine("[TEST] ScoreManager...")
+            Dim dir As String = Path.Combine(Path.GetTempPath(), "gm_score_" & Guid.NewGuid().ToString("N"))
+            Dim xmlPath As String = Path.Combine(dir, "records.xml")
+            Try
+                Dim sm As New ScoreManager(xmlPath)
+                Check(sm.BestRecord(1) Is Nothing AndAlso sm.PlayerName = "", "new manager must be empty")
+                Dim mk = Function(p As String, lvl As Integer, t As Single) New ScoreRecord With {
+                    .PlayerName = p, .LevelNumber = lvl, .TimeSeconds = t, .Attempts = 2, .Stars = 2,
+                    .Score = ScoreManager.ComputeScore(t, 2, 2), .Date = New DateTime(2026, 9, 30, 14, 2, 11)}
+                Check(sm.AddRecord(mk("JUDE", 1, 50.5F)), "first run is a new best")
+                Check(Not sm.AddRecord(mk("JUDE", 1, 60.0F)), "slower run is not a best")
+                Check(sm.AddRecord(mk("JUDE", 1, 41.37F)), "faster run is a new best")
+                Check(sm.AddRecord(mk("ANA", 1, 45.0F)), "other player's first run is a best")
+                sm.AddRecord(mk("JUDE", 2, 70.0F))
+                sm.PlayerName = "JUDE"
+                Check(Math.Abs(sm.BestRecord(1).TimeSeconds - 41.37F) < 0.001F, "BestRecord(1)")
+                Check(sm.BestRecordFor("ANA", 1).TimeSeconds = 45.0F, "BestRecordFor")
+                Dim top = sm.TopRecords(1, 3)
+                Check(top.Count = 3 AndAlso top(0).TimeSeconds < top(1).TimeSeconds AndAlso top(1).TimeSeconds < top(2).TimeSeconds, "TopRecords order")
+                Check(ScoreManager.ComputeScore(1000.0F, 1, 0) = 0, "score floors at 0")
+
+                Dim sm2 As New ScoreManager(xmlPath)
+                Check(sm2.PlayerName = "JUDE", "PlayerName round-trip")
+                Check(sm2.TopRecords(1, 10).Count = 4 AndAlso sm2.BestRecord(2) IsNot Nothing, "records reload")
+                Check(sm2.BestRecord(1).Date = New DateTime(2026, 9, 30, 14, 2, 11), "date round-trip")
+
+                File.WriteAllText(xmlPath, "<<< not xml")
+                Dim sm3 As New ScoreManager(xmlPath)
+                Check(sm3.BestRecord(1) Is Nothing AndAlso System.IO.File.Exists(xmlPath & ".bak"), "corrupt file recovery + .bak")
+                Check(sm3.AddRecord(mk("X", 1, 9.0F)), "works after recovery")
+                Console.WriteLine("  -> add/best/top/reload/corrupt recovery OK")
+            Finally
+                Try
+                    Directory.Delete(dir, True)
+                Catch
+                End Try
+            End Try
+        End Sub
+
+        Private Sub TestFonts()
+            Console.WriteLine("[TEST] GameFonts...")
+            If Not Directory.Exists(Path.Combine(AppContext.BaseDirectory, "Fonts")) Then
+                Console.WriteLine("  -> Fonts folder absent, skipped")
+                Return
+            End If
+            Console.WriteLine("  families: " & String.Join(", ", GameFonts.LoadedFamilyNames()))
+            Dim d As Font = GameFonts.Display(40)
+            Dim b As Font = GameFonts.Body(20, GameFonts.FontWeight.Bold)
+            Check(GameFonts.IsLoaded, "IsLoaded")
+            Check(d.FontFamily.Name.Contains("Bebas"), "Display family: " & d.FontFamily.Name)
+            Check(b.FontFamily.Name.Contains("Rajdhani"), "Body family: " & b.FontFamily.Name)
+            Check(d.Unit = GraphicsUnit.Pixel AndAlso d.Size = 40.0F, "pixel size")
+            Check(Object.ReferenceEquals(d, GameFonts.Display(40)), "font cache")
+            For Each w As GameFonts.FontWeight In [Enum].GetValues(Of GameFonts.FontWeight)()
+                Dim f As Font = GameFonts.Body(20, w)
+                Console.WriteLine($"  Body {w}: {f.FontFamily.Name} / {f.Style}")
+                Check(f.FontFamily.Name.Contains("Rajdhani"), "Body " & w.ToString())
+            Next
+            Dim png As String = Environment.GetEnvironmentVariable("GM_FONT_PNG")
+            If Not String.IsNullOrEmpty(png) Then
+                Using bmp As New Bitmap(700, 200)
+                    Using g As Graphics = Graphics.FromImage(bmp)
+                        g.Clear(Color.FromArgb(20, 24, 40))
+                        g.TextRenderingHint = Drawing.Text.TextRenderingHint.AntiAliasGridFit
+                        g.DrawString("GRAVITY MAZE", GameFonts.Display(72), Brushes.White, 20, 10)
+                        g.DrawString("Continue Game", GameFonts.Body(28, GameFonts.FontWeight.SemiBold), Brushes.Gold, 24, 120)
+                    End Using
+                    bmp.Save(png, ImageFormat.Png)
+                End Using
+            End If
+            Console.WriteLine("  -> Bebas Neue / Rajdhani resolved")
         End Sub
 
         Private Sub TestPhysicalClearanceAndCorners(maze As MazeDefinition)

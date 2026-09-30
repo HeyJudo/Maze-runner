@@ -10,12 +10,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Fonts\**" />
     <None Remove="Mazes\Level1.txt" />
     <None Remove="Mazes\Level2.txt" />
     <None Remove="Mazes\Level3.txt" />
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="Fonts\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="Mazes\Level1.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
