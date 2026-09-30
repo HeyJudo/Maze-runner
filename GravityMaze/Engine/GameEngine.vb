@@ -82,6 +82,12 @@ Namespace Engine
             End Get
         End Property
 
+        Public ReadOnly Property Maze As MazeDefinition
+            Get
+                Return _maze
+            End Get
+        End Property
+
         Public ReadOnly Property VelocityX As Single
             Get
                 Return _velocityX

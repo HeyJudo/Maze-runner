@@ -89,10 +89,6 @@ Namespace Rendering
 
         Private Shared Sub DrawStaticBoard(graphics As Graphics, bounds As Rectangle, board As RectangleF,
                                            tileSize As Single, maze As MazeDefinition, themeName As String)
-            ' Optional decorative margin frost (stays completely clear of board)
-            If themeName = "Frozen Labyrinth" Then
-                DrawCornerFrost(graphics, bounds, board)
-            End If
 
             ' 1. Board Drop Shadow
             DrawBoardShadow(graphics, board, themeName)

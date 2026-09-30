@@ -66,6 +66,8 @@ Namespace VerificationRunner
             GenerateScreenshots(maze1, maze2, maze3, localScreenshotsDir, ArtifactDir)
             GenerateEffectScreenshots(maze2, maze3, localScreenshotsDir, ArtifactDir)
 
+            UiTour.Run(ProjectRoot, Path.Combine(localScreenshotsDir, "ui"))
+
             Console.WriteLine("==================================================")
             Console.WriteLine(" ALL VERIFICATIONS PASSED SUCCESSFULLY!")
             Console.WriteLine("==================================================")

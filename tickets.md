@@ -273,13 +273,20 @@ Storage.
 
 ------------------------------------------------------------------------
 
-## Phase 3: Visual Polish and Sound Effects
+## Phase 3: Game Shell, Visual Polish and Sound
 
-**What to build:** Juice for all levels.
+**What to build:** Turn the prototype into a complete game: menus, full game loop, results, typography, SFX, effects.
 
 **Blocked by:** Phase 2.
 
--   [ ] Sound via WPF `MediaPlayer` (`UseWPF=true`), overlapping playback with per-sound volume.
--   [ ] Script-generated WAVs in `Sounds\`: wall hit (volume scales with impact speed), ice slide hiss, fast-zone whoosh, hole fall, goal chime, last-5-seconds timer beeps.
--   [ ] Visuals: ice spray particles, fast-zone speed trail, hole-fall shrink animation, level title card.
--   [ ] Level 1 unchanged; no background music.
+-   [x] Borderless fullscreen (F11 toggles window); every screen custom-drawn on the game canvas (`UI/Screens/GameShell*.vb`).
+-   [x] Flow: Title → (Name entry) → Level intro card → 3-2-1-GO → Play ⇄ Pause → Level Complete / Time's Up → Victory → Records. Level Select, How to Play, Change Player.
+-   [x] Attract mode: a demo pilot plays Level 2/3 behind the menus; Level Select previews the highlighted level.
+-   [x] Menus are driven by tilt only (arrows or the Arduino board): tilt up/down moves, hold right confirms, hold left goes back; Enter/Esc are shortcuts.
+-   [x] Typography: Bebas Neue (display) + Rajdhani (UI), bundled OFL fonts loaded at runtime (`UI/GameFonts.vb`).
+-   [x] XML records (`Data/ScoreManager.vb`, `%AppData%\GravityMazeecords.xml`): player name, time, attempts, stars, score; personal bests, top lists, full-run records. Performance history only.
+-   [x] Stars per level vs par (keyboard-bot time): 3 ≤ 1.3x, 2 ≤ 1.8x, 1 = finish. Par L1 5.4 s, L2 25.8 s, L3 28.5 s.
+-   [x] SFX via WPF `MediaPlayer` (`Audio/SoundManager.vb`), 15 synthesized WAVs (`tools/gen_sounds.py`): wall hit (speed-scaled), ice hiss loop, boost, hole fall, spawn, goal, stars, countdown/go, last-5s ticks, time up, menu move/confirm/back, victory. M toggles sound.
+-   [x] Effects: hole-fall spiral + spawn pulse, ice spray, boost trail, motion streak (`Rendering/Particles.vb`).
+-   [x] Verification: `UiTour` plays the whole shell end to end with the demo pilot and saves `screenshots/ui/*.png`.
+-   [ ] Listen-test the synthesized sounds on real speakers and tune volumes.
