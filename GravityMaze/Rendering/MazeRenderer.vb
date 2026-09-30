@@ -23,7 +23,8 @@ Namespace Rendering
                         ballX As Single, ballY As Single,
                         Optional themeName As String = "Wooden Workshop",
                         Optional impacts As IEnumerable(Of ImpactEffect) = Nothing,
-                        Optional goalEffect As GoalCelebrationEffect = Nothing)
+                        Optional goalEffect As GoalCelebrationEffect = Nothing,
+                        Optional fx As BallFxState = Nothing)
             If bounds.Width < 32 OrElse bounds.Height < 32 Then Return
 
             Dim graphicsState As GraphicsState = graphics.Save()
@@ -65,7 +66,15 @@ Namespace Rendering
 
                 ' 5. Metallic Silver Marble (same ball across all levels)
                 Dim ballCenter As New PointF(left + ballX * tileSize, top + ballY * tileSize)
-                DrawBall(graphics, ballCenter, tileSize * 0.27F, themeName)
+                Dim ballRadius As Single = tileSize * 0.27F
+                If fx IsNot Nothing Then DrawBallFxUnder(graphics, left, top, tileSize, ballRadius, fx, themeName)
+                If fx Is Nothing OrElse Not fx.FallActive Then
+                    If fx IsNot Nothing AndAlso fx.SpawnActive Then
+                        ballRadius *= Math.Max(0.02F, EaseOutBack(fx.SpawnElapsed / BallFxState.SpawnMs))
+                    End If
+                    DrawBall(graphics, ballCenter, ballRadius, themeName)
+                End If
+                If fx IsNot Nothing Then DrawFallAndSpawn(graphics, left, top, tileSize, fx, themeName)
 
                 ' 6. Local Wall Impact Feedback Effects
                 If impacts IsNot Nothing Then
@@ -535,6 +544,133 @@ Namespace Rendering
                 graphics.FillEllipse(shineBrush, center.X - radius * 0.5F, center.Y - radius * 0.55F,
                                      radius * 0.4F, radius * 0.25F)
             End Using
+        End Sub
+
+        ' ── Ball FX (trail, streak, particles, hole fall, spawn pulse) ───────
+        Private Shared Function EaseOutBack(t As Single) As Single
+            t = Math.Max(0.0F, Math.Min(1.0F, t)) - 1.0F
+            Return 1.0F + t * t * (2.70158F * t + 1.70158F)
+        End Function
+
+        Private Shared Function Lerp(a As Integer, b As Integer, t As Single) As Integer
+            Return CInt(a + (b - a) * t)
+        End Function
+
+        Private Shared Sub DrawBallFxUnder(graphics As Graphics, left As Single, top As Single,
+                                           tileSize As Single, radius As Single, fx As BallFxState,
+                                           themeName As String)
+            Dim trail As List(Of PointF) = fx.Trail
+            Dim n As Integer = trail.Count
+            Dim boost As Boolean = fx.BoostMs > 0.0F AndAlso fx.Speed > BallFxState.BoostSpeed * 0.6F
+            Dim streak As Boolean = Not boost AndAlso fx.Speed > BallFxState.StreakSpeed
+            If n > 1 AndAlso (boost OrElse streak) Then
+                Dim fade As Single = If(boost, Math.Min(1.0F, fx.BoostMs / 120.0F), Math.Min(1.0F, 0.35F + (fx.Speed - BallFxState.StreakSpeed) * 5.0F))
+                Dim first As Integer = If(boost, 1, Math.Max(1, n - 4))
+                Dim stretch As Single = If(boost, 2.6F, 1.8F)
+                Dim head As PointF = trail(n - 1)
+                Dim streakColor As Color = If(themeName = "Neon Velocity", Color.FromArgb(120, 220, 255),
+                                           If(themeName = "Frozen Labyrinth", Color.FromArgb(205, 238, 255), Color.FromArgb(255, 240, 215)))
+                Using glowPen As New Pen(Color.White), corePen As New Pen(Color.White)
+                    glowPen.StartCap = LineCap.Round
+                    glowPen.EndCap = LineCap.Round
+                    corePen.StartCap = LineCap.Round
+                    corePen.EndCap = LineCap.Round
+                    For i As Integer = first To n - 1
+                        Dim t As Single = i / CSng(n - 1)
+                        Dim a As New PointF(left + (head.X + (trail(i - 1).X - head.X) * stretch) * tileSize, top + (head.Y + (trail(i - 1).Y - head.Y) * stretch) * tileSize)
+                        Dim b As New PointF(left + (head.X + (trail(i).X - head.X) * stretch) * tileSize, top + (head.Y + (trail(i).Y - head.Y) * stretch) * tileSize)
+                        If boost Then
+                            glowPen.Color = Color.FromArgb(ClampAlpha(70.0F * t * fade), 255, Lerp(60, 170, t), Lerp(200, 40, t))
+                            corePen.Color = Color.FromArgb(ClampAlpha(210.0F * t * fade), 255, Lerp(90, 200, t), Lerp(210, 60, t))
+                            glowPen.Width = radius * (0.8F + 1.8F * t)
+                            corePen.Width = radius * (0.25F + 0.9F * t)
+                            graphics.DrawLine(glowPen, a, b)
+                            graphics.DrawLine(corePen, a, b)
+                        Else
+                            glowPen.Color = Color.FromArgb(ClampAlpha(55.0F * t * fade), streakColor)
+                            glowPen.Width = radius * (0.7F + 0.9F * t)
+                            graphics.DrawLine(glowPen, a, b)
+                        End If
+                    Next
+                End Using
+            End If
+
+            If fx.Particles.Count > 0 Then
+                Using brush As New SolidBrush(Color.White), glow As New SolidBrush(Color.White), edge As New Pen(Color.White, 1.0F)
+                    For Each p As FxParticle In fx.Particles
+                        Dim life As Single = 1.0F - p.Age / p.Life
+                        Dim cx As Single = left + p.X * tileSize
+                        Dim cy As Single = top + p.Y * tileSize
+                        Dim sz As Single = tileSize * p.Size * (0.35F + 0.65F * life)
+                        If p.IsSpark Then
+                            glow.Color = Color.FromArgb(ClampAlpha(90.0F * life), 255, 120, 200)
+                            brush.Color = Color.FromArgb(ClampAlpha(255.0F * life), 255, 215, 90)
+                            graphics.FillEllipse(glow, cx - sz * 1.6F, cy - sz * 1.6F, sz * 3.2F, sz * 3.2F)
+                            graphics.FillEllipse(brush, cx - sz * 0.6F, cy - sz * 0.6F, sz * 1.2F, sz * 1.2F)
+                        Else
+                            brush.Color = Color.FromArgb(ClampAlpha(235.0F * life), If(p.Spin > 1.6F, 235, 170), 240, 255)
+                            Dim ca As Single = CSng(Math.Cos(p.Spin + p.Age * 0.004F))
+                            Dim sa As Single = CSng(Math.Sin(p.Spin + p.Age * 0.004F))
+                            Dim pts() As PointF = {
+                                New PointF(cx + ca * sz * 1.3F, cy + sa * sz * 1.3F),
+                                New PointF(cx - sa * sz * 0.6F, cy + ca * sz * 0.6F),
+                                New PointF(cx - ca * sz * 1.3F, cy - sa * sz * 1.3F),
+                                New PointF(cx + sa * sz * 0.6F, cy - ca * sz * 0.6F)}
+                            graphics.FillPolygon(brush, pts)
+                            edge.Color = Color.FromArgb(ClampAlpha(200.0F * life), 70, 140, 215)
+                            graphics.DrawPolygon(edge, pts)
+                        End If
+                    Next
+                End Using
+            End If
+        End Sub
+
+        Private Shared Sub DrawFallAndSpawn(graphics As Graphics, left As Single, top As Single,
+                                            tileSize As Single, fx As BallFxState, themeName As String)
+            If fx.FallActive Then
+                Dim p As Single = Math.Min(1.0F, fx.FallElapsed / BallFxState.FallMs)
+                Dim hc As New PointF(left + fx.HoleX * tileSize, top + fx.HoleY * tileSize)
+
+                ' Collapsing dark ripple at the hole
+                Dim ringR As Single = tileSize * (0.62F * (1.0F - p) + 0.12F)
+                Dim ringA As Single = CSng(Math.Sin(Math.PI * Math.Min(1.0F, p * 0.9F + 0.1F)))
+                Using pen As New Pen(Color.FromArgb(ClampAlpha(190.0F * ringA), 6, 4, 10), Math.Max(1.5F, tileSize * 0.07F))
+                    graphics.DrawEllipse(pen, hc.X - ringR, hc.Y - ringR, ringR * 2.0F, ringR * 2.0F)
+                End Using
+                Using pen As New Pen(Color.FromArgb(ClampAlpha(80.0F * ringA), 6, 4, 10), Math.Max(3.0F, tileSize * 0.16F))
+                    graphics.DrawEllipse(pen, hc.X - ringR, hc.Y - ringR, ringR * 2.0F, ringR * 2.0F)
+                End Using
+
+                ' Ghost ball spiralling in, shrinking and darkening
+                Dim ox As Single = fx.GhostStartX - fx.HoleX
+                Dim oy As Single = fx.GhostStartY - fx.HoleY
+                Dim ang As Single = p * 7.85F
+                Dim k As Single = CSng(Math.Pow(1.0F - p, 1.4))
+                Dim gx As Single = hc.X + (ox * CSng(Math.Cos(ang)) - oy * CSng(Math.Sin(ang))) * tileSize * k
+                Dim gy As Single = hc.Y + (ox * CSng(Math.Sin(ang)) + oy * CSng(Math.Cos(ang))) * tileSize * k
+                Dim gr As Single = tileSize * 0.27F * CSng(Math.Pow(1.0F - p, 0.85))
+                If gr >= 1.0F Then
+                    DrawBall(graphics, New PointF(gx, gy), gr, themeName)
+                    Using dark As New SolidBrush(Color.FromArgb(ClampAlpha(235.0F * p), 4, 3, 8))
+                        graphics.FillEllipse(dark, gx - gr, gy - gr, gr * 2.0F, gr * 2.0F)
+                    End Using
+                End If
+            End If
+
+            If fx.SpawnActive Then
+                Dim sp As Single = Math.Min(1.0F, fx.SpawnElapsed / BallFxState.SpawnMs)
+                Dim c As New PointF(left + fx.SpawnX * tileSize, top + fx.SpawnY * tileSize)
+                Dim ring As Color = If(themeName = "Neon Velocity", Color.FromArgb(255, 110, 220),
+                                    If(themeName = "Frozen Labyrinth", Color.FromArgb(150, 225, 255), Color.FromArgb(255, 232, 185)))
+                Dim e As Single = 1.0F - (1.0F - sp) * (1.0F - sp)
+                Dim rr As Single = tileSize * (0.15F + 0.8F * e)
+                Using pen As New Pen(Color.FromArgb(ClampAlpha(70.0F * (1.0F - sp)), ring), Math.Max(3.0F, tileSize * 0.2F))
+                    graphics.DrawEllipse(pen, c.X - rr, c.Y - rr, rr * 2.0F, rr * 2.0F)
+                End Using
+                Using pen As New Pen(Color.FromArgb(ClampAlpha(230.0F * (1.0F - sp)), ring), Math.Max(1.5F, tileSize * 0.06F))
+                    graphics.DrawEllipse(pen, c.X - rr, c.Y - rr, rr * 2.0F, rr * 2.0F)
+                End Using
+            End If
         End Sub
 
         ' ── Wall Impact Visual Effect ────────────────────────────────────────

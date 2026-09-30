@@ -16,7 +16,7 @@ Imports GravityMaze.UI
 Namespace VerificationRunner
     Public Module Program
         Private ReadOnly ArtifactDir As String = "C:\Users\Jude Sangalang\.gemini\antigravity-cli\brain\8a4affbb-66b7-4b00-bf6f-06c132550b27"
-        Private ReadOnly ProjectRoot As String = "C:\Users\Jude Sangalang\OneDrive\Documents\JUDO FILES\SCHOOL\RICK MAZE"
+        Private ReadOnly ProjectRoot As String = If(Environment.GetEnvironmentVariable("GM_ROOT"), "C:\Users\Jude Sangalang\OneDrive\Documents\JUDO FILES\SCHOOL\RICK MAZE")
 
         <STAThread>
         Public Sub Main()
@@ -60,6 +60,7 @@ Namespace VerificationRunner
 
             ' --- TEST 7: Screenshot Generation ---
             GenerateScreenshots(maze1, maze2, maze3, localScreenshotsDir, ArtifactDir)
+            GenerateEffectScreenshots(maze2, maze3, localScreenshotsDir, ArtifactDir)
 
             Console.WriteLine("==================================================")
             Console.WriteLine(" ALL VERIFICATIONS PASSED SUCCESSFULLY!")
@@ -458,6 +459,61 @@ Namespace VerificationRunner
             Console.WriteLine("  -> All 5 screenshots generated successfully.")
         End Sub
 
+        ' Drives BallFxState directly (no GameCanvas) and renders the effect scenes.
+        Private Sub GenerateEffectScreenshots(maze2 As MazeDefinition, maze3 As MazeDefinition,
+                                              localDir As String, artifactDir As String)
+            Console.WriteLine("[TEST 9] Generating Effect Screenshots...")
+            Dim renderer As New MazeRenderer()
+            Dim rect As New Rectangle(0, 0, 1000, 800)
+
+            ' (a) Ice spray: ball sliding right across the 3x3 ice patch in Level 2.
+            Dim ice As New BallFxState()
+            Dim x As Single = 3.2F
+            For i As Integer = 0 To 8
+                x += 0.17F
+                ice.Advance(16.0F, x, 4.5F)
+                ice.UpdateMotion(x, 4.5F, 0.2F, 0.0F, maze2.GetTile(4, CInt(Math.Floor(x))))
+            Next
+            SaveFx(renderer, rect, maze2, x, 4.5F, "Frozen Labyrinth", ice, Color.FromArgb(10, 18, 30), "fx_ice_spray.png", localDir, artifactDir)
+
+            ' (b) Boost trail along the F strip in Level 3 row 3.
+            Dim boost As New BallFxState()
+            x = 11.6F
+            For i As Integer = 0 To 24
+                x += 0.15F
+                boost.Advance(16.0F, x, 3.5F)
+                boost.UpdateMotion(x, 3.5F, 0.15F, 0.0F, maze3.GetTile(3, CInt(Math.Floor(x))))
+            Next
+            SaveFx(renderer, rect, maze3, x, 3.5F, "Neon Velocity", boost, Color.FromArgb(12, 10, 24), "fx_boost_trail.png", localDir, artifactDir)
+
+            ' (c) Hole fall mid-animation (hole at row 3, col 20); real ball already back at start.
+            Dim fall As New BallFxState()
+            fall.UpdateMotion(19.7F, 3.5F, 0.1F, 0.0F, "0"c)
+            fall.AddHoleFall(20.5F, 3.5F)
+            For i As Integer = 0 To 10
+                fall.Advance(16.0F, maze3.StartColumn + 0.5F, maze3.StartRow + 0.5F)
+            Next
+            SaveFx(renderer, rect, maze3, maze3.StartColumn + 0.5F, maze3.StartRow + 0.5F, "Neon Velocity", fall, Color.FromArgb(12, 10, 24), "fx_hole_fall.png", localDir, artifactDir)
+
+            ' (d) Spawn pulse shortly after the fall ends.
+            For i As Integer = 0 To 25
+                fall.Advance(16.0F, maze3.StartColumn + 0.5F, maze3.StartRow + 0.5F)
+            Next
+            If fall.FallActive OrElse Not fall.SpawnActive Then Throw New Exception("Spawn pulse did not start after fall")
+            SaveFx(renderer, rect, maze3, maze3.StartColumn + 0.5F, maze3.StartRow + 0.5F, "Neon Velocity", fall, Color.FromArgb(12, 10, 24), "fx_spawn.png", localDir, artifactDir)
+        End Sub
+
+        Private Sub SaveFx(renderer As MazeRenderer, rect As Rectangle, maze As MazeDefinition, bx As Single, by As Single,
+                           theme As String, fx As BallFxState, bg As Color, fileName As String, localDir As String, artifactDir As String)
+            Using bmp As New Bitmap(rect.Width, rect.Height)
+                Using g As Graphics = Graphics.FromImage(bmp)
+                    g.Clear(bg)
+                    renderer.Draw(g, rect, maze, bx, by, theme, Nothing, Nothing, fx)
+                End Using
+                SaveImage(bmp, fileName, localDir, artifactDir)
+            End Using
+        End Sub
+
         Private Function FindShortestPath(maze As MazeDefinition) As List(Of Point)
             Dim start As New Point(maze.StartColumn, maze.StartRow)
             Dim goal As New Point(maze.GoalColumn, maze.GoalRow)
@@ -506,7 +562,7 @@ Namespace VerificationRunner
                                    title As String, level As String, status As String,
                                    cTitle As Color, cLevel As Color, cStatus As Color)
             Using titleFont As New Font("Segoe UI", 14.0F, FontStyle.Bold),
-                  levelFont As New Font("Segoe UI", 11.5F, FontStyle.Regular),
+                  levelFont As New Font("Segoe UI", 3.5F, FontStyle.Regular),
                   statusFont As New Font("Segoe UI", 10.0F, FontStyle.Regular),
                   titleBrush As New SolidBrush(cTitle),
                   levelBrush As New SolidBrush(cLevel),
@@ -545,7 +601,7 @@ Namespace VerificationRunner
             End Using
 
             ' Card Stats
-            Using statsFont As New Font("Segoe UI", 11.5F, FontStyle.Regular),
+            Using statsFont As New Font("Segoe UI", 3.5F, FontStyle.Regular),
                   statsBrush As New SolidBrush(Color.FromArgb(220, 238, 255)),
                   subFont As New Font("Segoe UI", 9.0F, FontStyle.Italic),
                   subBrush As New SolidBrush(Color.FromArgb(160, 200, 230)),

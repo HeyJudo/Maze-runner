@@ -24,6 +24,25 @@ Namespace UI
         ' Transient visual feedback effects
         Private ReadOnly activeImpacts As New List(Of ImpactEffect)()
         Private ReadOnly goalCelebration As New GoalCelebrationEffect()
+        Private ReadOnly fx As New BallFxState()
+
+        ' True while the hole-fall animation hides the real ball.
+        Public ReadOnly Property IsBallHidden As Boolean
+            Get
+                Return fx.FallActive
+            End Get
+        End Property
+
+        ' Called every tick right after UpdateBallPosition; tile = maze tile under the ball centre.
+        Public Sub UpdateBallMotion(vx As Single, vy As Single, tile As Char)
+            fx.UpdateMotion(_ballX, _ballY, vx, vy, tile)
+        End Sub
+
+        ' Tile-space hole centre. Starts the fall ghost, then a spawn pulse at the (already reset) ball.
+        Public Sub AddHoleFall(holeX As Single, holeY As Single)
+            fx.AddHoleFall(holeX, holeY)
+            Invalidate()
+        End Sub
 
         Public Sub New()
             DoubleBuffered = True
@@ -49,6 +68,7 @@ Namespace UI
                 activeImpacts.Clear()
             End SyncLock
             goalCelebration.Reset()
+            fx.Reset()
             Invalidate()
         End Sub
 
@@ -84,6 +104,7 @@ Namespace UI
             If goalCelebration.IsActive Then
                 goalCelebration.Advance(16.0F)
             End If
+            fx.Advance(16.0F, x, y)
 
             Invalidate()
         End Sub
@@ -99,7 +120,7 @@ Namespace UI
                 End SyncLock
 
                 renderer.Draw(e.Graphics, ClientRectangle, currentMaze, _ballX, _ballY,
-                              currentTheme, impactSnapshot, goalCelebration)
+                              currentTheme, impactSnapshot, goalCelebration, fx)
             End If
         End Sub
     End Class
