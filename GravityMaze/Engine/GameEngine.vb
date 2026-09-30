@@ -42,25 +42,25 @@ Namespace Engine
         Public Event BallFell As EventHandler(Of BallFellEventArgs)
 
         ' Ball drops when its centre is this close to a hole's centre (edges can be grazed).
-        Private Const HoleRadius As Single = 0.40F
+        Private Const HoleRadius As Single = 0.4F
 
         ' Ball state in tile-space.
-        Private _ballX     As Single
-        Private _ballY     As Single
+        Private _ballX As Single
+        Private _ballY As Single
         Private _velocityX As Single
         Private _velocityY As Single
 
         ' Wall contact state tracking to suppress repeated impact flashes while resting.
-        Private _inContactLeft   As Boolean = False
-        Private _inContactRight  As Boolean = False
-        Private _inContactTop    As Boolean = False
+        Private _inContactLeft As Boolean = False
+        Private _inContactRight As Boolean = False
+        Private _inContactTop As Boolean = False
         Private _inContactBottom As Boolean = False
         Private _completionFired As Boolean = False
 
         ' Game state.
-        Private _state     As GameState = GameState.Playing
-        Private _elapsedMs As Single    = 0.0F
-        Private _attempts  As Integer   = 1
+        Private _state As GameState = GameState.Playing
+        Private _elapsedMs As Single = 0.0F
+        Private _attempts As Integer = 1
 
         ' Goal position cached from the maze definition.
         Private ReadOnly _goalCenterX As Single
@@ -106,7 +106,7 @@ Namespace Engine
                 Return _elapsedMs / 1000.0F
             End Get
         End Property
-        
+
         Public ReadOnly Property TimeRemainingSeconds As Single
             Get
                 If _timeLimitSecs <= 0 Then Return 0.0F
@@ -124,28 +124,28 @@ Namespace Engine
 
         Public Sub New(maze As MazeDefinition, timeLimitSecs As Integer)
             If maze Is Nothing Then Throw New ArgumentNullException(NameOf(maze))
-            _maze         = maze
+            _maze = maze
             _timeLimitSecs = timeLimitSecs
-            _ballX        = maze.StartColumn + 0.5F
-            _ballY        = maze.StartRow    + 0.5F
-            _goalCenterX  = maze.GoalColumn  + 0.5F
-            _goalCenterY  = maze.GoalRow     + 0.5F
+            _ballX = maze.StartColumn + 0.5F
+            _ballY = maze.StartRow + 0.5F
+            _goalCenterX = maze.GoalColumn + 0.5F
+            _goalCenterY = maze.GoalRow + 0.5F
         End Sub
 
         ' Resets the current level for another attempt.
         ' Preserves the attempt counter and increments it.
         Public Sub Reset()
-            _attempts  += 1
-            _ballX      = _maze.StartColumn + 0.5F
-            _ballY      = _maze.StartRow    + 0.5F
-            _velocityX  = 0.0F
-            _velocityY  = 0.0F
-            _elapsedMs  = 0.0F
-            _state      = GameState.Playing
+            _attempts += 1
+            _ballX = _maze.StartColumn + 0.5F
+            _ballY = _maze.StartRow + 0.5F
+            _velocityX = 0.0F
+            _velocityY = 0.0F
+            _elapsedMs = 0.0F
+            _state = GameState.Playing
             _completionFired = False
-            _inContactLeft   = False
-            _inContactRight  = False
-            _inContactTop    = False
+            _inContactLeft = False
+            _inContactRight = False
+            _inContactTop = False
             _inContactBottom = False
         End Sub
 
@@ -183,9 +183,9 @@ Namespace Engine
 
             ' 3. Speed cap
             If _velocityX < -currentMaxSpeed Then _velocityX = -currentMaxSpeed
-            If _velocityX >  currentMaxSpeed Then _velocityX =  currentMaxSpeed
+            If _velocityX > currentMaxSpeed Then _velocityX = currentMaxSpeed
             If _velocityY < -currentMaxSpeed Then _velocityY = -currentMaxSpeed
-            If _velocityY >  currentMaxSpeed Then _velocityY =  currentMaxSpeed
+            If _velocityY > currentMaxSpeed Then _velocityY = currentMaxSpeed
 
             ' 4. X movement with leading-edge wall check.
             If _velocityX <> 0.0F Then
@@ -253,7 +253,7 @@ Namespace Engine
 
             ' 6. Advance timer.
             _elapsedMs += MsPerTick
-            
+
             If _timeLimitSecs > 0 AndAlso _elapsedMs >= _timeLimitSecs * 1000.0F Then
                 _state = GameState.TimeUp
                 _velocityX = 0.0F
@@ -283,7 +283,7 @@ Namespace Engine
             Dim gdx As Single = _ballX - _goalCenterX
             Dim gdy As Single = _ballY - _goalCenterY
             If gdx * gdx + gdy * gdy <= GoalRadius * GoalRadius Then
-                _state     = GameState.LevelComplete
+                _state = GameState.LevelComplete
                 _velocityX = 0.0F
                 _velocityY = 0.0F
                 If Not _completionFired Then
