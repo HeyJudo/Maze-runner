@@ -5,6 +5,7 @@ Imports System
 Imports System.Drawing
 Imports System.Windows.Forms
 Imports System.Collections.Generic
+Imports System.ComponentModel
 Imports GravityMaze.Levels
 Imports GravityMaze.Rendering
 
@@ -22,9 +23,11 @@ Namespace UI
         Private _ballY As Single
 
         ' Space kept free around the board (e.g. for the HUD bar). The board is laid out inside the rest.
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
         Public Property BoardInsets As Padding = Padding.Empty
 
         ' Screens (menus, HUD, panels) paint on top of the board through this hook. Nothing = board only.
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
         Public Property OverlayPainter As Action(Of Graphics, Rectangle)
 
         ' Transient visual feedback effects
