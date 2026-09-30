@@ -9,6 +9,13 @@ Imports GravityMaze.Levels
 
 Namespace Rendering
     Public NotInheritable Class MazeRenderer
+        ' Static board (floor, walls, zones, goal, border) is drawn once per maze/theme/size
+        ' and blitted each frame; only the ball and effects are redrawn per tick.
+        Private _cache As Bitmap
+        Private _cacheMaze As MazeDefinition
+        Private _cacheTheme As String
+        Private _cacheSize As Size
+
         ' ballX / ballY are in tile-space (e.g. 1.5 = centre of column 1).
         ' They come from the Game Engine via GameCanvas; no game state lives here.
         Public Sub Draw(graphics As Graphics, bounds As Rectangle,
@@ -35,34 +42,21 @@ Namespace Rendering
                 Dim top  As Single = bounds.Top  + (bounds.Height - boardHeight) / 2.0F
                 Dim board As New RectangleF(left, top, boardWidth, boardHeight)
 
-                ' Optional decorative margin frost (stays completely clear of board)
-                If themeName = "Frozen Labyrinth" Then
-                    DrawCornerFrost(graphics, bounds, board)
+                ' 1-3. Static board layer (cached)
+                If _cache Is Nothing OrElse _cacheMaze IsNot maze OrElse
+                   _cacheTheme <> themeName OrElse _cacheSize <> bounds.Size Then
+                    _cache?.Dispose()
+                    _cache = New Bitmap(bounds.Width, bounds.Height)
+                    Using cg As Graphics = Graphics.FromImage(_cache)
+                        cg.SmoothingMode = SmoothingMode.AntiAlias
+                        cg.TranslateTransform(-bounds.Left, -bounds.Top)
+                        DrawStaticBoard(cg, bounds, board, tileSize, maze, themeName)
+                    End Using
+                    _cacheMaze = maze
+                    _cacheTheme = themeName
+                    _cacheSize = bounds.Size
                 End If
-
-                ' 1. Board Drop Shadow
-                DrawBoardShadow(graphics, board, themeName)
-
-                ' 2. Board Flooring & Texture
-                DrawFloor(graphics, board, tileSize, maze, themeName)
-
-                ' 3. Maze Tiles (Walls, Zones, Goal)
-                For rowIndex As Integer = 0 To maze.RowCount - 1
-                    For columnIndex As Integer = 0 To maze.ColumnCount - 1
-                        Dim tileBounds As New RectangleF(left + columnIndex * tileSize,
-                                                         top  + rowIndex    * tileSize,
-                                                         tileSize, tileSize)
-                        Dim tileChar As Char = maze.GetTile(rowIndex, columnIndex)
-                        Select Case tileChar
-                            Case "1"c
-                                DrawWall(graphics, tileBounds, themeName, rowIndex, columnIndex)
-                            Case "G"c
-                                DrawGoal(graphics, tileBounds, themeName)
-                            Case "I"c, "M"c, "F"c
-                                DrawZone(graphics, tileBounds, tileChar, themeName)
-                        End Select
-                    Next
-                Next
+                graphics.DrawImageUnscaled(_cache, bounds.Location)
 
                 ' 4. Expanding Goal Celebration Ring Effect (if active)
                 If goalEffect IsNot Nothing AndAlso goalEffect.IsActive Then
@@ -79,12 +73,73 @@ Namespace Rendering
                         DrawImpact(graphics, left, top, tileSize, impact)
                     Next
                 End If
-
-                ' 7. Board Border
-                DrawBoardBorder(graphics, left, top, boardWidth, boardHeight, tileSize, themeName)
             Finally
                 graphics.Restore(graphicsState)
             End Try
+        End Sub
+
+        Private Shared Sub DrawStaticBoard(graphics As Graphics, bounds As Rectangle, board As RectangleF,
+                                           tileSize As Single, maze As MazeDefinition, themeName As String)
+            ' Optional decorative margin frost (stays completely clear of board)
+            If themeName = "Frozen Labyrinth" Then
+                DrawCornerFrost(graphics, bounds, board)
+            End If
+
+            ' 1. Board Drop Shadow
+            DrawBoardShadow(graphics, board, themeName)
+
+            ' 2. Board Flooring & Texture
+            DrawFloor(graphics, board, tileSize, maze, themeName)
+
+            ' 3. Maze Tiles (Walls, Zones, Goal)
+            For rowIndex As Integer = 0 To maze.RowCount - 1
+                For columnIndex As Integer = 0 To maze.ColumnCount - 1
+                    Dim tileBounds As New RectangleF(board.Left + columnIndex * tileSize,
+                                                     board.Top  + rowIndex    * tileSize,
+                                                     tileSize, tileSize)
+                    Dim tileChar As Char = maze.GetTile(rowIndex, columnIndex)
+                    Select Case tileChar
+                        Case "1"c
+                            DrawWall(graphics, tileBounds, themeName, rowIndex, columnIndex)
+                        Case "G"c
+                            DrawGoal(graphics, tileBounds, themeName)
+                        Case "I"c, "M"c, "F"c
+                            DrawZone(graphics, tileBounds, tileChar, themeName)
+                    End Select
+                Next
+            Next
+
+            ' 4. Board Border and entrance/exit arrows
+            DrawBoardBorder(graphics, board.Left, board.Top, board.Width, board.Height, tileSize, themeName)
+            DrawEdgeArrow(graphics, board, tileSize, maze.StartRow, maze.StartColumn, maze, themeName)
+            DrawEdgeArrow(graphics, board, tileSize, maze.GoalRow, maze.GoalColumn, maze, themeName)
+        End Sub
+
+        ' Arrow in the margin next to an S/G tile that sits on the left or right edge.
+        Private Shared Sub DrawEdgeArrow(graphics As Graphics, board As RectangleF, tileSize As Single,
+                                         row As Integer, col As Integer, maze As MazeDefinition, theme As String)
+            Dim x As Single
+            If col = 0 Then
+                x = board.Left - tileSize * 0.95F
+            ElseIf col = maze.ColumnCount - 1 Then
+                x = board.Right + tileSize * 0.15F
+            Else
+                Return
+            End If
+            Dim cy As Single = board.Top + (row + 0.5F) * tileSize
+            Dim len As Single = tileSize * 0.8F
+            Dim half As Single = tileSize * 0.28F
+            Dim arrowColor As Color = If(theme = "Frozen Labyrinth", Color.FromArgb(220, 236, 250),
+                                      If(theme = "Neon Velocity", Color.FromArgb(0, 240, 255), Color.FromArgb(240, 222, 192)))
+            Using pen As New Pen(arrowColor, Math.Max(2.0F, tileSize * 0.09F)),
+                  brush As New SolidBrush(arrowColor)
+                pen.StartCap = LineCap.Round
+                graphics.DrawLine(pen, x, cy, x + len - half, cy)
+                graphics.FillPolygon(brush, New PointF() {
+                    New PointF(x + len, cy),
+                    New PointF(x + len - half * 1.3F, cy - half),
+                    New PointF(x + len - half * 1.3F, cy + half)})
+            End Using
         End Sub
 
         ' ── Drop Shadow ─────────────────────────────────────────────────────
@@ -107,32 +162,21 @@ Namespace Rendering
         Private Shared Sub DrawFloor(graphics As Graphics, board As RectangleF, tileSize As Single,
                                      maze As MazeDefinition, theme As String)
             If theme = "Frozen Labyrinth" Then
-                ' Matte pale blue-gray slate stone flooring
+                ' Dark navy channel floor (matches the cobblestone concept art)
                 Using floorBrush As New LinearGradientBrush(board,
-                                                            Color.FromArgb(204, 216, 228),
-                                                            Color.FromArgb(174, 190, 206), 90.0F)
+                                                            Color.FromArgb(22, 34, 64),
+                                                            Color.FromArgb(12, 20, 42), 90.0F)
                     graphics.FillRectangle(floorBrush, board)
                 End Using
-
-                ' Subtle slate tile joint lines to convey grippy, non-slippery stone surface
-                Using stonePen As New Pen(Color.FromArgb(32, 110, 140, 170), Math.Max(0.5F, tileSize * 0.015F))
-                    For r As Integer = 1 To maze.RowCount - 1
-                        Dim y As Single = board.Top + r * tileSize
-                        graphics.DrawLine(stonePen, board.Left, y, board.Right, y)
-                    Next
-                    For c As Integer = 1 To maze.ColumnCount - 1
-                        Dim x As Single = board.Left + c * tileSize
-                        graphics.DrawLine(stonePen, x, board.Top, x, board.Bottom)
-                    Next
-                End Using
-
-                ' Subtle stone stipple/mottling flecks across the floor for grippy texture
-                Using fleckBrush As New SolidBrush(Color.FromArgb(18, 255, 255, 255))
+                ' Faint frost specks so the floor isn't a flat void
+                Using fleckBrush As New SolidBrush(Color.FromArgb(22, 190, 220, 255))
                     For r As Integer = 0 To maze.RowCount - 1
                         For c As Integer = 0 To maze.ColumnCount - 1
-                            Dim fx As Single = board.Left + (c + 0.3F) * tileSize
-                            Dim fy As Single = board.Top  + (r + 0.35F) * tileSize
-                            graphics.FillRectangle(fleckBrush, fx, fy, tileSize * 0.4F, tileSize * 0.25F)
+                            Dim h As Integer = TileHash(r, c)
+                            Dim fx As Single = board.Left + (c + 0.15F + (h And 7) * 0.09F) * tileSize
+                            Dim fy As Single = board.Top + (r + 0.15F + ((h >> 3) And 7) * 0.09F) * tileSize
+                            Dim fs As Single = tileSize * 0.05F
+                            graphics.FillEllipse(fleckBrush, fx, fy, fs, fs)
                         Next
                     Next
                 End Using
@@ -173,32 +217,35 @@ Namespace Rendering
         Private Shared Sub DrawWall(graphics As Graphics, tile As RectangleF, theme As String,
                                     r As Integer, c As Integer)
             If theme = "Frozen Labyrinth" Then
-                ' Frosted blue ice/stone blocks with restrained bevel highlights and shadows
-                Using wallBrush As New LinearGradientBrush(tile,
-                                                            Color.FromArgb(68, 132, 194),
-                                                            Color.FromArgb(28, 72, 128), 90.0F)
-                    graphics.FillRectangle(wallBrush, tile)
+                ' Frosted cobblestones: dark mortar bed, then a 3x3 grid of jittered rounded stones.
+                Using mortarBrush As New SolidBrush(Color.FromArgb(58, 68, 88))
+                    graphics.FillRectangle(mortarBrush, tile)
                 End Using
-
-                Dim bevelWidth As Single = Math.Max(1.0F, tile.Width * 0.04F)
-                Using highlightPen As New Pen(Color.FromArgb(200, 230, 255), bevelWidth),
-                      sideHiPen    As New Pen(Color.FromArgb(140, 190, 240), Math.Max(0.8F, bevelWidth * 0.75F)),
-                      shadePen     As New Pen(Color.FromArgb(14, 38, 70),   Math.Max(1.2F, bevelWidth * 1.1F)),
-                      sideShadePen As New Pen(Color.FromArgb(20, 48, 86),   Math.Max(0.8F, bevelWidth * 0.85F)),
-                      facetPen     As New Pen(Color.FromArgb(35, 255, 255, 255), 0.75F)
-
-                    ' Top bevel highlight
-                    graphics.DrawLine(highlightPen, tile.Left + 1.0F, tile.Top + 1.0F, tile.Right - 1.0F, tile.Top + 1.0F)
-                    ' Left bevel highlight
-                    graphics.DrawLine(sideHiPen, tile.Left + 1.0F, tile.Top + 1.0F, tile.Left + 1.0F, tile.Bottom - 1.0F)
-                    ' Bottom bevel shadow
-                    graphics.DrawLine(shadePen, tile.Left, tile.Bottom - 1.0F, tile.Right, tile.Bottom - 1.0F)
-                    ' Right bevel shadow
-                    graphics.DrawLine(sideShadePen, tile.Right - 1.0F, tile.Top + 1.0F, tile.Right - 1.0F, tile.Bottom - 1.0F)
-
-                    ' Subtle crystalline block facet
-                    graphics.DrawLine(facetPen, tile.Left + tile.Width * 0.2F, tile.Top + tile.Height * 0.25F,
-                                                tile.Right - tile.Width * 0.2F, tile.Bottom - tile.Height * 0.25F)
+                Dim cell As Single = tile.Width / 3.0F
+                Dim rng As New Random(TileHash(r, c))
+                Using outlinePen As New Pen(Color.FromArgb(40, 48, 64), Math.Max(0.8F, cell * 0.08F))
+                    For sr As Integer = 0 To 2
+                        For sc As Integer = 0 To 2
+                            Dim cx As Single = tile.Left + (sc + 0.5F) * cell
+                            Dim cy As Single = tile.Top + (sr + 0.5F) * cell
+                            Dim pts(5) As PointF
+                            For k As Integer = 0 To 5
+                                Dim ang As Double = k * Math.PI / 3.0 + rng.NextDouble() * 0.4
+                                Dim rad As Single = cell * CSng(0.46 + rng.NextDouble() * 0.12)
+                                pts(k) = New PointF(cx + CSng(Math.Cos(ang)) * rad, cy + CSng(Math.Sin(ang)) * rad)
+                            Next
+                            Dim stoneRect As New RectangleF(cx - cell * 0.6F, cy - cell * 0.6F, cell * 1.2F, cell * 1.2F)
+                            Dim shade As Integer = rng.Next(-18, 18)
+                            Using stonePath As New GraphicsPath(),
+                                  stoneBrush As New LinearGradientBrush(stoneRect,
+                                        Color.FromArgb(Clamp(212 + shade), Clamp(224 + shade), Clamp(238 + shade)),
+                                        Color.FromArgb(Clamp(118 + shade), Clamp(134 + shade), Clamp(156 + shade)), 60.0F)
+                                stonePath.AddClosedCurve(pts, 0.55F)
+                                graphics.FillPath(stoneBrush, stonePath)
+                                graphics.DrawPath(outlinePen, stonePath)
+                            End Using
+                        Next
+                    Next
                 End Using
             ElseIf theme = "Neon Velocity" Then
                 Using wallBrush As New SolidBrush(Color.FromArgb(24, 20, 45))
@@ -255,10 +302,6 @@ Namespace Rendering
                                                 tile.Left + tile.Width * 0.82F, tile.Top + tile.Height * 0.38F)
                 End Using
 
-                ' Fine ice perimeter highlight
-                Using iceBorderPen As New Pen(Color.FromArgb(90, 255, 255, 255), 1.0F)
-                    graphics.DrawRectangle(iceBorderPen, tile.Left, tile.Top, tile.Width, tile.Height)
-                End Using
             ElseIf symbol = "F"c Then
                 ' High-speed zone
                 Using fastBrush As New LinearGradientBrush(tile,
@@ -462,11 +505,7 @@ Namespace Rendering
                                            boardWidth As Single, boardHeight As Single,
                                            tileSize As Single, theme As String)
             If theme = "Frozen Labyrinth" Then
-                Using borderPen As New Pen(Color.FromArgb(120, 185, 238), Math.Max(2.0F, tileSize * 0.045F)),
-                      innerPen  As New Pen(Color.FromArgb(42, 90, 150),   Math.Max(1.0F, tileSize * 0.02F))
-                    graphics.DrawRectangle(borderPen, left, top, boardWidth, boardHeight)
-                    graphics.DrawRectangle(innerPen, left + 1.5F, top + 1.5F, boardWidth - 3.0F, boardHeight - 3.0F)
-                End Using
+                Return
             ElseIf theme = "Neon Velocity" Then
                 Using neonPen As New Pen(Color.FromArgb(0, 240, 255), Math.Max(2.0F, tileSize * 0.045F))
                     graphics.DrawRectangle(neonPen, left, top, boardWidth, boardHeight)
@@ -477,6 +516,15 @@ Namespace Rendering
                 End Using
             End If
         End Sub
+
+        ' Stable per-tile hash so procedural textures don't shimmer between redraws.
+        Private Shared Function TileHash(r As Integer, c As Integer) As Integer
+            Return ((r * 73856093) Xor (c * 19349663)) And &H7FFFFFFF
+        End Function
+
+        Private Shared Function Clamp(v As Integer) As Integer
+            Return Math.Max(0, Math.Min(255, v))
+        End Function
 
         ' ── Corner Decorative Frost (Strictly Non-Playable Margins) ──────────
         Private Shared Sub DrawCornerFrost(graphics As Graphics, bounds As Rectangle, board As RectangleF)

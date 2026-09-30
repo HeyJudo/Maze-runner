@@ -13,7 +13,11 @@ Namespace Engine
         Public Property BaseAcceleration As Single = 0.010F   ' tiles/tick added per unit of tilt
         Public Property BaseFriction     As Single = 0.90F    ' velocity multiplier each tick
         Public Property BaseMaxSpeed     As Single = 0.12F    ' speed ceiling in tiles/tick
-        Public Property IceFriction As Single = 0.955F   ' reduced friction on ice tiles (coasts ~2.36x normal floor)
+        ' Ice: low grip (tilt barely steers or brakes), near-frictionless, higher top speed.
+        ' Tune IceGrip up if the Arduino's partial tilt makes ice feel unplayable.
+        Public Property IceGrip          As Single = 0.30F    ' fraction of BaseAcceleration applied on ice
+        Public Property IceFriction      As Single = 0.985F   ' velocity multiplier each tick on ice
+        Public Property IceMaxSpeed      As Single = 0.18F    ' speed ceiling on ice
         Public Property FastAcceleration As Single = 0.030F   ' acceleration on fast tiles
         Public Property FastMaxSpeed     As Single = 0.24F    ' speed ceiling on fast tiles
 
@@ -71,6 +75,18 @@ Namespace Engine
         Public ReadOnly Property BallY As Single
             Get
                 Return _ballY
+            End Get
+        End Property
+
+        Public ReadOnly Property VelocityX As Single
+            Get
+                Return _velocityX
+            End Get
+        End Property
+
+        Public ReadOnly Property VelocityY As Single
+            Get
+                Return _velocityY
             End Get
         End Property
 
@@ -145,7 +161,9 @@ Namespace Engine
             Dim currentMaxSpeed As Single = BaseMaxSpeed
 
             If tile = "I"c Then
+                currentAccel = BaseAcceleration * IceGrip
                 currentFriction = IceFriction
+                currentMaxSpeed = IceMaxSpeed
             ElseIf tile = "F"c Then
                 currentAccel = FastAcceleration
                 currentMaxSpeed = FastMaxSpeed

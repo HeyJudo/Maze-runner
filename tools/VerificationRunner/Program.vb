@@ -51,7 +51,7 @@ Namespace VerificationRunner
             TestResizingPreservesAlignment(maze2)
 
             ' --- TEST 5: Collision Detection and Impact Suppression ---
-            TestCollisionAndImpact(maze2)
+            TestCollisionAndImpact(New MazeDefinition({"11111", "1S001", "10001", "100G1", "11111"}))
 
             ' --- TEST 6: Goal Completion Single-Trigger & Timer Stop ---
             TestGoalCompletion(maze2)
@@ -65,288 +65,158 @@ Namespace VerificationRunner
         End Sub
 
         Private Sub TestPhysicalClearanceAndCorners(maze As MazeDefinition)
-            Console.WriteLine("[TEST 1] Verifying Physical Clearance, Interconnected Routes & Split-Rejoins...")
-            
-            ' Corridor clearance check: ball diameter = 0.54F, corridor width = 1.0F
-            Dim ballDiameter As Single = GameEngine.BallRadius * 2.0F
-            Dim corridorMargin As Single = (1.0F - ballDiameter) / 2.0F
-            If corridorMargin < 0.20F Then
-                Throw New Exception($"Corridor clearance margin too narrow: {corridorMargin}")
-            End If
-            Console.WriteLine($"  -> Ball diameter = {ballDiameter:F2}, corridor width = 1.00, margin each side = {corridorMargin:F3} (> 0.20F).")
+            Console.WriteLine("[TEST 1] Verifying Level 2 Labyrinth Structure...")
 
-            ' Verify start and goal positions have valid clearance from boundary
-            Dim startX As Single = maze.StartColumn + 0.5F
-            Dim startY As Single = maze.StartRow + 0.5F
-            Dim goalX As Single = maze.GoalColumn + 0.5F
-            Dim goalY As Single = maze.GoalRow + 0.5F
-            If startX - GameEngine.BallRadius < 1.0F OrElse startY - GameEngine.BallRadius < 1.0F Then
-                Throw New Exception("Ball start position clips outer wall!")
+            If maze.RowCount <> 21 OrElse maze.ColumnCount <> 21 Then
+                Throw New Exception($"Level 2 must be 21x21, got {maze.RowCount}x{maze.ColumnCount}")
             End If
-            If goalX + GameEngine.BallRadius > 14.0F OrElse goalY + GameEngine.BallRadius > 14.0F Then
-                Throw New Exception("Ball goal position clips outer wall!")
-            End If
+            If maze.StartColumn <> 0 Then Throw New Exception("Start must be an opening on the left edge.")
+            If maze.GoalColumn <> maze.ColumnCount - 1 Then Throw New Exception("Goal must be an opening on the right edge.")
+            Console.WriteLine("  -> 21x21 grid, entrance on left edge, exit on right edge.")
 
-            ' 1. Verify dual start exits: Down and Right are both open, outer boundaries are walls
-            If maze.GetTile(2, 1) <> "0"c Then Throw New Exception("Start down exit (row 3, col 2) is not open!")
-            If maze.GetTile(1, 2) <> "0"c Then Throw New Exception("Start right exit (row 2, col 3) is not open!")
-            If maze.GetTile(0, 1) <> "1"c Then Throw New Exception("Start top border must be wall!")
-            If maze.GetTile(1, 0) <> "1"c Then Throw New Exception("Start left border must be wall!")
-            Console.WriteLine("  -> Dual start exits verified: both Down (2,1) and Right (1,2) are open.")
-
-            ' 2. Verify strict corridor separation: Zero 2x2 open walkable tiles
-            Dim twoByTwos As Integer = 0
-            For r As Integer = 0 To maze.RowCount - 2
-                For c As Integer = 0 To maze.ColumnCount - 2
-                    Dim c00 As Char = maze.GetTile(r, c)
-                    Dim c01 As Char = maze.GetTile(r, c + 1)
-                    Dim c10 As Char = maze.GetTile(r + 1, c)
-                    Dim c11 As Char = maze.GetTile(r + 1, c + 1)
-                    If c00 <> "1"c AndAlso c01 <> "1"c AndAlso c10 <> "1"c AndAlso c11 <> "1"c Then
-                        twoByTwos += 1
-                    End If
-                Next
-            Next
-            If twoByTwos > 0 Then
-                Throw New Exception($"Found {twoByTwos} 2x2 open rooms! Alternative corridors must be separated by walls.")
-            End If
-            Console.WriteLine("  -> Zero 2x2 open rooms verified: all alternative corridors strictly separated by walls.")
-
-            ' 3. Verify graph connectivity and reachability
-            Dim adj As New Dictionary(Of Point, List(Of Point))()
-            Dim walkableTiles As New List(Of Point)()
+            ' Reachability
+            Dim walkable As Integer = 0
             For r As Integer = 0 To maze.RowCount - 1
                 For c As Integer = 0 To maze.ColumnCount - 1
-                    If maze.GetTile(r, c) <> "1"c Then
-                        Dim pt As New Point(c, r)
-                        walkableTiles.Add(pt)
-                        adj(pt) = New List(Of Point)()
-                        For Each d In New Point() {New Point(-1, 0), New Point(1, 0), New Point(0, -1), New Point(0, 1)}
-                            Dim nr As Integer = r + d.Y
-                            Dim nc As Integer = c + d.X
-                            If nr >= 0 AndAlso nr < maze.RowCount AndAlso nc >= 0 AndAlso nc < maze.ColumnCount Then
-                                If maze.GetTile(nr, nc) <> "1"c Then
-                                    adj(pt).Add(New Point(nc, nr))
-                                End If
-                            End If
-                        Next
-                    End If
+                    If maze.GetTile(r, c) <> "1"c Then walkable += 1
                 Next
             Next
+            Dim reach As Integer = Flood(maze, Function(t) t <> "1"c).Count
+            If reach <> walkable Then Throw New Exception($"Unreachable tiles: walkable={walkable}, reachable={reach}")
+            Console.WriteLine($"  -> All {walkable} walkable tiles reachable from Start.")
 
-            Dim startPt As New Point(maze.StartColumn, maze.StartRow)
+            ' Ice cannot be bypassed
             Dim goalPt As New Point(maze.GoalColumn, maze.GoalRow)
+            If Flood(maze, Function(t) t <> "1"c AndAlso t <> "I"c).Contains(goalPt) Then
+                Throw New Exception("Ice bypass detected! A route to Goal avoids all ice.")
+            End If
+            Console.WriteLine("  -> Every start-to-goal route must cross ice.")
+
+            ' Ice rinks: 3x3 all-ice blocks
+            Dim rinks As Integer = 0
+            For r As Integer = 0 To maze.RowCount - 3
+                For c As Integer = 0 To maze.ColumnCount - 3
+                    Dim all As Boolean = True
+                    For dr As Integer = 0 To 2
+                        For dc As Integer = 0 To 2
+                            If maze.GetTile(r + dr, c + dc) <> "I"c Then all = False
+                        Next
+                    Next
+                    If all Then rinks += 1
+                Next
+            Next
+            If rinks < 3 Then Throw New Exception($"Expected 3 ice rinks, found {rinks}")
+            Console.WriteLine($"  -> {rinks} open ice rinks present.")
+
+            ' Dead ends
+            Dim deadEnds As Integer = 0
+            For r As Integer = 1 To maze.RowCount - 2
+                For c As Integer = 1 To maze.ColumnCount - 2
+                    If maze.GetTile(r, c) = "1"c Then Continue For
+                    Dim n As Integer = 0
+                    If maze.GetTile(r - 1, c) <> "1"c Then n += 1
+                    If maze.GetTile(r + 1, c) <> "1"c Then n += 1
+                    If maze.GetTile(r, c - 1) <> "1"c Then n += 1
+                    If maze.GetTile(r, c + 1) <> "1"c Then n += 1
+                    If n = 1 Then deadEnds += 1
+                Next
+            Next
+            If deadEnds < 5 Then Throw New Exception($"Too few dead ends for a real maze: {deadEnds}")
+            Console.WriteLine($"  -> {deadEnds} dead ends.")
+        End Sub
+
+        Private Function Flood(maze As MazeDefinition, passable As Func(Of Char, Boolean)) As HashSet(Of Point)
+            Dim startPt As New Point(maze.StartColumn, maze.StartRow)
             Dim vis As New HashSet(Of Point) From {startPt}
             Dim q As New Queue(Of Point)()
             q.Enqueue(startPt)
             While q.Count > 0
-                Dim curr As Point = q.Dequeue()
-                For Each nbr In adj(curr)
-                    If Not vis.Contains(nbr) Then
-                        vis.Add(nbr)
-                        q.Enqueue(nbr)
+                Dim cur As Point = q.Dequeue()
+                For Each d In New Point() {New Point(-1, 0), New Point(1, 0), New Point(0, -1), New Point(0, 1)}
+                    Dim nx As Integer = cur.X + d.X
+                    Dim ny As Integer = cur.Y + d.Y
+                    If nx < 0 OrElse ny < 0 OrElse nx >= maze.ColumnCount OrElse ny >= maze.RowCount Then Continue For
+                    Dim nb As New Point(nx, ny)
+                    If Not vis.Contains(nb) AndAlso passable(maze.GetTile(ny, nx)) Then
+                        vis.Add(nb)
+                        q.Enqueue(nb)
                     End If
                 Next
             End While
+            Return vis
+        End Function
 
-            If vis.Count <> walkableTiles.Count Then
-                Throw New Exception($"Unreachable tiles found! Total walkable={walkableTiles.Count}, reachable={vis.Count}")
-            End If
-            Console.WriteLine($"  -> All {walkableTiles.Count} walkable tiles are 100% reachable from Start.")
-
-            ' 4. Verify Ice Bypass is IMPOSSIBLE: any path to goal MUST traverse ice
-            Dim visNoIce As New HashSet(Of Point) From {startPt}
-            Dim qNoIce As New Queue(Of Point)()
-            qNoIce.Enqueue(startPt)
-            While qNoIce.Count > 0
-                Dim curr As Point = qNoIce.Dequeue()
-                If curr = goalPt Then Exit While
-                For Each nbr In adj(curr)
-                    If maze.GetTile(nbr.Y, nbr.X) <> "I"c AndAlso Not visNoIce.Contains(nbr) Then
-                        visNoIce.Add(nbr)
-                        qNoIce.Enqueue(nbr)
-                    End If
-                Next
-            End While
-            If visNoIce.Contains(goalPt) Then
-                Throw New Exception("Ice bypass detected! There exists a route to Goal avoiding all ice.")
-            End If
-            Console.WriteLine("  -> Ice bypass impossibility verified: every start-to-goal route must encounter ice.")
-
-            ' 5. Verify the 3 distinct Split-and-Rejoin sections
-            Dim j1 As New Point(5, 7)    ' Junction 1 at (col 5, row 7)
-            Dim j2 As New Point(7, 11)   ' Junction 2 at (col 7, row 11)
-            Dim j3 As New Point(12, 13)  ' Junction 3 at (col 12, row 13 - Pre-Goal)
-
-            ' Check Split 1: Start (1,1) -> Junction 1 (5,7)
-            Dim p1A As New Point(1, 2) ' Down exit (col 1, row 2)
-            Dim p1B As New Point(2, 1) ' Right exit (col 2, row 1)
-            If Not adj(startPt).Contains(p1A) OrElse Not adj(startPt).Contains(p1B) Then
-                Throw New Exception("Start exits not properly connected!")
-            End If
-            Console.WriteLine("  -> Split 1 (Upper): Dual start exits (West col 1 ice slide vs Northeast ice bend) reconnect at Junction 1 (col 5, row 7).")
-
-            ' Check Split 2: Junction 1 (5,7) -> Junction 2 (7,11)
-            ' Branch 2A enters from North (7,10); Branch 2B enters from West (6,11)
-            If Not adj(j2).Contains(New Point(7, 10)) OrElse Not adj(j2).Contains(New Point(6, 11)) Then
-                Throw New Exception("Junction 2 does not have both branches reconnecting!")
-            End If
-            Console.WriteLine("  -> Split 2 (Mid-board): 5-tile icy S-bend shortcut vs 4-tile normal-floor bypass around central wall island reconnect at Junction 2 (col 7, row 11).")
-
-            ' Check Split 3: Junction 2 (7,11) -> Pre-Goal (12,13)
-            ' Branch 3A enters from West (11,13); Branch 3B enters from North (12,12)
-            If Not adj(j3).Contains(New Point(11, 13)) OrElse Not adj(j3).Contains(New Point(12, 12)) Then
-                Throw New Exception("Pre-Goal does not have both branches reconnecting!")
-            End If
-            Console.WriteLine("  -> Split 3 (Lower): Direct southern 3-tile ice straight approach vs winding normal-floor route reconnect at Pre-Goal (col 12, row 13).")
-
-            ' 6. Verify 3 dead ends (degree 1 non-start/goal vertices)
-            Dim deadEnds As New List(Of Point)()
-            For Each pt In walkableTiles
-                If pt <> startPt AndAlso pt <> goalPt AndAlso adj(pt).Count = 1 Then
-                    deadEnds.Add(pt)
-                End If
-            Next
-            If deadEnds.Count < 3 Then
-                Throw New Exception($"Expected at least 3 dead ends, found {deadEnds.Count}")
-            End If
-            Console.WriteLine($"  -> Verified {deadEnds.Count} dead-end branches: Northeast (col 12, row 1), Northwest (col 3, row 3), Southwest (col 3, row 11).")
-
-            ' 7. Verify perimeter outer-edge shortcut is blocked
-            If maze.GetTile(1, 13) <> "1"c OrElse maze.GetTile(2, 13) <> "1"c Then
-                Throw New Exception("Perimeter shortcut along top/right edge is not properly blocked!")
-            End If
-            Console.WriteLine("  -> Perimeter shortcut blocked: outer wall barriers force navigation through interior labyrinth.")
-        End Sub
-
-        Private Sub TestFullTraversalSimulation(maze As MazeDefinition)
-            Console.WriteLine("[TEST 2] Simulating Physics Traversal Across Interconnected Labyrinth Routes...")
+        ' Keyboard-only bot: each axis is -1, 0 or +1, like a player holding/releasing keys.
+        ' It steers toward a target velocity and brakes early on ice.
+        Private Function KeyboardBotRun(maze As MazeDefinition) As Integer
             Dim path As List(Of Point) = FindShortestPath(maze)
             Dim engine As New GameEngine(maze, 0)
-            Dim completedFired As Boolean = False
-
-            AddHandler engine.LevelCompleted, Sub(s As Object, e As EventArgs)
-                completedFired = True
-            End Sub
-
             Dim waypointIndex As Integer = 1
             Dim ticks As Integer = 0
-            Dim maxTicks As Integer = 5000
 
-            While ticks < maxTicks AndAlso waypointIndex < path.Count
-                Dim targetPoint As Point = path(waypointIndex)
-                Dim targetX As Single = targetPoint.X + 0.5F
-                Dim targetY As Single = targetPoint.Y + 0.5F
-                Dim dx As Single = targetX - engine.BallX
-                Dim dy As Single = targetY - engine.BallY
-                Dim dist As Single = CSng(Math.Sqrt(dx * dx + dy * dy))
-
-                If dist < 0.28F Then
+            While ticks < 20000 AndAlso engine.State = GameState.Playing
+                Dim target As Point = path(Math.Min(waypointIndex, path.Count - 1))
+                Dim dx As Single = target.X + 0.5F - engine.BallX
+                Dim dy As Single = target.Y + 0.5F - engine.BallY
+                If Math.Abs(dx) < 0.25F AndAlso Math.Abs(dy) < 0.25F AndAlso waypointIndex < path.Count - 1 Then
                     waypointIndex += 1
-                    If waypointIndex >= path.Count Then Exit While
-                    targetPoint = path(waypointIndex)
-                    targetX = targetPoint.X + 0.5F
-                    targetY = targetPoint.Y + 0.5F
-                    dx = targetX - engine.BallX
-                    dy = targetY - engine.BallY
+                    Continue While
                 End If
-
-                Dim tiltX As Single = Math.Max(-1.0F, Math.Min(1.0F, dx * 4.0F))
-                Dim tiltY As Single = Math.Max(-1.0F, Math.Min(1.0F, dy * 4.0F))
-
-                engine.Update(tiltX, tiltY)
+                Dim onIce As Boolean = maze.GetTile(CInt(Math.Floor(engine.BallY)), CInt(Math.Floor(engine.BallX))) = "I"c
+                Dim cap As Single = If(onIce, 0.05F, 0.09F)
+                engine.Update(Key(dx, engine.VelocityX, cap), Key(dy, engine.VelocityY, cap))
                 ticks += 1
-
-                If engine.State = GameState.LevelComplete Then
-                    waypointIndex = path.Count
-                    Exit While
-                End If
             End While
 
-            If waypointIndex < path.Count Then
-                Throw New Exception($"Physics traversal stalled at waypoint {waypointIndex}/{path.Count} ({path(waypointIndex)}) after {ticks} ticks!")
+            If engine.State <> GameState.LevelComplete Then
+                Throw New Exception($"Keyboard bot stalled at waypoint {waypointIndex}/{path.Count} ({path(waypointIndex)}) after {ticks} ticks.")
             End If
+            Return ticks
+        End Function
 
-            ' Step a few more ticks to settle into goal if needed
-            For extra As Integer = 1 To 20
-                If engine.State = GameState.LevelComplete Then Exit For
-                engine.Update(0.0F, 0.0F)
-            Next
+        Private Function Key(distance As Single, velocity As Single, cap As Single) As Single
+            Dim desired As Single = Math.Max(-cap, Math.Min(cap, distance * 0.2F))
+            If velocity < desired - 0.004F Then Return 1.0F
+            If velocity > desired + 0.004F Then Return -1.0F
+            Return 0.0F
+        End Function
 
-            If engine.State <> GameState.LevelComplete OrElse Not completedFired Then
-                Throw New Exception($"Failed to complete level! State={engine.State}, CompletedFired={completedFired}")
+        Private Sub TestFullTraversalSimulation(maze As MazeDefinition)
+            Console.WriteLine("[TEST 2] Keyboard-Only Bot Playthrough of Level 2...")
+            Dim ticks As Integer = KeyboardBotRun(maze)
+            Dim secs As Single = ticks * 0.016F
+            Console.WriteLine($"  -> Bot reached the goal in {ticks} ticks (~{secs:F1}s) with keys only, no softlocks.")
+            If secs < 20.0F OrElse secs > 60.0F Then
+                Throw New Exception($"Bot clear time {secs:F1}s outside 20-60s (human target ~45-75s).")
             End If
-
-            Console.WriteLine($"  -> Marble successfully navigated shortest route ({path.Count - 1} steps) and reached Goal in {ticks} ticks (~{ticks * 0.016F:F1}s).")
-            Console.WriteLine("  -> Traversal with physics engine confirmed 100% playable without wedging or snags.")
         End Sub
 
         Private Sub TestIceFrictionReductionAndRestoration(maze As MazeDefinition)
-            Console.WriteLine("[TEST 3] Verifying Retuned Ice Friction (2-3x Coasting Distance) & Restoration...")
+            Console.WriteLine("[TEST 3] Verifying Slippery Ice...")
             Dim engine As New GameEngine(maze, 0)
+            Dim cruise As Single = 0.09F  ' terminal speed on normal floor with full tilt
 
-            ' Measure coasting distance from initial max speed V0 = 0.12F with zero input
-            Dim v0 As Single = engine.BaseMaxSpeed
+            Dim normalCoast As Single = CoastDistance(cruise, 0.0F, engine.BaseFriction)
+            Dim iceCoast As Single = CoastDistance(cruise, 0.0F, engine.IceFriction)
+            Dim normalBrake As Single = CoastDistance(cruise, engine.BaseAcceleration, engine.BaseFriction)
+            Dim iceBrake As Single = CoastDistance(cruise, engine.BaseAcceleration * engine.IceGrip, engine.IceFriction)
 
-            ' 1. Normal Floor slide from V0
-            Dim normalSlide As Single = 0.0F
-            Dim velNormal As Single = v0
-            Dim normalTicks As Integer = 0
-            While Math.Abs(velNormal) > 0.0005F
-                velNormal *= engine.BaseFriction
-                normalSlide += velNormal
-                normalTicks += 1
-            End While
-
-            ' 2. Ice Floor slide from V0
-            Dim iceSlide As Single = 0.0F
-            Dim velIce As Single = v0
-            Dim iceTicks As Integer = 0
-            While Math.Abs(velIce) > 0.0005F
-                velIce *= engine.IceFriction
-                iceSlide += velIce
-                iceTicks += 1
-            End While
-
-            Dim slideRatio As Single = iceSlide / normalSlide
-            If slideRatio < 2.0F OrElse slideRatio > 3.0F Then
-                Throw New Exception($"Ice coasting ratio ({slideRatio:F2}x) is outside the target 2-3x window! Expected 2.0x-3.0x.")
-            End If
-
-            Console.WriteLine($"  -> Normal Floor: slide = {normalSlide:F3} tiles ({normalTicks} ticks to rest from {v0:F2} max speed).")
-            Console.WriteLine($"  -> Ice Floor:    slide = {iceSlide:F3} tiles ({iceTicks} ticks to rest from {v0:F2} max speed).")
-            Console.WriteLine($"  -> Ice produces {slideRatio:F2}x coasting distance (strictly within user target: 2-3x).")
-
-            ' 3. Measure Perpendicular Turning Response Drift:
-            ' Moving East at V0, apply North tilt. Measure ticks and X drift before X velocity drops below 0.01
-            Dim normTurnTicks As Integer = 0
-            Dim normDriftX As Single = 0.0F
-            Dim vxNorm As Single = v0
-            While vxNorm > 0.010F
-                vxNorm *= engine.BaseFriction
-                normDriftX += vxNorm
-                normTurnTicks += 1
-            End While
-
-            Dim iceTurnTicks As Integer = 0
-            Dim iceDriftX As Single = 0.0F
-            Dim vxIce As Single = v0
-            While vxIce > 0.010F
-                vxIce *= engine.IceFriction
-                iceDriftX += vxIce
-                iceTurnTicks += 1
-            End While
-            Dim driftRatio As Single = iceDriftX / normDriftX
-            Console.WriteLine($"  -> Perpendicular Turn Drift: Normal={normDriftX:F3} tiles ({normTurnTicks} ticks) vs Ice={iceDriftX:F3} tiles ({iceTurnTicks} ticks), drift ratio={driftRatio:F2}x.")
-
-            ' 4. Test friction restoration: when exiting an ice tile, tile check in Update immediately applies BaseFriction
-            Dim iceTileChar As Char = maze.GetTile(13, 11)   ' Row 13, Col 11 is 'I'
-            Dim exitTileChar As Char = maze.GetTile(13, 12)  ' Row 13, Col 12 is '0' (recovery floor before goal)
-            If iceTileChar <> "I"c Then Throw New Exception("Tile (13,11) expected to be ice 'I'")
-            If exitTileChar <> "0"c Then Throw New Exception("Tile (13,12) expected to be normal floor '0'")
-
-            Console.WriteLine("  -> Ice friction reduction and instantaneous normal friction return verified OK.")
+            Console.WriteLine($"  -> Let go at cruise speed: normal slides {normalCoast:F2} tiles, ice slides {iceCoast:F2} tiles.")
+            Console.WriteLine($"  -> Full reverse brake:     normal stops in {normalBrake:F2} tiles, ice stops in {iceBrake:F2} tiles.")
+            If iceCoast < 3.0F Then Throw New Exception("Ice coast must carry the ball across a whole 3-tile rink.")
+            If iceBrake < normalBrake * 2.0F Then Throw New Exception("Ice braking must take at least 2x the distance of normal floor.")
         End Sub
+
+        ' Distance travelled from speed v0 while applying reverse acceleration brake (0 = coast), engine order: accel, then friction.
+        Private Function CoastDistance(v0 As Single, brake As Single, friction As Single) As Single
+            Dim v As Single = v0
+            Dim dist As Single = 0.0F
+            While v > 0.0005F
+                v = (v - brake) * friction
+                If v > 0.0F Then dist += v
+            End While
+            Return dist
+        End Function
 
         Private Sub TestResizingPreservesAlignment(maze As MazeDefinition)
             Console.WriteLine("[TEST 4] Verifying Resizing Alignment between Drawing and Collision Geometry...")
@@ -486,10 +356,10 @@ Namespace VerificationRunner
                 Using g As Graphics = Graphics.FromImage(bmp)
                     g.Clear(Color.FromArgb(10, 18, 30))
                     Dim impacts As New List(Of ImpactEffect) From {
-                        New ImpactEffect(1.0F, 1.5F, 1.0F, 0.0F, 0.10F) With {.ElapsedMs = 45.0F}
+                        New ImpactEffect(2.0F, maze2.StartRow + 0.5F, -1.0F, 0.0F, 0.10F) With {.ElapsedMs = 45.0F}
                     }
                     renderer.Draw(g, New Rectangle(0, 0, width, height), maze2,
-                                  1.27F, 1.5F, "Frozen Labyrinth", impacts, Nothing)
+                                  2.0F - GameEngine.BallRadius, maze2.StartRow + 0.5F, "Frozen Labyrinth", impacts, Nothing)
                     DrawHudOverlay(g, width, height, "GRAVITY MAZE", "02 / Frozen Labyrinth",
                                    "WALL IMPACT FEEDBACK: Local white/cyan flash at collision point",
                                    Color.FromArgb(215, 238, 255), Color.FromArgb(145, 198, 245), Color.FromArgb(130, 235, 255))

@@ -40,8 +40,9 @@ Namespace Levels
                     End If
                     Dim isEdge As Boolean = rowIndex = 0 OrElse rowIndex = RowCount - 1 OrElse
                                             columnIndex = 0 OrElse columnIndex = ColumnCount - 1
-                    If isEdge AndAlso tile <> "1"c Then
-                        Throw New ArgumentException("The outside edge of the maze must contain only walls (1).")
+                    ' S and G may sit on the edge as entrance/exit openings; the engine treats off-grid as wall.
+                    If isEdge AndAlso tile <> "1"c AndAlso tile <> "S"c AndAlso tile <> "G"c Then
+                        Throw New ArgumentException("The outside edge of the maze must contain only walls (1), S, or G.")
                     End If
                     Select Case tile
                         Case "S"c

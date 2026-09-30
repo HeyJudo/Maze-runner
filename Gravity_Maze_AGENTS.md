@@ -71,7 +71,9 @@ Maze files are external.
 Symbols:
 
 1 = Wall 0 = Normal Path S = Start G = Goal I = Ice Zone M = Mud Zone F
-= Fast Zone
+= Fast Zone H = Hole (respawn at start)
+
+S and G may sit on the outer edge as entrance/exit openings; every other edge tile must be 1.
 
 ------------------------------------------------------------------------
 

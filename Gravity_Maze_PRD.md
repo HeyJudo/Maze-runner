@@ -68,9 +68,9 @@ Features: - Larger maze - Narrower paths - Ice zones
 
 Special tile: - I = Ice Zone
 
-Effect: - Increased sliding
+Effect: - Low grip (tilt steers and brakes weakly), near-frictionless sliding, higher top speed. Open ice rinks with several exits punish overshooting.
 
-Maze size: - 15x15
+Maze size: - 21x21 (1-tile corridors and walls; entrance on left edge, exit on right edge)
 
 ------------------------------------------------------------------------
 
@@ -80,13 +80,13 @@ Theme: Futuristic arcade
 
 Purpose: - Final challenge
 
-Features: - Large maze - Speed zones - 30-second timer
+Features: - Large maze - Speed zones - Holes - Timer (~1.4x measured par time)
 
-Special tile: - F = Fast Zone
+Special tiles: - F = Fast Zone - H = Hole (ball falls and respawns at start; timer keeps running)
 
 Effect: - Increased acceleration
 
-Maze size: - 20x20
+Maze size: - 25x25
 
 ------------------------------------------------------------------------
 
