@@ -145,7 +145,8 @@ Namespace UI.Screens
             Dim value As Font = GameFonts.Body(22 * s, GameFonts.FontWeight.SemiBold)
             Dim rx As Single = b.Right - 48 * s
             Dim player As String = If(String.IsNullOrWhiteSpace(_scores.PlayerName), "—", _scores.PlayerName)
-            UiDraw.Text(g, If(_sound.Muted, "SOUND OFF  [M]", "SOUND ON  [M]"), label, pal.TextDim, rx, y + 30 * s, 1, 2 * s)
+            Dim status As String = If(_sound.Muted, "SOUND OFF  [M]", "SOUND ON  [M]") & "   ·   " & BoardStatus()
+            UiDraw.Text(g, status, label, If(BoardConnected(), pal.Accent, pal.TextDim), rx, y + 30 * s, 1, 2 * s)
             UiDraw.Text(g, "PLAYER", label, pal.TextDim, rx - UiDraw.Measure(g, player, value, 1 * s).Width - 12 * s, y + 2 * s, 1, 3 * s)
             UiDraw.Text(g, player, value, pal.Text, rx, y - 2 * s, 1, 1 * s)
         End Sub
@@ -268,7 +269,8 @@ Namespace UI.Screens
             UiDraw.Text(g, "CONTROLS", head, pal.Accent, left.X + 32 * s, left.Y + 24 * s, 0, 2 * s)
             Dim lines As (String, String)() = {
                 ("ARROWS / WASD", "Tilt the board"),
-                ("ARDUINO BOARD", "Tilt it for real"),
+                ("ARDUINO BOARD", "Tilt it for real (plug in any time)"),
+                ("C", "Re-center: hold the board level, press C"),
                 ("ESC", "Pause"),
                 ("R", "Restart the level"),
                 ("M", "Sound on / off"),
@@ -403,11 +405,23 @@ Namespace UI.Screens
             ' Bottom hints
             Dim hy As Single = b.Bottom - 44 * s
             Dim x As Single = 40 * s
-            For Each h In {("ESC", "Pause"), ("R", "Restart"), ("M", If(_sound.Muted, "Sound off", "Sound on"))}
+            For Each h In {("ESC", "Pause"), ("R", "Restart"), ("M", If(_sound.Muted, "Sound off", "Sound on")), ("C", "Re-center board")}
                 x += UiDraw.KeyHint(g, h.Item1, h.Item2, x, hy, pal.Accent, pal.TextDim)
             Next
-            UiDraw.Text(g, _scores.PlayerName, GameFonts.Body(20 * s, GameFonts.FontWeight.SemiBold), pal.TextDim, b.Width - 40 * s, hy, 1, 2 * s)
+            UiDraw.Text(g, _scores.PlayerName & "   ·   " & BoardStatus(), GameFonts.Body(18 * s, GameFonts.FontWeight.Bold),
+                        If(BoardConnected(), pal.Accent, pal.TextDim), b.Width - 40 * s, hy + 2 * s, 1, 2 * s)
         End Sub
+
+        Private Function BoardConnected() As Boolean
+            Return _input.Board IsNot Nothing AndAlso _input.Board.IsConnected
+        End Function
+
+        Private Function BoardStatus() As String
+            Dim board = _input.Board
+            If board Is Nothing OrElse Not board.IsConnected Then Return "NO BOARD  ·  KEYBOARD"
+            If board.IsCalibrating Then Return "BOARD " & board.ConnectedPort & "  ·  HOLD LEVEL..."
+            Return "BOARD " & board.ConnectedPort
+        End Function
 
         ' ── Intro card + countdown ──────────────────────────────────────────
         Private Sub DrawIntro(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)

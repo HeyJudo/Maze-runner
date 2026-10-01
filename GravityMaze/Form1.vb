@@ -18,6 +18,7 @@ Imports GravityMaze.UI.Screens
 Public Class Form1
     Private keyboardController As KeyboardController
     Private inputManager As InputManager
+    Private board As ArduinoController
     Private sound As SoundManager
     Private canvas As GameCanvas
     Private shell As GameShell
@@ -31,8 +32,11 @@ Public Class Form1
         SetFullscreen(True)
 
         keyboardController = New KeyboardController()
-        ' ponytail: swap KeyboardController for the Arduino controller here; nothing else changes.
-        inputManager = New InputManager(keyboardController)
+        ' Arduino tilt board: auto-detected on any COM port; keyboard keeps working alongside it.
+        ' If the ball rolls the wrong way on the real board, flip InvertX / InvertY / SwapAxes here.
+        board = New ArduinoController()
+        board.Start()
+        inputManager = New InputManager(keyboardController, board)
         sound = New SoundManager(Path.Combine(AppContext.BaseDirectory, "Sounds"))
 
         ' Par = keyboard-bot clear time (VerificationRunner); Level 3 limit = 1.4x its par.
@@ -72,6 +76,9 @@ Public Class Form1
         If e.KeyCode = Keys.F11 Then
             SetFullscreen(FormBorderStyle <> FormBorderStyle.None)
             e.Handled = True
+        ElseIf e.KeyCode = Keys.C AndAlso shell IsNot Nothing AndAlso shell.Screen <> ShellScreen.NameEntry Then
+            board?.Calibrate()   ' hold the board level, press C
+            e.Handled = True
         ElseIf shell IsNot Nothing AndAlso shell.HandleKey(e.KeyCode) Then
             e.Handled = True
         End If
@@ -107,6 +114,7 @@ Public Class Form1
         gameLoopTimer?.Stop()
         gameLoopTimer?.Dispose()
         sound?.Dispose()
+        board?.Dispose()
         MyBase.OnFormClosed(e)
     End Sub
 End Class

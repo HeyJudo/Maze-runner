@@ -109,6 +109,15 @@ The Arduino handles: - Sensor reading - Calibration - Filtering
 
 VB handles: - Gameplay physics - Rendering - Scoring
 
+VB side (`Input/ArduinoController.vb`) is plug-and-play:
+
+-   Auto-detects the board on any COM port at 115200 baud, reconnects if unplugged.
+-   Accepts either `x,y` (processed, -1..1) or the raw sketch line `X: <ax> Y: <ay> Z: <az>` (m/s^2); other lines are ignored.
+-   Zeroes itself on connect (hold the board level); `C` re-centers any time.
+-   Calibration knobs in `Form1.vb`: FullTiltDegrees, Deadzone, Smoothing, SwapAxes, InvertX, InvertY.
+-   Keyboard stays active: any held arrow/WASD key overrides the board.
+-   Recommended send rate: about 50 lines per second (`delay(20)`).
+
 ------------------------------------------------------------------------
 
 # Development Workflow

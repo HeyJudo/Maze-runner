@@ -66,6 +66,8 @@ Namespace VerificationRunner
             GenerateScreenshots(maze1, maze2, maze3, localScreenshotsDir, ArtifactDir)
             GenerateEffectScreenshots(maze2, maze3, localScreenshotsDir, ArtifactDir)
 
+            TestArduinoParser()
+
             UiTour.Run(ProjectRoot, Path.Combine(localScreenshotsDir, "ui"))
 
             Console.WriteLine("==================================================")
@@ -281,6 +283,20 @@ Namespace VerificationRunner
             If secs < 20.0F OrElse secs > 60.0F Then
                 Throw New Exception($"Bot clear time {secs:F1}s outside 20-60s (human target ~45-75s).")
             End If
+        End Sub
+
+        Private Sub TestArduinoParser()
+            Console.WriteLine("[TEST] Arduino serial line parser...")
+            Dim x, y As Single
+            Dim raw As Boolean
+            If Not GravityMaze.Input.ArduinoController.TryParse("X: 0.12 Y: -4.90 Z: 8.49", x, y, raw) OrElse Not raw OrElse
+               Math.Abs(x - 0.12F) > 0.001F OrElse Math.Abs(y + 4.9F) > 0.001F Then Throw New Exception("Raw 'X: Y: Z:' line not parsed")
+            If Not GravityMaze.Input.ArduinoController.TryParse("0.25,-0.40" & vbCr, x, y, raw) OrElse raw OrElse
+               Math.Abs(x - 0.25F) > 0.001F OrElse Math.Abs(y + 0.4F) > 0.001F Then Throw New Exception("'x,y' line not parsed")
+            For Each junk In {"MPU6050 connected!", "MPU6050 not found - check wiring!", "", "X: nan Y:", "1,2,3", "X: 1"}
+                If GravityMaze.Input.ArduinoController.TryParse(junk, x, y, raw) Then Throw New Exception($"Junk line accepted: '{junk}'")
+            Next
+            Console.WriteLine("  -> raw sketch format, x,y contract and junk lines OK.")
         End Sub
 
         Private Sub TestLevel3(maze As MazeDefinition)
