@@ -6,6 +6,7 @@ Imports System.Collections.Generic
 Imports System.Drawing
 Imports System.Drawing.Drawing2D
 Imports GravityMaze.Data
+Imports GravityMaze.Engine
 Imports GravityMaze.Levels
 
 Namespace UI.Screens
@@ -356,6 +357,24 @@ Namespace UI.Screens
         End Sub
 
         ' ── In-game HUD ─────────────────────────────────────────────────────
+        ' Full hearts, then empty frames; the heart just lost plays the draining frames for 400 ms.
+        Private Sub DrawHearts(g As Graphics, x As Single, y As Single, size As Single, gap As Single)
+            Dim drain As Integer() = Sprites.DrainFrames
+            For i As Integer = 0 To GameEngine.MaxHearts - 1
+                Dim img As Image
+                Dim alpha As Single = 1.0F
+                If i < _engine.Hearts Then
+                    img = Sprites.Heart
+                ElseIf i = _heartLostIndex AndAlso _heartLostAgoMs < 400.0F Then
+                    img = Sprites.HeartFrame(drain(Math.Min(drain.Length - 1, CInt(_heartLostAgoMs / 400.0F * drain.Length))))
+                Else
+                    img = Sprites.HeartFrame(Sprites.EmptyFrame)
+                    If img Is Nothing Then alpha = 0.3F
+                End If
+                Sprites.DrawHeart(g, img, New RectangleF(x + i * (size + gap), y, size, size), alpha)
+            Next
+        End Sub
+
         Private Sub DrawHud(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
             If _engine Is Nothing Then Return
             Dim cfg As LevelConfig = _levels(_levelIndex)
@@ -371,6 +390,7 @@ Namespace UI.Screens
             UiDraw.Text(g, $"LEVEL {cfg.LevelNumber:00}" & If(_campaign, $"  ·  RUN {UiDraw.FormatTime(_campaignTime)}", ""),
                         label, pal.Accent, lx, 24 * s, 0, 4 * s)
             UiDraw.Text(g, cfg.ThemeName.ToUpperInvariant(), big, pal.Text, lx, 44 * s, 0, 2 * s)
+            DrawHearts(g, lx, 104 * s, 30 * s, 6 * s)
 
             ' Centre: timer
             Dim cx As Single = b.Width / 2.0F

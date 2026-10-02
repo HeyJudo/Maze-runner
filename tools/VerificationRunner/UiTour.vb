@@ -1,4 +1,4 @@
-Option Strict On
+﻿Option Strict On
 Option Explicit On
 
 Imports System
@@ -86,6 +86,11 @@ Namespace VerificationRunner
             Shot("ui_06_countdown")
             Ticks(CInt(1400 / 16))
             Expect(ShellScreen.Playing)
+
+            ' Bump the top wall once: HUD shows 2 of 3 hearts and the pickup is on the board.
+            _tilt.Y = -1 : Ticks(15) : _tilt.Y = 0 : Ticks(30)
+            If _shell.Engine.Hearts <> 2 Then Throw New Exception($"UI tour expected 2 hearts after one wall hit, got {_shell.Engine.Hearts}")
+            Shot("ui_06b_hud_hearts")
 
             ' Campaign: bot plays all three levels.
             For level As Integer = 1 To 3

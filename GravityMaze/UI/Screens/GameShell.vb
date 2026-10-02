@@ -58,6 +58,8 @@ Namespace UI.Screens
         Private _skipCard As Boolean
         Private _completedAtMs As Single = -1
         Private _lastTile As Char = "0"c
+        Private _heartLostAgoMs As Single = 99999.0F   ' time since the last heart loss (HUD drain animation)
+        Private _heartLostIndex As Integer              ' HUD slot of the heart that was just lost
         Private _lastWholeSecondLeft As Integer = -1
         Private _spawnSoundInMs As Single = -1
 
@@ -141,6 +143,7 @@ Namespace UI.Screens
         ' ── Loop ────────────────────────────────────────────────────────────
         Public Sub Tick()
             _screenMs += TickMs
+            _heartLostAgoMs += TickMs
             Dim tx As Single = _input.TiltX
             Dim ty As Single = _input.TiltY
 
@@ -196,10 +199,14 @@ Namespace UI.Screens
             End Select
 
             If IsGameScreen() Then
+                _canvas.PickupTaken = AddressOf _engine.IsPickupTaken
+                _canvas.BallBlink = _engine.IsInvulnerable AndAlso _screen = ShellScreen.Playing
                 _canvas.UpdateBallPosition(_engine.BallX, _engine.BallY)
                 _canvas.UpdateBallMotion(If(_screen = ShellScreen.Playing, _engine.VelocityX, 0.0F),
                                          If(_screen = ShellScreen.Playing, _engine.VelocityY, 0.0F), TileUnder(_engine))
             Else
+                _canvas.PickupTaken = Nothing
+                _canvas.BallBlink = False
                 _canvas.UpdateBallPosition(_attractEngine.BallX, _attractEngine.BallY)
                 _canvas.UpdateBallMotion(_attractEngine.VelocityX, _attractEngine.VelocityY, TileUnder(_attractEngine))
             End If
@@ -330,6 +337,8 @@ Namespace UI.Screens
             _engine = New GameEngine(MazeFor(index), cfg.TimeLimitSecs)
             AddHandler _engine.WallImpacted, AddressOf OnWallImpacted
             AddHandler _engine.BallFell, AddressOf OnBallFell
+            AddHandler _engine.HeartLost, AddressOf OnHeartLost
+            AddHandler _engine.HeartGained, AddressOf OnHeartGained
             _canvas.ShowMaze(_engine.Maze, cfg.ThemeName)
             _skipCard = False
             BeginRun()
@@ -338,6 +347,8 @@ Namespace UI.Screens
         Private Sub DetachEngine(e As GameEngine)
             RemoveHandler e.WallImpacted, AddressOf OnWallImpacted
             RemoveHandler e.BallFell, AddressOf OnBallFell
+            RemoveHandler e.HeartLost, AddressOf OnHeartLost
+            RemoveHandler e.HeartGained, AddressOf OnHeartGained
         End Sub
 
         Private Sub BeginRun()
@@ -345,6 +356,7 @@ Namespace UI.Screens
             _lastTile = "0"c
             _lastWholeSecondLeft = -1
             _spawnSoundInMs = -1
+            _heartLostAgoMs = 99999.0F
             _canvas.ClearEffects()
             GoTo_(ShellScreen.Intro)
         End Sub
@@ -508,6 +520,18 @@ Namespace UI.Screens
             _canvas.AddHoleFall(e.HoleX, e.HoleY)
             _sound.Play("hole_fall")
             _spawnSoundInMs = 450.0F
+        End Sub
+
+        Private Sub OnHeartLost(sender As Object, e As HeartEventArgs)
+            _heartLostAgoMs = 0
+            _heartLostIndex = e.Hearts
+            _canvas.FlashDamage()
+            _sound.Play("wall_hit", 1.0F)
+        End Sub
+
+        Private Sub OnHeartGained(sender As Object, e As HeartEventArgs)
+            _canvas.AddHeartBurst(e.X, e.Y)
+            _sound.Play("menu_confirm", 0.8F)
         End Sub
 
         Private Sub OnAttractImpact(sender As Object, e As WallImpactEventArgs)

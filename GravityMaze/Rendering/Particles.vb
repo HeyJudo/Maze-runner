@@ -71,6 +71,24 @@ Namespace Rendering
             SpawnActive = False
         End Sub
 
+        ' Heart pickup sparkle: a ring of pink/gold sparks fanning out from the pickup (tile-space).
+        Public Sub AddBurst(x As Single, y As Single)
+            For i As Integer = 1 To 14
+                If Particles.Count >= MaxParticles Then Exit For
+                Dim a As Double = rng.NextDouble() * Math.PI * 2
+                Dim v As Single = CSng(0.012 + rng.NextDouble() * 0.02)
+                Dim p As New FxParticle()
+                p.X = x
+                p.Y = y
+                p.VX = CSng(Math.Cos(a)) * v
+                p.VY = CSng(Math.Sin(a)) * v
+                p.Life = 500.0F
+                p.Size = 0.07F
+                p.IsSpark = True
+                Particles.Add(p)
+            Next
+        End Sub
+
         Public Sub UpdateMotion(bx As Single, by As Single, vx As Single, vy As Single, tile As Char)
             If FallActive Then Return
             Speed = CSng(Math.Sqrt(vx * vx + vy * vy))

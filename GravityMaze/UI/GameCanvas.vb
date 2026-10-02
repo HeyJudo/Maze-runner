@@ -34,6 +34,15 @@ Namespace UI
         Private ReadOnly activeImpacts As New List(Of ImpactEffect)()
         Private ReadOnly goalCelebration As New GoalCelebrationEffect()
         Private ReadOnly fx As New BallFxState()
+        Private _flashMs As Single      ' red damage overlay, counts down
+        Private _shakeMs As Single      ' board shake, counts down
+        Private ReadOnly _shakeRng As New Random()
+
+        ' Hearts: the engine's pickup lookup (Nothing = draw every pickup) and the invulnerable blink.
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property PickupTaken As Func(Of Integer, Integer, Boolean)
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property BallBlink As Boolean
 
         ' True while the hole-fall animation hides the real ball.
         Public ReadOnly Property IsBallHidden As Boolean
@@ -45,6 +54,19 @@ Namespace UI
         ' Called every tick right after UpdateBallPosition; tile = maze tile under the ball centre.
         Public Sub UpdateBallMotion(vx As Single, vy As Single, tile As Char)
             fx.UpdateMotion(_ballX, _ballY, vx, vy, tile)
+        End Sub
+
+        ' Pink sparkle burst at a collected heart (tile-space).
+        Public Sub AddHeartBurst(x As Single, y As Single)
+            fx.AddBurst(x, y)
+            Invalidate()
+        End Sub
+
+        ' Red flash plus a short shake when a heart is lost.
+        Public Sub FlashDamage()
+            _flashMs = 250.0F
+            _shakeMs = 200.0F
+            Invalidate()
         End Sub
 
         ' Tile-space hole centre. Starts the fall ghost, then a spawn pulse at the (already reset) ball.
@@ -78,6 +100,8 @@ Namespace UI
             End SyncLock
             goalCelebration.Reset()
             fx.Reset()
+            _flashMs = 0.0F
+            _shakeMs = 0.0F
             Invalidate()
         End Sub
 
@@ -114,6 +138,8 @@ Namespace UI
                 goalCelebration.Advance(16.0F)
             End If
             fx.Advance(16.0F, x, y)
+            If _flashMs > 0.0F Then _flashMs -= 16.0F
+            If _shakeMs > 0.0F Then _shakeMs -= 16.0F
 
             Invalidate()
         End Sub
@@ -131,8 +157,19 @@ Namespace UI
                 Dim boardArea As New Rectangle(BoardInsets.Left, BoardInsets.Top,
                                                Math.Max(0, ClientSize.Width - BoardInsets.Horizontal),
                                                Math.Max(0, ClientSize.Height - BoardInsets.Vertical))
+                Dim state As Drawing2D.GraphicsState = e.Graphics.Save()
+                If _shakeMs > 0.0F Then
+                    Dim amp As Single = 6.0F * _shakeMs / 200.0F
+                    e.Graphics.TranslateTransform(CSng(_shakeRng.NextDouble() * 2 - 1) * amp, CSng(_shakeRng.NextDouble() * 2 - 1) * amp)
+                End If
                 renderer.Draw(e.Graphics, boardArea, currentMaze, _ballX, _ballY,
-                              currentTheme, impactSnapshot, goalCelebration, fx)
+                              currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink)
+                e.Graphics.Restore(state)
+                If _flashMs > 0.0F Then
+                    Using br As New SolidBrush(Color.FromArgb(CInt(90 * _flashMs / 250.0F), 230, 30, 40))
+                        e.Graphics.FillRectangle(br, boardArea)
+                    End Using
+                End If
             End If
             OverlayPainter?.Invoke(e.Graphics, ClientRectangle)
         End Sub

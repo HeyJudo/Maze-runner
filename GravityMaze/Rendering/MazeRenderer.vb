@@ -6,6 +6,7 @@ Imports System.Drawing
 Imports System.Drawing.Drawing2D
 Imports System.Collections.Generic
 Imports GravityMaze.Levels
+Imports GravityMaze.UI
 
 Namespace Rendering
     Public NotInheritable Class MazeRenderer
@@ -24,7 +25,9 @@ Namespace Rendering
                         Optional themeName As String = "Wooden Workshop",
                         Optional impacts As IEnumerable(Of ImpactEffect) = Nothing,
                         Optional goalEffect As GoalCelebrationEffect = Nothing,
-                        Optional fx As BallFxState = Nothing)
+                        Optional fx As BallFxState = Nothing,
+                        Optional pickupTaken As Func(Of Integer, Integer, Boolean) = Nothing,
+                        Optional ballBlink As Boolean = False)
             If bounds.Width < 32 OrElse bounds.Height < 32 Then Return
 
             Dim graphicsState As GraphicsState = graphics.Save()
@@ -59,6 +62,9 @@ Namespace Rendering
                 End If
                 graphics.DrawImageUnscaled(_cache, bounds.Location)
 
+                ' Heart pickups bob and pulse, so they are drawn per frame, not in the cached board.
+                DrawPickups(graphics, left, top, tileSize, maze, pickupTaken)
+
                 ' 4. Expanding Goal Celebration Ring Effect (if active)
                 If goalEffect IsNot Nothing AndAlso goalEffect.IsActive Then
                     DrawGoalCelebration(graphics, left, top, tileSize, goalEffect, themeName)
@@ -68,7 +74,7 @@ Namespace Rendering
                 Dim ballCenter As New PointF(left + ballX * tileSize, top + ballY * tileSize)
                 Dim ballRadius As Single = tileSize * 0.27F
                 If fx IsNot Nothing Then DrawBallFxUnder(graphics, left, top, tileSize, ballRadius, fx, themeName)
-                If fx Is Nothing OrElse Not fx.FallActive Then
+                If (fx Is Nothing OrElse Not fx.FallActive) AndAlso Not (ballBlink AndAlso (Environment.TickCount64 \ 100) Mod 2 = 0) Then
                     If fx IsNot Nothing AndAlso fx.SpawnActive Then
                         ballRadius *= Math.Max(0.02F, EaseOutBack(fx.SpawnElapsed / BallFxState.SpawnMs))
                     End If
@@ -85,6 +91,28 @@ Namespace Rendering
             Finally
                 graphics.Restore(graphicsState)
             End Try
+        End Sub
+
+        ' L tiles are floor in the static board; the heart itself is drawn here unless already taken.
+        Private Shared Sub DrawPickups(graphics As Graphics, left As Single, top As Single, tileSize As Single,
+                                       maze As MazeDefinition, pickupTaken As Func(Of Integer, Integer, Boolean))
+            Dim t As Double = Environment.TickCount64
+            Dim pulse As Single = CSng(Math.Sin(t * 2.0 * Math.PI / 900.0))
+            Dim bob As Single = CSng(Math.Sin(t * 2.0 * Math.PI / 1400.0))
+            Dim size As Single = tileSize * 0.6F * (1.0F + 0.08F * pulse)
+            For r As Integer = 0 To maze.RowCount - 1
+                For c As Integer = 0 To maze.ColumnCount - 1
+                    If maze.GetTile(r, c) <> "L"c Then Continue For
+                    If pickupTaken IsNot Nothing AndAlso pickupTaken(r, c) Then Continue For
+                    Dim cx As Single = left + (c + 0.5F) * tileSize
+                    Dim cy As Single = top + (r + 0.5F) * tileSize + tileSize * 0.06F * bob
+                    Dim glowR As Single = tileSize * (0.5F + 0.05F * pulse)
+                    Using glow As New SolidBrush(Color.FromArgb(60, 255, 90, 120))
+                        graphics.FillEllipse(glow, cx - glowR, cy - glowR, glowR * 2.0F, glowR * 2.0F)
+                    End Using
+                    Sprites.DrawHeart(graphics, Sprites.Heart, New RectangleF(cx - size / 2.0F, cy - size / 2.0F, size, size))
+                Next
+            Next
         End Sub
 
         Private Shared Sub DrawStaticBoard(graphics As Graphics, bounds As Rectangle, board As RectangleF,
