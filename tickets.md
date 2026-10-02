@@ -285,8 +285,21 @@ Storage.
 -   [x] Menus are driven by tilt only (arrows or the Arduino board): tilt up/down moves, hold right confirms, hold left goes back; Enter/Esc are shortcuts.
 -   [x] Typography: Bebas Neue (display) + Rajdhani (UI), bundled OFL fonts loaded at runtime (`UI/GameFonts.vb`).
 -   [x] XML records (`Data/ScoreManager.vb`, `%AppData%\GravityMazeecords.xml`): player name, time, attempts, stars, score; personal bests, top lists, full-run records. Performance history only.
--   [x] Stars per level vs par (keyboard-bot time): 3 ≤ 1.3x, 2 ≤ 1.8x, 1 = finish. Par L1 5.4 s, L2 25.8 s, L3 28.5 s.
+-   [x] Stars per level vs par (keyboard-bot time): 3 ≤ 1.3x, 2 ≤ 1.8x, 1 = finish. Par L1 5.4 s, L2 25.8 s, L3 28.5 s (superseded by Phase 4).
 -   [x] SFX via WPF `MediaPlayer` (`Audio/SoundManager.vb`), 15 synthesized WAVs (`tools/gen_sounds.py`): wall hit (speed-scaled), ice hiss loop, boost, hole fall, spawn, goal, stars, countdown/go, last-5s ticks, time up, menu move/confirm/back, victory. M toggles sound.
 -   [x] Effects: hole-fall spiral + spawn pulse, ice spray, boost trail, motion streak (`Rendering/Particles.vb`).
 -   [x] Verification: `UiTour` plays the whole shell end to end with the demo pilot and saves `screenshots/ui/*.png`.
 -   [ ] Listen-test the synthesized sounds on real speakers and tune volumes.
+
+## Phase 4: Hearts, Heart Pickups and Wider Mazes
+
+**What to build:** 3 hearts per level; walls and pits cost one, pickups refill one, 0 hearts fails the level. Corridors widened to 2 tiles so the rule is fair.
+
+**Blocked by:** Phase 3.
+
+-   [x] Mazes widened to 2-wide corridors (L1 14x14, L2 31x31, L3 37x37) by `tools/widen_maze.py` from `tools/maze_src/`; new `L` tile = heart pickup (1 / 2 / 3 per level, on dead ends off the solution path).
+-   [x] `GameEngine`: hearts, one heart per new wall contact (edge-triggered, 1 s invulnerability), pit costs a heart, `OutOfHearts` state, pickups, `HeartsEnabled = False` for the attract demo and test bots. Pits spanning several tiles have no safe seams.
+-   [x] Heart sprites in `GravityMaze/Sprites/`; HUD hearts with drain animation, bobbing pickups on the board, red flash + shake + sound on a hit, ball blinks while invulnerable, sparkle on pickup.
+-   [x] OUT OF HEARTS screen (RETRY / MAIN MENU), hearts entry in How To Play.
+-   [x] Re-tuned par (keyboard bot): L1 7.3 s, L2 36.9 s, L3 40.2 s; Level 3 limit 57 s (1.4x par).
+-   [ ] Play-test the feel: heart pickup placement, 1 s invulnerability, hit sound/shake strength.
