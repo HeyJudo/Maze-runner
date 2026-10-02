@@ -17,6 +17,26 @@ Namespace UI
         Private currentMaze As MazeDefinition
         Private currentTheme As String = "Wooden Workshop"
         Private ReadOnly renderer As New MazeRenderer()
+        Private ReadOnly perspective As New PerspectiveSurface()
+        Private ReadOnly tilt As New BoardTilt()
+        Private _tiltViewEnabled As Boolean = True
+
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property TiltViewEnabled As Boolean
+            Get
+                Return _tiltViewEnabled
+            End Get
+            Set(value As Boolean)
+                _tiltViewEnabled = value
+                tilt.Reset()
+                Invalidate()
+            End Set
+        End Property
+
+        ' The shell sends the same resolved input used by physics, only during active play.
+        Public Sub UpdateBoardTilt(x As Single, y As Single, elapsedMs As Single)
+            If _tiltViewEnabled Then tilt.Advance(x, y, elapsedMs)
+        End Sub
 
         ' Ball position in tile-space, updated each tick by the game loop.
         Private _ballX As Single
@@ -95,6 +115,7 @@ Namespace UI
 
         ' Clears all active impact animations and goal celebrations.
         Public Sub ClearEffects()
+            tilt.Reset()
             SyncLock activeImpacts
                 activeImpacts.Clear()
             End SyncLock
@@ -162,8 +183,16 @@ Namespace UI
                     Dim amp As Single = 6.0F * _shakeMs / 200.0F
                     e.Graphics.TranslateTransform(CSng(_shakeRng.NextDouble() * 2 - 1) * amp, CSng(_shakeRng.NextDouble() * 2 - 1) * amp)
                 End If
-                renderer.Draw(e.Graphics, boardArea, currentMaze, _ballX, _ballY,
-                              currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink)
+                If TiltViewEnabled Then
+                    perspective.Draw(e.Graphics, boardArea, tilt,
+                        Sub(g As Graphics, area As Rectangle)
+                            renderer.Draw(g, area, currentMaze, _ballX, _ballY,
+                                          currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink)
+                        End Sub)
+                Else
+                    renderer.Draw(e.Graphics, boardArea, currentMaze, _ballX, _ballY,
+                                  currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink)
+                End If
                 e.Graphics.Restore(state)
                 If _flashMs > 0.0F Then
                     Using br As New SolidBrush(Color.FromArgb(CInt(90 * _flashMs / 250.0F), 230, 30, 40))
@@ -172,6 +201,14 @@ Namespace UI
                 End If
             End If
             OverlayPainter?.Invoke(e.Graphics, ClientRectangle)
+        End Sub
+
+        Protected Overrides Sub Dispose(disposing As Boolean)
+            If disposing Then
+                perspective.Dispose()
+                renderer.Dispose()
+            End If
+            MyBase.Dispose(disposing)
         End Sub
     End Class
 End Namespace

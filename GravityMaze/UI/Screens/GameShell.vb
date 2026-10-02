@@ -82,7 +82,7 @@ Namespace UI.Screens
         ' Menus
         Private ReadOnly _titleMenu As New MenuList("PLAY", "LEVEL SELECT", "RECORDS", "HOW TO PLAY", "CHANGE PLAYER", "QUIT")
         Private ReadOnly _levelMenu As New MenuList()
-        Private ReadOnly _pauseMenu As New MenuList("RESUME", "RESTART LEVEL", "MAIN MENU")
+        Private ReadOnly _pauseMenu As New MenuList("RESUME", "RESTART LEVEL", "MAIN MENU", "TILT VIEW: ON")
         Private ReadOnly _completeMenu As New MenuList()
         Private ReadOnly _timeUpMenu As New MenuList("RETRY", "MAIN MENU")
         Private ReadOnly _heartsMenu As New MenuList("RETRY", "MAIN MENU")
@@ -149,6 +149,7 @@ Namespace UI.Screens
             _heartLostAgoMs += TickMs
             Dim tx As Single = _input.TiltX
             Dim ty As Single = _input.TiltY
+            If _screen = ShellScreen.Playing AndAlso _completedAtMs < 0 Then _canvas.UpdateBoardTilt(tx, ty, TickMs)
 
             Select Case _screen
                 Case ShellScreen.Title
@@ -510,6 +511,7 @@ Namespace UI.Screens
                 Case 0 : ResumeGame()
                 Case 1 : Retry()
                 Case 2 : ToMainMenu()
+                Case 3 : ToggleTiltView()
             End Select
         End Sub
 
@@ -583,6 +585,10 @@ Namespace UI.Screens
 
         ' ── Keyboard shortcuts (tilt handles navigation) ────────────────────
         Public Function HandleKey(key As Keys) As Boolean
+            If key = Keys.F8 Then
+                ToggleTiltView()
+                Return True
+            End If
             If key = Keys.M Then
                 _sound.Muted = Not _sound.Muted
                 Return True
@@ -632,6 +638,11 @@ Namespace UI.Screens
             End Select
             Return False
         End Function
+
+        Private Sub ToggleTiltView()
+            _canvas.TiltViewEnabled = Not _canvas.TiltViewEnabled
+            _pauseMenu.Items(3) = "TILT VIEW: " & If(_canvas.TiltViewEnabled, "ON", "OFF")
+        End Sub
 
         Public Sub HandleChar(ch As Char)
             If _screen <> ShellScreen.NameEntry Then Return

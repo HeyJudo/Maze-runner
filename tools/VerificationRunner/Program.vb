@@ -21,6 +21,10 @@ Namespace VerificationRunner
 
         <STAThread>
         Public Sub Main()
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--perspective-only") >= 0 Then
+                PerspectiveTour.Run(Path.Combine(AppContext.BaseDirectory, "perspective-checks"))
+                Return
+            End If
             Console.WriteLine("==================================================")
             Console.WriteLine(" GRAVITY MAZE - AUTOMATED VERIFICATION SUITE")
             Console.WriteLine("==================================================")

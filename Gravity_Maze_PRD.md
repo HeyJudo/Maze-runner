@@ -95,7 +95,13 @@ Maze size: - 25x25
 Style: Premium arcade puzzle game.
 
 Decisions: - Same metallic ball across all levels - Different themes per
-level - Fixed camera - Visual effects instead of camera movement
+level - Slightly angled board with subtle perspective tilt driven by the
+resolved Arduino/keyboard input - Stationary HUD and menus
+
+The perspective view is visual only: physics and collision coordinates remain
+in tile space. Visual tilt eases toward input during play, holds while paused
+or showing results, and returns to its resting pose on level load/restart.
+Players can restore the original top-down view with F8 or the pause menu.
 
 Effects: - Ball shadow - Goal animation - Collision feedback - Zone
 effects
