@@ -7,5 +7,6 @@ Namespace Engine
         Playing        ' Ball is in motion; timer is counting.
         LevelComplete  ' Ball reached the goal; timer stopped.
         TimeUp         ' Countdown expired before reaching the goal (Level 3).
+        OutOfHearts    ' Lost every heart before reaching the goal.
     End Enum
 End Namespace

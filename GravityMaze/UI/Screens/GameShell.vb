@@ -395,7 +395,7 @@ Namespace UI.Screens
                 _lastWholeSecondLeft = whole
             End If
 
-            If _engine.State = GameState.TimeUp Then
+            If _engine.State = GameState.TimeUp OrElse _engine.State = GameState.OutOfHearts Then
                 _sound.Play("time_up")
                 GoTo_(ShellScreen.TimeUp)
             ElseIf _engine.State = GameState.LevelComplete Then
@@ -518,7 +518,7 @@ Namespace UI.Screens
         Private Sub StartAttract()
             If _attractEngine IsNot Nothing Then RemoveHandler _attractEngine.WallImpacted, AddressOf OnAttractImpact
             Dim maze As MazeDefinition = MazeFor(_attractLevel)
-            _attractEngine = New GameEngine(maze, 0)
+            _attractEngine = New GameEngine(maze, 0) With {.HeartsEnabled = False}
             AddHandler _attractEngine.WallImpacted, AddressOf OnAttractImpact
             _attractPilot = New AttractPilot(maze)
             _attractDoneMs = -1

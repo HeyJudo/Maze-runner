@@ -2,6 +2,7 @@ Option Strict On
 Option Explicit On
 
 Imports System
+Imports System.Collections.Generic
 Imports GravityMaze.Levels
 
 Namespace Engine
@@ -43,6 +44,19 @@ Namespace Engine
 
         ' Ball drops when its centre is this close to a hole's centre (edges can be grazed).
         Private Const HoleRadius As Single = 0.4F
+
+        ' Hearts: any new wall contact or pit costs one; L tiles refill one.
+        Public Const MaxHearts As Integer = 3
+        Public Const InvulnerableMs As Single = 1000.0F
+        Private Const PickupRadius As Single = 0.45F
+        Public Property HeartsEnabled As Boolean = True      ' False for the attract demo and test bots
+
+        Public Event HeartLost As EventHandler(Of HeartEventArgs)
+        Public Event HeartGained As EventHandler(Of HeartEventArgs)
+
+        Private _hearts As Integer = MaxHearts
+        Private _invulnerableMs As Single
+        Private ReadOnly _takenPickups As New HashSet(Of Integer)   ' row * ColumnCount + col
 
         ' Ball state in tile-space.
         Private _ballX As Single
@@ -153,6 +167,39 @@ Namespace Engine
             _inContactRight = False
             _inContactTop = False
             _inContactBottom = False
+            _hearts = MaxHearts
+            _invulnerableMs = 0.0F
+            _takenPickups.Clear()
+        End Sub
+
+        Public ReadOnly Property Hearts As Integer
+            Get
+                Return _hearts
+            End Get
+        End Property
+
+        Public ReadOnly Property IsInvulnerable As Boolean
+            Get
+                Return _invulnerableMs > 0.0F
+            End Get
+        End Property
+
+        Public Function IsPickupTaken(row As Integer, col As Integer) As Boolean
+            Return _takenPickups.Contains(row * _maze.ColumnCount + col)
+        End Function
+
+        ' Costs one heart unless invulnerable (pits pass ignoreInvulnerable).
+        Private Sub TakeHit(x As Single, y As Single, ignoreInvulnerable As Boolean)
+            If Not HeartsEnabled OrElse _state <> GameState.Playing Then Return
+            If Not ignoreInvulnerable AndAlso _invulnerableMs > 0.0F Then Return
+            _hearts -= 1
+            _invulnerableMs = InvulnerableMs
+            RaiseEvent HeartLost(Me, New HeartEventArgs(x, y, _hearts))
+            If _hearts <= 0 Then
+                _state = GameState.OutOfHearts
+                _velocityX = 0.0F
+                _velocityY = 0.0F
+            End If
         End Sub
 
         ' ── Game loop ──────────────────────────────────────────────────────
@@ -160,6 +207,7 @@ Namespace Engine
         ' Does nothing if the level is already complete.
         Public Sub Update(tiltX As Single, tiltY As Single)
             If _state <> GameState.Playing Then Return
+            If _invulnerableMs > 0.0F Then _invulnerableMs -= MsPerTick
 
             ' Determine current tile modifiers
             Dim cRow As Integer = Math.Max(0, Math.Min(_maze.RowCount - 1, CInt(Math.Floor(_ballY))))
@@ -205,6 +253,7 @@ Namespace Engine
                         If Not _inContactRight AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(contactX, _ballY, -1.0F, 0.0F, impactSpeed))
                         End If
+                        If Not _inContactRight Then TakeHit(contactX, _ballY, False)
                         _inContactRight = True
                     Else
                         contactX = CSng(Math.Ceiling(newX - BallRadius))
@@ -212,6 +261,7 @@ Namespace Engine
                         If Not _inContactLeft AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(contactX, _ballY, 1.0F, 0.0F, impactSpeed))
                         End If
+                        If Not _inContactLeft Then TakeHit(contactX, _ballY, False)
                         _inContactLeft = True
                     End If
                     _velocityX = 0.0F
@@ -237,6 +287,7 @@ Namespace Engine
                         If Not _inContactBottom AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(_ballX, contactY, 0.0F, -1.0F, impactSpeed))
                         End If
+                        If Not _inContactBottom Then TakeHit(_ballX, contactY, False)
                         _inContactBottom = True
                     Else
                         contactY = CSng(Math.Ceiling(newY - BallRadius))
@@ -244,6 +295,7 @@ Namespace Engine
                         If Not _inContactTop AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(_ballX, contactY, 0.0F, 1.0F, impactSpeed))
                         End If
+                        If Not _inContactTop Then TakeHit(_ballX, contactY, False)
                         _inContactTop = True
                     End If
                     _velocityY = 0.0F
@@ -256,6 +308,9 @@ Namespace Engine
                 If tiltY < -0.1F Then _inContactBottom = False
                 If tiltY > 0.1F Then _inContactTop = False
             End If
+
+            ' A final hit must not be overwritten by the timer or goal checks below.
+            If _state <> GameState.Playing Then Return
 
             ' 6. Advance timer.
             _elapsedMs += MsPerTick
@@ -277,7 +332,21 @@ Namespace Engine
                 _ballY = _maze.StartRow + 0.5F
                 _velocityX = 0.0F
                 _velocityY = 0.0F
+                TakeHit(hCol + 0.5F, hRow + 0.5F, True)
                 Return
+            End If
+
+            ' 7b. Heart pickups — only when a heart is missing; a taken pickup stays gone until Reset.
+            If HeartsEnabled AndAlso _hearts < MaxHearts AndAlso hRow >= 0 AndAlso hRow < _maze.RowCount AndAlso
+               hCol >= 0 AndAlso hCol < _maze.ColumnCount AndAlso _maze.GetTile(hRow, hCol) = "L"c AndAlso
+               Not IsPickupTaken(hRow, hCol) Then
+                Dim pdx As Single = _ballX - (hCol + 0.5F)
+                Dim pdy As Single = _ballY - (hRow + 0.5F)
+                If pdx * pdx + pdy * pdy <= PickupRadius * PickupRadius Then
+                    _takenPickups.Add(hRow * _maze.ColumnCount + hCol)
+                    _hearts += 1
+                    RaiseEvent HeartGained(Me, New HeartEventArgs(hCol + 0.5F, hRow + 0.5F, _hearts))
+                End If
             End If
 
             ' 8. Goal detection — ball centre within GoalRadius of goal centre.
@@ -344,6 +413,21 @@ Namespace Engine
             Next
             Return False
         End Function
+    End Class
+
+    ' Where a heart was lost or gained (tile-space) and how many remain.
+    Public NotInheritable Class HeartEventArgs
+        Inherits EventArgs
+
+        Public ReadOnly Property X As Single
+        Public ReadOnly Property Y As Single
+        Public ReadOnly Property Hearts As Integer
+
+        Public Sub New(x As Single, y As Single, hearts As Integer)
+            Me.X = x
+            Me.Y = y
+            Me.Hearts = hearts
+        End Sub
     End Class
 
     ' Hole centre (tile-space) where the ball fell, for effects and sound.

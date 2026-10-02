@@ -53,6 +53,7 @@ Namespace VerificationRunner
 
             ' --- TEST 5: Collision Detection and Impact Suppression ---
             TestCollisionAndImpact(New MazeDefinition({"11111", "1S001", "10001", "100G1", "11111"}))
+            TestHearts()
 
             ' --- TEST 6: Goal Completion Single-Trigger & Timer Stop ---
             TestGoalCompletion(maze2)
@@ -245,7 +246,7 @@ Namespace VerificationRunner
         ' It steers toward a target velocity and brakes early on ice.
         Private Function KeyboardBotRun(maze As MazeDefinition) As Integer
             Dim path As List(Of Point) = FindShortestPath(maze)
-            Dim engine As New GameEngine(maze, 0)
+            Dim engine As New GameEngine(maze, 0) With {.HeartsEnabled = False}
             Dim falls As Integer = 0
             AddHandler engine.BallFell, Sub(s As Object, e As BallFellEventArgs) falls += 1
             Dim waypointIndex As Integer = 1
@@ -291,6 +292,70 @@ Namespace VerificationRunner
             End If
         End Sub
 
+        Private Sub TestHearts()
+            Console.WriteLine("[TEST] Hearts: walls, pits, pickups, out of hearts...")
+            Dim room As New MazeDefinition({"11111", "1S001", "10001", "100G1", "11111"})
+
+            ' One contact = one heart; staying pinned costs nothing more, even after invulnerability ends.
+            Dim e As New GameEngine(room, 0)
+            Dim lost As Integer = 0
+            AddHandler e.HeartLost, Sub(s As Object, a As HeartEventArgs) lost += 1
+            Check(e.Hearts = GameEngine.MaxHearts, "starts with full hearts")
+            For i As Integer = 1 To 94 : e.Update(-1.0F, 0.0F) : Next   ' ~1.5 s pinned to the left wall
+            Check(e.Hearts = 2 AndAlso lost = 1, $"pinned for 1.5 s: hearts={e.Hearts}, events={lost}")
+            Check(Not e.IsInvulnerable, "invulnerability ends after 1 s")
+
+            ' Leave the wall, come back after invulnerability: one more heart.
+            For i As Integer = 1 To 20 : e.Update(1.0F, 0.0F) : Next
+            For i As Integer = 1 To 40 : e.Update(-1.0F, 0.0F) : Next
+            Check(e.Hearts = 1, $"second contact: hearts={e.Hearts}")
+
+            ' Contact during invulnerability is free.
+            Dim f As New GameEngine(room, 0)
+            For i As Integer = 1 To 30 : f.Update(-1.0F, 0.0F) : Next
+            For i As Integer = 1 To 8 : f.Update(1.0F, 0.0F) : Next
+            For i As Integer = 1 To 10 : f.Update(-1.0F, 0.0F) : Next
+            Check(f.Hearts = 2, $"re-hit inside 1 s must be free: hearts={f.Hearts}")
+
+            ' Pits always cost a heart and respawn; 3 pits = out of hearts; Update is then a no-op.
+            Dim pit As New MazeDefinition({"1111111", "1S0H0G1", "1111111"})
+            Dim p As New GameEngine(pit, 0)
+            Dim falls As Integer = 0
+            AddHandler p.BallFell, Sub(s As Object, a As BallFellEventArgs) falls += 1
+            For i As Integer = 1 To 600
+                p.Update(1.0F, 0.0F)
+                If p.State <> GameState.Playing Then Exit For
+            Next
+            Check(falls = 3 AndAlso p.Hearts = 0 AndAlso p.State = GameState.OutOfHearts, $"pits: falls={falls} hearts={p.Hearts} state={p.State}")
+            Dim bx As Single = p.BallX
+            p.Update(1.0F, 0.0F)
+            Check(p.BallX = bx, "no movement after OutOfHearts")
+
+            ' Reset restores hearts and state.
+            p.Reset()
+            Check(p.Hearts = GameEngine.MaxHearts AndAlso p.State = GameState.Playing AndAlso Not p.IsInvulnerable, "Reset restores hearts")
+
+            ' Pickups: not taken at full hearts; taken at 2 hearts; restored by Reset.
+            Dim pk As New MazeDefinition({"1111111", "1S0L001", "10000G1", "1111111"})
+            Dim k As New GameEngine(pk, 0)
+            For i As Integer = 1 To 36 : k.Update(1.0F, 0.0F) : Next      ' x≈3.9: just rolled over L at full hearts
+            Check(Not k.IsPickupTaken(1, 3) AndAlso k.Hearts = 3, "pickup must stay at full hearts")
+            Dim k2 As New GameEngine(pk, 0)
+            Dim gained As Integer = 0
+            AddHandler k2.HeartGained, Sub(s As Object, a As HeartEventArgs) gained += 1
+            For i As Integer = 1 To 10 : k2.Update(-1.0F, 0.0F) : Next     ' wall hit -> 2 hearts
+            For i As Integer = 1 To 40 : k2.Update(1.0F, 0.0F) : Next      ' x≈4.1: past L, short of the right wall
+            Check(k2.Hearts = 3 AndAlso gained = 1 AndAlso k2.IsPickupTaken(1, 3), $"pickup: hearts={k2.Hearts} gained={gained}")
+            k2.Reset()
+            Check(Not k2.IsPickupTaken(1, 3), "Reset restores pickups")
+
+            ' Hearts disabled: nothing ever changes.
+            Dim d As New GameEngine(pit, 0) With {.HeartsEnabled = False}
+            For i As Integer = 1 To 300 : d.Update(1.0F, 0.0F) : Next
+            Check(d.Hearts = GameEngine.MaxHearts AndAlso d.State = GameState.Playing, "HeartsEnabled=False must not cost hearts")
+            Console.WriteLine("  -> contact edge-trigger, 1 s invulnerability, pits, pickups, reset, disabled mode.")
+        End Sub
+
         Private Sub TestWidenedMazes(m1 As MazeDefinition, m2 As MazeDefinition, m3 As MazeDefinition)
             Console.WriteLine("[TEST] Widened mazes + heart pickups...")
             Dim expected = {(m1, 14, 1), (m2, 31, 2), (m3, 37, 3)}
@@ -315,7 +380,7 @@ Namespace VerificationRunner
             ' Rows 1-2 form a 2-wide corridor; the pit is columns 4-5 of both rows.
             Dim maze As New MazeDefinition({"111111111", "1S00HH0G1", "10000H001", "111111111"})
             For Each ty As Single In {0.0F, 1.0F, -1.0F}
-                Dim engine As New GameEngine(maze, 0)
+                Dim engine As New GameEngine(maze, 0) With {.HeartsEnabled = False}
                 Dim fell As Boolean = False
                 AddHandler engine.BallFell, Sub(s As Object, e As BallFellEventArgs) fell = True
                 For i As Integer = 1 To 200
