@@ -31,6 +31,7 @@ Namespace UI.Screens
                 Case ShellScreen.Paused : DrawHud(g, b, s, pal) : DrawPaused(g, b, s, pal)
                 Case ShellScreen.LevelComplete : DrawHud(g, b, s, pal) : DrawLevelComplete(g, b, s, pal)
                 Case ShellScreen.TimeUp : DrawHud(g, b, s, pal) : DrawTimeUp(g, b, s, pal)
+                Case ShellScreen.OutOfHearts : DrawHud(g, b, s, pal) : DrawOutOfHearts(g, b, s, pal)
                 Case ShellScreen.Victory : DrawVictory(g, b, s, pal)
             End Select
 
@@ -288,9 +289,10 @@ Namespace UI.Screens
                 ("ice", "Ice: almost no grip. Brake early"),
                 ("boost", "Boost: launches you. Pits wait past the turn"),
                 ("hole", "Hole: fall in and you restart from the entrance"),
+                ("heart", "Hearts: walls and pits cost one. Grab more"),
                 ("star", "Stars: beat the par time for up to three")}
             For i As Integer = 0 To items.Length - 1
-                Dim iy As Single = right.Y + 96 * s + i * 60 * s
+                Dim iy As Single = right.Y + 96 * s + i * 52 * s
                 DrawLegendIcon(g, items(i).Item1, right.X + 50 * s, iy + 14 * s, 20 * s, pal)
                 UiDraw.Text(g, items(i).Item2, body, pal.Text, right.X + 92 * s, iy)
             Next
@@ -321,6 +323,8 @@ Namespace UI.Screens
                         g.FillEllipse(br, cx - r, cy - r, r * 2, r * 2)
                         g.DrawEllipse(p, cx - r, cy - r, r * 2, r * 2)
                     End Using
+                Case "heart"
+                    Sprites.DrawHeart(g, Sprites.Heart, New RectangleF(cx - r, cy - r, r * 2, r * 2))
                 Case Else
                     UiDraw.Star(g, cx, cy, r, True, pal.Accent)
             End Select
@@ -555,6 +559,27 @@ Namespace UI.Screens
             UiDraw.GlowText(g, "TIME'S UP", GameFonts.Display(170 * s), pal.Text, Danger, cx, y + 36 * s, 0.5F, 6 * s, 6 * s)
             UiDraw.Text(g, $"Attempt {_engine.Attempts}  ·  Tip: brake on the boost, before the corner.", GameFonts.Body(28 * s), pal.TextDim, cx, y + 230 * s, 0.5F)
             If _screenMs > 600 Then DrawMenu(g, _timeUpMenu, cx, y + 300 * s, s, pal, 0.5F, 36, 60)
+        End Sub
+
+        ' ── Out of hearts ───────────────────────────────────────────────────
+        Private Sub DrawOutOfHearts(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim appear As Single = UiDraw.EaseOutBack(_screenMs / 450.0F)
+            Using red As New SolidBrush(Color.FromArgb(CInt(90 * Math.Max(0, 1 - _screenMs / 500.0F)), Danger))
+                g.FillRectangle(red, b)
+            End Using
+            Dim_(g, b, CInt(175 * Math.Min(1.0F, _screenMs / 300.0F)))
+            Dim cx As Single = b.Width / 2.0F
+            Dim y As Single = b.Height * 0.22F + (1 - appear) * 60 * s
+            UiDraw.Panel(g, New RectangleF(cx - 420 * s, y - 50 * s, 840 * s, 580 * s), pal.Panel, Danger, 18 * s)
+            UiDraw.Text(g, "NO HEARTS LEFT", GameFonts.Body(24 * s, GameFonts.FontWeight.Bold), Danger, cx, y, 0.5F, 8 * s)
+            Dim hs As Single = 48 * s
+            Dim empty As Image = Sprites.HeartFrame(Sprites.EmptyFrame)
+            For i As Integer = 0 To GameEngine.MaxHearts - 1
+                Sprites.DrawHeart(g, empty, New RectangleF(cx - 1.5F * hs - hs * 0.25F + i * hs * 1.25F, y + 40 * s, hs, hs), If(empty Is Nothing, 0.3F, 1.0F))
+            Next
+            UiDraw.GlowText(g, "OUT OF HEARTS", GameFonts.Display(130 * s), pal.Text, Danger, cx, y + 100 * s, 0.5F, 6 * s, 6 * s)
+            UiDraw.Text(g, $"Attempt {_engine.Attempts}  ·  Tip: gentle tilts — walls cost hearts.", GameFonts.Body(28 * s), pal.TextDim, cx, y + 280 * s, 0.5F)
+            If _screenMs > 600 Then DrawMenu(g, _heartsMenu, cx, y + 350 * s, s, pal, 0.5F, 36, 60)
         End Sub
 
         ' ── Victory ─────────────────────────────────────────────────────────

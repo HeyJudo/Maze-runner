@@ -24,6 +24,7 @@ Namespace UI.Screens
         Paused
         LevelComplete
         TimeUp
+        OutOfHearts
         Victory
     End Enum
 
@@ -84,6 +85,7 @@ Namespace UI.Screens
         Private ReadOnly _pauseMenu As New MenuList("RESUME", "RESTART LEVEL", "MAIN MENU")
         Private ReadOnly _completeMenu As New MenuList()
         Private ReadOnly _timeUpMenu As New MenuList("RETRY", "MAIN MENU")
+        Private ReadOnly _heartsMenu As New MenuList("RETRY", "MAIN MENU")
         Private ReadOnly _victoryMenu As New MenuList("VIEW RECORDS", "MAIN MENU")
         Private ReadOnly _backMenu As New MenuList("BACK")
         Private ReadOnly _nameMenu As New MenuList("CONFIRM")
@@ -129,6 +131,7 @@ Namespace UI.Screens
                 Case ShellScreen.Paused : Return _pauseMenu
                 Case ShellScreen.LevelComplete : Return _completeMenu
                 Case ShellScreen.TimeUp : Return _timeUpMenu
+                Case ShellScreen.OutOfHearts : Return _heartsMenu
                 Case ShellScreen.Victory : Return _victoryMenu
             End Select
             Return Nothing
@@ -191,6 +194,10 @@ Namespace UI.Screens
                 Case ShellScreen.TimeUp
                     If _screenMs > 600 AndAlso Nav(_timeUpMenu, tx, ty) = MenuAction.Confirm Then
                         If _timeUpMenu.Selected = 0 Then Retry() Else ToMainMenu()
+                    End If
+                Case ShellScreen.OutOfHearts
+                    If _screenMs > 600 AndAlso Nav(_heartsMenu, tx, ty) = MenuAction.Confirm Then
+                        If _heartsMenu.Selected = 0 Then Retry() Else ToMainMenu()
                     End If
                 Case ShellScreen.Victory
                     If _screenMs > 1500 AndAlso Nav(_victoryMenu, tx, ty) = MenuAction.Confirm Then
@@ -263,6 +270,7 @@ Namespace UI.Screens
                 Case ShellScreen.NameEntry : _nameMenu.Reset()
                 Case ShellScreen.Paused : _pauseMenu.Reset()
                 Case ShellScreen.TimeUp : _timeUpMenu.Reset()
+                Case ShellScreen.OutOfHearts : _heartsMenu.Reset()
                 Case ShellScreen.Victory : _victoryMenu.Reset()
             End Select
             If screen <> ShellScreen.Playing Then _sound.StopLoop("ice_slide")
@@ -407,9 +415,12 @@ Namespace UI.Screens
                 _lastWholeSecondLeft = whole
             End If
 
-            If _engine.State = GameState.TimeUp OrElse _engine.State = GameState.OutOfHearts Then
+            If _engine.State = GameState.TimeUp Then
                 _sound.Play("time_up")
                 GoTo_(ShellScreen.TimeUp)
+            ElseIf _engine.State = GameState.OutOfHearts Then
+                _sound.Play("time_up")
+                GoTo_(ShellScreen.OutOfHearts)
             ElseIf _engine.State = GameState.LevelComplete Then
                 If _completedAtMs < 0 Then
                     _completedAtMs = _screenMs
@@ -608,6 +619,9 @@ Namespace UI.Screens
                     If key = Keys.R Then CompleteChoice(_completeMenu.Items.IndexOf("RETRY")) : Return True
                 Case ShellScreen.TimeUp
                     If key = Keys.R OrElse (IsEnter(key) AndAlso _timeUpMenu.Selected = 0) Then Retry() : Return True
+                    If IsEnter(key) OrElse key = Keys.Escape Then ToMainMenu() : Return True
+                Case ShellScreen.OutOfHearts
+                    If key = Keys.R OrElse (IsEnter(key) AndAlso _heartsMenu.Selected = 0) Then Retry() : Return True
                     If IsEnter(key) OrElse key = Keys.Escape Then ToMainMenu() : Return True
                 Case ShellScreen.Victory
                     If _screenMs > 1500 AndAlso IsEnter(key) Then

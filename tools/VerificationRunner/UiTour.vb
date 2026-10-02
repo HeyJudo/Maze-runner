@@ -143,6 +143,22 @@ Namespace VerificationRunner
             Expect(ShellScreen.TimeUp)
             Shot("ui_13_time_up")
 
+            ' Out of hearts on Level 1: three wall hits (tilt into the top wall, back off, repeat).
+            Key(Keys.Escape) : Ticks(10)
+            Expect(ShellScreen.Title)
+            MoveTo(1) : Key(Keys.Enter) : Ticks(10)
+            MoveTo(0) : Key(Keys.Enter)
+            Ticks(CInt((1600 + 2000) / 16) + 10)
+            Expect(ShellScreen.Playing)
+            For hit As Integer = 1 To 3
+                _tilt.Y = -1 : Ticks(20)
+                _tilt.Y = 1 : Ticks(30)       ' off the wall and past the 1 s invulnerability
+                _tilt.Y = 0 : Ticks(40)
+            Next
+            Ticks(60)
+            Expect(ShellScreen.OutOfHearts)
+            Shot("ui_14_out_of_hearts")
+
             Try : File.Delete(scoresPath) : Catch : End Try
             Console.WriteLine("  -> Menus, intro, countdown, play, pause, results, victory, records, time-up all reached.")
         End Sub
