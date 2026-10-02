@@ -58,6 +58,11 @@ Namespace VerificationRunner
             TestGoalCompletion(maze2)
 
             TestLevel3(maze3)
+            TestWidenedMazes(maze1, maze2, maze3)
+            For Each m In {maze1, maze2, maze3}
+                Console.WriteLine($"  -> bot clear time {m.RowCount}x{m.ColumnCount}: {KeyboardBotRun(m) * 0.016F:F1}s")
+            Next
+            TestWidePitSeam()
 
             TestScoreManager()
             TestFonts()
@@ -156,12 +161,12 @@ Namespace VerificationRunner
         Private Sub TestPhysicalClearanceAndCorners(maze As MazeDefinition)
             Console.WriteLine("[TEST 1] Verifying Level 2 Labyrinth Structure...")
 
-            If maze.RowCount <> 21 OrElse maze.ColumnCount <> 21 Then
-                Throw New Exception($"Level 2 must be 21x21, got {maze.RowCount}x{maze.ColumnCount}")
+            If maze.RowCount <> 31 OrElse maze.ColumnCount <> 31 Then
+                Throw New Exception($"Level 2 must be 31x31, got {maze.RowCount}x{maze.ColumnCount}")
             End If
             If maze.StartColumn <> 0 Then Throw New Exception("Start must be an opening on the left edge.")
             If maze.GoalColumn <> maze.ColumnCount - 1 Then Throw New Exception("Goal must be an opening on the right edge.")
-            Console.WriteLine("  -> 21x21 grid, entrance on left edge, exit on right edge.")
+            Console.WriteLine("  -> 31x31 grid, entrance on left edge, exit on right edge.")
 
             ' Reachability
             Dim walkable As Integer = 0
@@ -197,16 +202,17 @@ Namespace VerificationRunner
             If rinks < 3 Then Throw New Exception($"Expected 3 ice rinks, found {rinks}")
             Console.WriteLine($"  -> {rinks} open ice rinks present.")
 
-            ' Dead ends
+            ' Dead ends: 2-wide dead ends have 2 open neighbours, so count them on the 1-wide source grid.
+            Dim src As MazeDefinition = MazeManager.LoadFromFile(Path.Combine(ProjectRoot, "tools\maze_src\Level2.txt"))
             Dim deadEnds As Integer = 0
-            For r As Integer = 1 To maze.RowCount - 2
-                For c As Integer = 1 To maze.ColumnCount - 2
-                    If maze.GetTile(r, c) = "1"c Then Continue For
+            For r As Integer = 1 To src.RowCount - 2
+                For c As Integer = 1 To src.ColumnCount - 2
+                    If src.GetTile(r, c) = "1"c Then Continue For
                     Dim n As Integer = 0
-                    If maze.GetTile(r - 1, c) <> "1"c Then n += 1
-                    If maze.GetTile(r + 1, c) <> "1"c Then n += 1
-                    If maze.GetTile(r, c - 1) <> "1"c Then n += 1
-                    If maze.GetTile(r, c + 1) <> "1"c Then n += 1
+                    If src.GetTile(r - 1, c) <> "1"c Then n += 1
+                    If src.GetTile(r + 1, c) <> "1"c Then n += 1
+                    If src.GetTile(r, c - 1) <> "1"c Then n += 1
+                    If src.GetTile(r, c + 1) <> "1"c Then n += 1
                     If n = 1 Then deadEnds += 1
                 Next
             Next
@@ -285,6 +291,42 @@ Namespace VerificationRunner
             End If
         End Sub
 
+        Private Sub TestWidenedMazes(m1 As MazeDefinition, m2 As MazeDefinition, m3 As MazeDefinition)
+            Console.WriteLine("[TEST] Widened mazes + heart pickups...")
+            Dim expected = {(m1, 14, 1), (m2, 31, 2), (m3, 37, 3)}
+            For Each e In expected
+                Dim m As MazeDefinition = e.Item1
+                Check(m.RowCount = e.Item2 AndAlso m.ColumnCount = e.Item2, $"size {m.RowCount}x{m.ColumnCount}, want {e.Item2}")
+                Dim pickups As Integer = 0
+                For r As Integer = 0 To m.RowCount - 1
+                    For c As Integer = 0 To m.ColumnCount - 1
+                        If m.GetTile(r, c) = "L"c Then pickups += 1
+                    Next
+                Next
+                Check(pickups = e.Item3, $"{e.Item2}x{e.Item2}: {pickups} pickups, want {e.Item3}")
+                Check(Flood(m, Function(t) t <> "1"c AndAlso t <> "H"c).Contains(New Point(m.GoalColumn, m.GoalRow)),
+                      "goal unreachable without crossing a pit")
+            Next
+            Console.WriteLine("  -> 14/31/37 grids, 1/2/3 pickups, goal reachable.")
+        End Sub
+
+        Private Sub TestWidePitSeam()
+            Console.WriteLine("[TEST] 2x2 pit catches a ball crossing its seam...")
+            ' Rows 1-2 form a 2-wide corridor; the pit is columns 4-5 of both rows.
+            Dim maze As New MazeDefinition({"111111111", "1S00HH0G1", "10000H001", "111111111"})
+            For Each ty As Single In {0.0F, 1.0F, -1.0F}
+                Dim engine As New GameEngine(maze, 0)
+                Dim fell As Boolean = False
+                AddHandler engine.BallFell, Sub(s As Object, e As BallFellEventArgs) fell = True
+                For i As Integer = 1 To 200
+                    engine.Update(1.0F, ty)
+                    If fell Then Exit For
+                Next
+                Check(fell, $"ball crossed the pit without falling (tiltY={ty})")
+            Next
+            Console.WriteLine("  -> pit catches the ball on the top row, the bottom row and the seam.")
+        End Sub
+
         Private Sub TestArduinoParser()
             Console.WriteLine("[TEST] Arduino serial line parser...")
             Dim x, y As Single
@@ -301,8 +343,8 @@ Namespace VerificationRunner
 
         Private Sub TestLevel3(maze As MazeDefinition)
             Console.WriteLine("[TEST 8] Verifying Level 3 Neon Velocity...")
-            If maze.RowCount <> 25 OrElse maze.ColumnCount <> 25 Then
-                Throw New Exception($"Level 3 must be 25x25, got {maze.RowCount}x{maze.ColumnCount}")
+            If maze.RowCount <> 37 OrElse maze.ColumnCount <> 37 Then
+                Throw New Exception($"Level 3 must be 37x37, got {maze.RowCount}x{maze.ColumnCount}")
             End If
             If maze.StartColumn <> 0 OrElse maze.GoalColumn <> maze.ColumnCount - 1 Then
                 Throw New Exception("Level 3 entrance/exit must be on the left/right edges.")
@@ -324,7 +366,7 @@ Namespace VerificationRunner
             If fast < 12 Then Throw New Exception($"Expected at least 12 fast tiles, found {fast}")
             Dim reach As Integer = Flood(maze, Function(t) t <> "1"c AndAlso t <> "H"c).Count
             If reach <> open Then Throw New Exception($"Unreachable tiles (holes treated as blocked): open={open}, reachable={reach}")
-            Console.WriteLine($"  -> 25x25, {holes} holes, {fast} fast tiles, all {open} floor tiles reachable without crossing a hole.")
+            Console.WriteLine($"  -> 37x37, {holes} holes, {fast} fast tiles, all {open} floor tiles reachable without crossing a hole.")
 
             Dim ticks As Integer = KeyboardBotRun(maze)
             Dim secs As Single = ticks * 0.016F

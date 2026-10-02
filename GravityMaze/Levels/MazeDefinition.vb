@@ -35,7 +35,7 @@ Namespace Levels
                 End If
                 For columnIndex As Integer = 0 To ColumnCount - 1
                     Dim tile As Char = rows(rowIndex)(columnIndex)
-                    If "10SGIMFH".IndexOf(tile) < 0 Then
+                    If "10SGIMFHL".IndexOf(tile) < 0 Then
                         Throw New ArgumentException($"Unknown maze symbol '{tile}' at row {rowIndex + 1}, column {columnIndex + 1}.")
                     End If
                     Dim isEdge As Boolean = rowIndex = 0 OrElse rowIndex = RowCount - 1 OrElse

@@ -46,9 +46,9 @@ Namespace VerificationRunner
             Directory.CreateDirectory(outDir)
             Dim gameDir As String = Path.Combine(projectRoot, "GravityMaze")
             Dim levels As New List(Of LevelConfig) From {
-                New LevelConfig(1, "Wooden Workshop", Path.Combine(gameDir, "Mazes\Level1.txt"), 0, 5.4F),
-                New LevelConfig(2, "Frozen Labyrinth", Path.Combine(gameDir, "Mazes\Level2.txt"), 0, 25.8F),
-                New LevelConfig(3, "Neon Velocity", Path.Combine(gameDir, "Mazes\Level3.txt"), 40, 28.5F)}
+                New LevelConfig(1, "Wooden Workshop", Path.Combine(gameDir, "Mazes\Level1.txt"), 0, 7.3F),
+                New LevelConfig(2, "Frozen Labyrinth", Path.Combine(gameDir, "Mazes\Level2.txt"), 0, 36.9F),
+                New LevelConfig(3, "Neon Velocity", Path.Combine(gameDir, "Mazes\Level3.txt"), 57, 40.2F)}
             Dim scoresPath As String = Path.Combine(Path.GetTempPath(), $"gm_tour_{Guid.NewGuid():N}.xml")
 
             _tilt = New FakeTilt()
@@ -134,7 +134,7 @@ Namespace VerificationRunner
             Ticks(CInt((1600 + 2000) / 16) + 10)
             Expect(ShellScreen.Playing)
             Shot("ui_12_hud_level3")
-            Ticks(CInt(40000 / 16) + 60)
+            Ticks(CInt(57000 / 16) + 60)   ' Level 3 limit (57 s)
             Expect(ShellScreen.TimeUp)
             Shot("ui_13_time_up")
 

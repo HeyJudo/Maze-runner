@@ -358,8 +358,9 @@ Namespace Rendering
         ' ── Boost Strips (Neon) ─────────────────────────────────────────────
         ' Chevrons point toward the strip end that has a pit waiting past the corner (the danger end).
         Private Shared Function BoostAngle(maze As MazeDefinition, r As Integer, c As Integer) As Single
-            Dim horizontal As Boolean = (c > 0 AndAlso maze.GetTile(r, c - 1) = "F"c) OrElse
-                                        (c < maze.ColumnCount - 1 AndAlso maze.GetTile(r, c + 1) = "F"c)
+            ' 2-wide strips have F neighbours on both axes, so the longer run decides the direction.
+            Dim horizontal As Boolean = RunLength(maze, r, c, 0, 1) + RunLength(maze, r, c, 0, -1) >=
+                                        RunLength(maze, r, c, 1, 0) + RunLength(maze, r, c, -1, 0)
             Dim dr As Integer = If(horizontal, 0, 1)
             Dim dc As Integer = If(horizontal, 1, 0)
             If Not PitAhead(maze, r, c, dr, dc) AndAlso PitAhead(maze, r, c, -dr, -dc) Then
@@ -367,6 +368,16 @@ Namespace Rendering
                 dc = -dc
             End If
             Return CSng(Math.Atan2(dr, dc) * 180.0 / Math.PI)
+        End Function
+
+        Private Shared Function RunLength(maze As MazeDefinition, r As Integer, c As Integer, dr As Integer, dc As Integer) As Integer
+            Dim n As Integer = 0
+            r += dr : c += dc
+            While r >= 0 AndAlso c >= 0 AndAlso r < maze.RowCount AndAlso c < maze.ColumnCount AndAlso maze.GetTile(r, c) = "F"c
+                n += 1
+                r += dr : c += dc
+            End While
+            Return n
         End Function
 
         Private Shared Function PitAhead(maze As MazeDefinition, r As Integer, c As Integer, dr As Integer, dc As Integer) As Boolean
@@ -852,7 +863,8 @@ Namespace Rendering
 
         ' Stable per-tile hash so procedural textures don't shimmer between redraws.
         Private Shared Function TileHash(r As Integer, c As Integer) As Integer
-            Return ((r * 73856093) Xor (c * 19349663)) And &H7FFFFFFF
+            ' Long math: the products overflow Integer on grids past ~29 rows.
+            Return CInt(((CLng(r) * 73856093L) Xor (CLng(c) * 19349663L)) And &H7FFFFFFFL)
         End Function
 
         Private Shared Function Clamp(v As Integer) As Integer

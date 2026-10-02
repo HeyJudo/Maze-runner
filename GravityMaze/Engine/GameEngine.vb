@@ -267,22 +267,17 @@ Namespace Engine
                 Return
             End If
 
-            ' 7. Holes — ball centre within HoleRadius of a hole centre drops it back to start.
-            ' Timer keeps running; attempts do not change.
+            ' 7. Holes — the centre must be on an H tile and clear of any edge that borders solid floor,
+            ' so multi-tile pits have no safe seams. Timer keeps running; attempts do not change.
             Dim hRow As Integer = CInt(Math.Floor(_ballY))
             Dim hCol As Integer = CInt(Math.Floor(_ballX))
-            If hRow >= 0 AndAlso hRow < _maze.RowCount AndAlso hCol >= 0 AndAlso hCol < _maze.ColumnCount AndAlso
-               _maze.GetTile(hRow, hCol) = "H"c Then
-                Dim hdx As Single = _ballX - (hCol + 0.5F)
-                Dim hdy As Single = _ballY - (hRow + 0.5F)
-                If hdx * hdx + hdy * hdy <= HoleRadius * HoleRadius Then
-                    RaiseEvent BallFell(Me, New BallFellEventArgs(hCol + 0.5F, hRow + 0.5F))
-                    _ballX = _maze.StartColumn + 0.5F
-                    _ballY = _maze.StartRow + 0.5F
-                    _velocityX = 0.0F
-                    _velocityY = 0.0F
-                    Return
-                End If
+            If OverHole(hRow, hCol) Then
+                RaiseEvent BallFell(Me, New BallFellEventArgs(hCol + 0.5F, hRow + 0.5F))
+                _ballX = _maze.StartColumn + 0.5F
+                _ballY = _maze.StartRow + 0.5F
+                _velocityX = 0.0F
+                _velocityY = 0.0F
+                Return
             End If
 
             ' 8. Goal detection — ball centre within GoalRadius of goal centre.
@@ -298,6 +293,22 @@ Namespace Engine
                 End If
             End If
         End Sub
+
+        Private Function IsHole(r As Integer, c As Integer) As Boolean
+            Return r >= 0 AndAlso r < _maze.RowCount AndAlso c >= 0 AndAlso c < _maze.ColumnCount AndAlso _maze.GetTile(r, c) = "H"c
+        End Function
+
+        Private Function OverHole(r As Integer, c As Integer) As Boolean
+            If Not IsHole(r, c) Then Return False
+            Dim m As Single = 0.5F - HoleRadius
+            Dim fx As Single = _ballX - c
+            Dim fy As Single = _ballY - r
+            If fx < m AndAlso Not IsHole(r, c - 1) Then Return False
+            If fx > 1.0F - m AndAlso Not IsHole(r, c + 1) Then Return False
+            If fy < m AndAlso Not IsHole(r - 1, c) Then Return False
+            If fy > 1.0F - m AndAlso Not IsHole(r + 1, c) Then Return False
+            Return True
+        End Function
 
         ' ── Collision helpers ───────────────────────────────────────────────
         Private Function WallBlocksX(newX As Single) As Boolean

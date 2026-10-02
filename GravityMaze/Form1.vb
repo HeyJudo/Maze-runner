@@ -41,9 +41,9 @@ Public Class Form1
 
         ' Par = keyboard-bot clear time (VerificationRunner); Level 3 limit = 1.4x its par.
         Dim levels As New List(Of LevelConfig) From {
-            New LevelConfig(1, "Wooden Workshop", "Mazes\Level1.txt", 0, 5.4F),
-            New LevelConfig(2, "Frozen Labyrinth", "Mazes\Level2.txt", 0, 25.8F),
-            New LevelConfig(3, "Neon Velocity", "Mazes\Level3.txt", 40, 28.5F)
+            New LevelConfig(1, "Wooden Workshop", "Mazes\Level1.txt", 0, 7.3F),
+            New LevelConfig(2, "Frozen Labyrinth", "Mazes\Level2.txt", 0, 36.9F),
+            New LevelConfig(3, "Neon Velocity", "Mazes\Level3.txt", 57, 40.2F)
         }
 
         canvas = New GameCanvas With {.Dock = DockStyle.Fill}
