@@ -58,6 +58,10 @@ Namespace VerificationRunner
 
             Ticks(80)
             Expect(ShellScreen.Title)
+            Key(Keys.F8)
+            If _canvas.TiltViewEnabled Then Throw New Exception("F8 must disable tilt view")
+            Key(Keys.F8)
+            If Not _canvas.TiltViewEnabled Then Throw New Exception("F8 must re-enable tilt view")
             Shot("ui_01_title")
 
             ' Level select (menu index 1) – preview + cards
@@ -77,6 +81,9 @@ Namespace VerificationRunner
             Expect(ShellScreen.NameEntry)
             For i As Integer = 1 To 12 : Key(Keys.Back) : Next
             For Each ch As Char In "JUDE" : _shell.HandleChar(ch) : Next
+            _shell.HandleChar("T"c)
+            If Not _canvas.TiltViewEnabled Then Throw New Exception("Typing a name must not toggle tilt view")
+            Key(Keys.Back)
             Ticks(10)
             Shot("ui_04_name_entry")
             Key(Keys.Enter) : Ticks(20)
@@ -106,6 +113,11 @@ Namespace VerificationRunner
                         _tilt.X = 0 : _tilt.Y = 0
                         Key(Keys.Escape) : Ticks(15)
                         Expect(ShellScreen.Paused)
+                        MoveTo(3) : Key(Keys.Enter)
+                        If _canvas.TiltViewEnabled OrElse _shell.Screen <> ShellScreen.Paused Then Throw New Exception("Pause menu must disable tilt without resuming")
+                        Key(Keys.Enter)
+                        If Not _canvas.TiltViewEnabled Then Throw New Exception("Pause menu must re-enable tilt")
+                        MoveTo(0)
                         Shot("ui_08_paused")
                         Key(Keys.Escape) : Ticks(1)
                         Expect(ShellScreen.Playing)

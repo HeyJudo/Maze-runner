@@ -276,9 +276,10 @@ Namespace UI.Screens
                 ("ESC", "Pause"),
                 ("R", "Restart the level"),
                 ("M", "Sound on / off"),
+                ("F8", "Tilt view on / off"),
                 ("F11", "Fullscreen / window")}
             For i As Integer = 0 To lines.Length - 1
-                Dim ly As Single = left.Y + 96 * s + i * 50 * s
+                Dim ly As Single = left.Y + 96 * s + i * 44 * s
                 UiDraw.Text(g, lines(i).Item1, key, pal.Accent, left.X + 32 * s, ly, 0, 2 * s)
                 UiDraw.Text(g, lines(i).Item2, body, pal.Text, left.X + colW * 0.45F, ly)
             Next

@@ -10,12 +10,18 @@ Imports GravityMaze.UI
 
 Namespace Rendering
     Public NotInheritable Class MazeRenderer
+        Implements IDisposable
         ' Static board (floor, walls, zones, goal, border) is drawn once per maze/theme/size
         ' and blitted each frame; only the ball and effects are redrawn per tick.
         Private _cache As Bitmap
         Private _cacheMaze As MazeDefinition
         Private _cacheTheme As String
         Private _cacheSize As Size
+
+        Public Sub Dispose() Implements IDisposable.Dispose
+            _cache?.Dispose()
+            _cache = Nothing
+        End Sub
 
         ' ballX / ballY are in tile-space (e.g. 1.5 = centre of column 1).
         ' They come from the Game Engine via GameCanvas; no game state lives here.

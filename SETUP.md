@@ -40,6 +40,7 @@ Then:
 The bottom-right footer says `SOUND ON [M] · NO BOARD · KEYBOARD`.
 
 - **F11** switches between fullscreen and a normal window. A window makes recording and switching to VS easier.
+- **F8** switches the perspective tilt view on or off. It starts on: the board sits at a slight angle and tilts smoothly with Arduino or keyboard input. For board-only control, pause and select **TILT VIEW: ON/OFF**. This preference lasts for the current game session.
 - Arrow keys or WASD move through the menus, and Enter selects. The first time you press PLAY it asks for a player name, which you type on the keyboard.
 - In a level, **Esc** pauses. To exit, choose MAIN MENU and then QUIT.
 
