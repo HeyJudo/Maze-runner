@@ -49,6 +49,14 @@ during this protection and respawn the ball. Heart pickups restore one full
 heart up to the three-heart cap, including when health is only partially missing.
 The HUD shows full, 3/4, 1/2, 1/4, and empty hearts. Zero health ends the run.
 
+Campaign progression: reaching a goal stops the level timer and records the
+result once. The marble drops through the goal, the completed board lifts and
+fades, and the next maze appears beneath it. The marble lands at the next start
+with a bounce and pulse, followed by a short READY cue before steering resumes.
+Time and stars appear during the transition instead of a blocking results menu.
+The final campaign goal leads to victory. Level Select keeps its results menu
+after the goal-drop animation. Pause and focus loss freeze the transition.
+
 ------------------------------------------------------------------------
 
 ## 5. Level Design

@@ -28,6 +28,7 @@ Namespace UI.Screens
                 Case ShellScreen.NameEntry : DrawNameEntry(g, b, s, pal)
                 Case ShellScreen.Intro : DrawHud(g, b, s, pal) : DrawIntro(g, b, s, pal)
                 Case ShellScreen.Playing : DrawHud(g, b, s, pal)
+                Case ShellScreen.GoalTransition : DrawHud(g, b, s, pal) : DrawGoalTransition(g, b, s, pal)
                 Case ShellScreen.Paused : DrawHud(g, b, s, pal) : DrawPaused(g, b, s, pal)
                 Case ShellScreen.LevelComplete : DrawHud(g, b, s, pal) : DrawLevelComplete(g, b, s, pal)
                 Case ShellScreen.TimeUp : DrawHud(g, b, s, pal) : DrawTimeUp(g, b, s, pal)
@@ -36,11 +37,25 @@ Namespace UI.Screens
             End Select
 
             ' Short fade-in from black on every screen change (not for pause / resume).
-            If _screen <> ShellScreen.Paused AndAlso _screen <> ShellScreen.Playing AndAlso _screenMs < 240 Then
+            If _screen <> ShellScreen.Paused AndAlso _screen <> ShellScreen.Playing AndAlso _screen <> ShellScreen.GoalTransition AndAlso _screenMs < 240 Then
                 Using fade As New SolidBrush(Color.FromArgb(CInt(255 * (1.0F - _screenMs / 240.0F)), 0, 0, 0))
                     g.FillRectangle(fade, b)
                 End Using
             End If
+        End Sub
+
+        Private Sub DrawGoalTransition(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim cx As Single = b.Width / 2.0F
+            Dim panel As New RectangleF(cx - 260 * s, 138 * s, 520 * s, 125 * s)
+            UiDraw.Panel(g, panel, Color.FromArgb(220, pal.Backdrop), Color.FromArgb(110, pal.Accent), 12 * s)
+            Dim nextBoard As Boolean = _goalTransition.HasNextLevel AndAlso _goalTransition.ElapsedMs >= Rendering.GoalDropTransition.ExitMs
+            Dim title As String = If(nextBoard, "LEVEL " & _levels(_levelIndex + 1).LevelNumber.ToString("00") & "  ·  " & _levels(_levelIndex + 1).ThemeName.ToUpperInvariant(), "LEVEL COMPLETE")
+            UiDraw.Text(g, title, GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), pal.Accent, cx, panel.Y + 12 * s, 0.5F, 1 * s)
+            For i As Integer = 1 To 3
+                UiDraw.Star(g, cx + (i - 2) * 34 * s, panel.Y + 58 * s, 12 * s, i <= _resultStars, pal.Accent)
+            Next
+            Dim caption As String = If(nextBoard, If(_goalTransition.Phase = Rendering.GoalDropPhase.Ready, "READY", "NEXT FLOOR"), UiDraw.FormatTime(_resultTime) & If(_resultNewBest, "  ·  NEW BEST", ""))
+            UiDraw.Text(g, caption, GameFonts.Body(24 * s, GameFonts.FontWeight.SemiBold), pal.Text, cx, panel.Y + 82 * s, 0.5F, 2 * s)
         End Sub
 
         ' ── Shared pieces ───────────────────────────────────────────────────

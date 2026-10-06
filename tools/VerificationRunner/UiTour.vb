@@ -124,15 +124,24 @@ Namespace VerificationRunner
                     End If
                 End While
                 _tilt.X = 0 : _tilt.Y = 0
-                Expect(ShellScreen.LevelComplete)
+                Expect(ShellScreen.GoalTransition)
                 Console.WriteLine($"  -> Level {level} cleared by the pilot in {_shell.Engine.ElapsedSeconds:F1}s.")
-                Ticks(110)
-                If level = 1 Then Shot("ui_09_level_complete")
-                Key(Keys.Enter) : Ticks(5)
+                If level = 1 Then
+                    Ticks(20) : Shot("ui_09a_goal_drop")
+                    Key(Keys.Escape) : Ticks(40)
+                    Expect(ShellScreen.Paused)
+                    Key(Keys.Escape)
+                    Expect(ShellScreen.GoalTransition)
+                    Ticks(40) : Shot("ui_09b_board_lift")
+                    Ticks(40) : Shot("ui_09c_landing")
+                End If
+                For wait As Integer = 1 To 200
+                    If _shell.Screen <> ShellScreen.GoalTransition Then Exit For
+                    Ticks(1)
+                Next
                 If level < 3 Then
-                    Expect(ShellScreen.Intro)
-                    Ticks(CInt((1600 + 2000) / 16))
                     Expect(ShellScreen.Playing)
+                    If _shell.Engine.ElapsedSeconds <> 0 Then Throw New Exception("Next-level timer must start after the transition")
                 End If
             Next
             Expect(ShellScreen.Victory)

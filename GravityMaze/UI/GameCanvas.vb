@@ -20,6 +20,32 @@ Namespace UI
         Private ReadOnly perspective As New PerspectiveSurface()
         Private ReadOnly tilt As New BoardTilt()
         Private _tiltViewEnabled As Boolean = True
+        Private goalDrop As GoalDropTransition
+        Private incomingMaze As MazeDefinition
+        Private incomingTheme As String
+        Private goalStart As PointF
+        Private completedMarbleHidden As Boolean
+        Private ReadOnly incomingRenderer As New MazeRenderer()
+        Private ReadOnly incomingSurface As New PerspectiveSurface()
+        Private ReadOnly incomingTilt As New BoardTilt()
+
+        Public Sub BeginGoalDrop(transition As GoalDropTransition, nextMaze As MazeDefinition, nextTheme As String)
+            goalDrop = transition
+            incomingMaze = nextMaze
+            incomingTheme = nextTheme
+            goalStart = New PointF(_ballX, _ballY)
+            completedMarbleHidden = True
+            fx.Reset()
+            activeImpacts.Clear()
+            _flashMs = 0 : _shakeMs = 0
+            Invalidate()
+        End Sub
+
+        Public Sub EndGoalDrop()
+            goalDrop = Nothing
+            incomingMaze = Nothing
+            Invalidate()
+        End Sub
 
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
         Public Property TiltViewEnabled As Boolean
@@ -64,10 +90,10 @@ Namespace UI
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
         Public Property BallBlink As Boolean
 
-        ' True while the hole-fall animation hides the real ball.
+        ' True while a fall or goal transition replaces the normal engine marble.
         Public ReadOnly Property IsBallHidden As Boolean
             Get
-                Return fx.FallActive
+                Return fx.FallActive OrElse completedMarbleHidden
             End Get
         End Property
 
@@ -115,6 +141,8 @@ Namespace UI
 
         ' Clears all active impact animations and goal celebrations.
         Public Sub ClearEffects()
+            EndGoalDrop()
+            completedMarbleHidden = False
             tilt.Reset()
             SyncLock activeImpacts
                 activeImpacts.Clear()
@@ -183,15 +211,19 @@ Namespace UI
                     Dim amp As Single = 6.0F * _shakeMs / 200.0F
                     e.Graphics.TranslateTransform(CSng(_shakeRng.NextDouble() * 2 - 1) * amp, CSng(_shakeRng.NextDouble() * 2 - 1) * amp)
                 End If
-                If TiltViewEnabled Then
+                If goalDrop IsNot Nothing Then
+                    DrawGoalDrop(e.Graphics, boardArea)
+                ElseIf TiltViewEnabled Then
                     perspective.Draw(e.Graphics, boardArea, tilt,
                         Sub(g As Graphics, area As Rectangle)
                             renderer.Draw(g, area, currentMaze, _ballX, _ballY,
-                                          currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink)
+                                          currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
+                                          If(completedMarbleHidden, 0.0F, 1.0F))
                         End Sub)
                 Else
                     renderer.Draw(e.Graphics, boardArea, currentMaze, _ballX, _ballY,
-                                  currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink)
+                                  currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
+                                  If(completedMarbleHidden, 0.0F, 1.0F))
                 End If
                 e.Graphics.Restore(state)
                 If _flashMs > 0.0F Then
@@ -203,10 +235,57 @@ Namespace UI
             OverlayPainter?.Invoke(e.Graphics, ClientRectangle)
         End Sub
 
+        Private Sub DrawGoalDrop(g As Graphics, area As Rectangle)
+            Dim phase As GoalDropPhase = goalDrop.Phase
+            Dim p As Single = goalDrop.Progress
+            If incomingMaze IsNot Nothing AndAlso phase <> GoalDropPhase.Drop Then
+                Dim lift As Single = If(phase = GoalDropPhase.Lift, GoalDropTransition.Ease(p), 1.0F)
+                Dim visibleBall As Boolean = phase = GoalDropPhase.Landing OrElse phase = GoalDropPhase.Ready
+                Dim pulse As Single = If(phase = GoalDropPhase.Landing AndAlso p >= 0.65F, (p - 0.65F) / 0.35F, -1.0F)
+                DrawLayer(g, area, incomingSurface, incomingTilt,
+                    Sub(cg, bounds)
+                        incomingRenderer.Draw(cg, bounds, incomingMaze, incomingMaze.StartColumn + 0.5F,
+                                              incomingMaze.StartRow + 0.5F, incomingTheme,
+                                              ballScale:=If(visibleBall, 1.0F, 0.0F),
+                                              ballLift:=goalDrop.LandingHeight, landingPulse:=pulse)
+                    End Sub, lift, area.Height * 0.16F * (1 - lift), 0.94F + 0.06F * lift)
+            End If
+            If phase = GoalDropPhase.Drop OrElse phase = GoalDropPhase.Lift Then
+                Dim lift As Single = If(phase = GoalDropPhase.Lift, GoalDropTransition.Ease(p), 0.0F)
+                Dim pull As Single = If(phase = GoalDropPhase.Drop, GoalDropTransition.Ease(Math.Min(1, p / 0.65F)), 1.0F)
+                Dim bx As Single = goalStart.X + (currentMaze.GoalColumn + 0.5F - goalStart.X) * pull
+                Dim by As Single = goalStart.Y + (currentMaze.GoalRow + 0.5F - goalStart.Y) * pull
+                Dim shrink As Single = If(phase = GoalDropPhase.Drop, 1 - p * p, 0.0F)
+                DrawLayer(g, area, perspective, tilt,
+                    Sub(cg, bounds)
+                        renderer.Draw(cg, bounds, currentMaze, bx, by, currentTheme,
+                                      goalEffect:=goalCelebration, pickupTaken:=PickupTaken, ballScale:=shrink)
+                    End Sub, 1 - lift, -area.Height * 0.28F * lift, 1.0F + 0.06F * lift)
+            End If
+        End Sub
+
+        Private Sub DrawLayer(g As Graphics, area As Rectangle, surface As PerspectiveSurface, pose As BoardTilt,
+                              paint As Action(Of Graphics, Rectangle), opacity As Single, offsetY As Single, scale As Single)
+            Dim state = g.Save()
+            Try
+                g.SetClip(area, Drawing2D.CombineMode.Intersect)
+                Dim cx As Single = area.Left + area.Width / 2.0F
+                Dim cy As Single = area.Top + area.Height / 2.0F
+                g.TranslateTransform(cx, cy + offsetY)
+                g.ScaleTransform(scale, scale)
+                g.TranslateTransform(-cx, -cy)
+                surface.Draw(g, area, pose, paint, TiltViewEnabled, opacity)
+            Finally
+                g.Restore(state)
+            End Try
+        End Sub
+
         Protected Overrides Sub Dispose(disposing As Boolean)
             If disposing Then
                 perspective.Dispose()
                 renderer.Dispose()
+                incomingSurface.Dispose()
+                incomingRenderer.Dispose()
             End If
             MyBase.Dispose(disposing)
         End Sub

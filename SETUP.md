@@ -43,6 +43,7 @@ The bottom-right footer says `SOUND ON [M] · NO BOARD · KEYBOARD`.
 - **F8** switches the perspective tilt view on or off. It starts on: the board sits at a slight angle and tilts smoothly with Arduino or keyboard input. For board-only control, pause and select **TILT VIEW: ON/OFF**. This preference lasts for the current game session.
 - Arrow keys or WASD move through the menus, and Enter selects. The first time you press PLAY it asks for a player name, which you type on the keyboard.
 - In a level, **Esc** pauses. To exit, choose MAIN MENU and then QUIT.
+- In **PLAY** (campaign), reaching the goal drops the marble through the exit and automatically reveals the next maze. A brief time/stars overlay accompanies the transition; the next timer starts after the marble lands and the READY cue finishes. The final goal leads to victory. Levels started through **LEVEL SELECT** still show their results menu after the goal drop.
 
 Before you add the board, play a level with the keyboard so you know the game itself works.
 
