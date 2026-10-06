@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\GravityMaze\GravityMaze.vbproj" />
+    <Compile Include="../HealthChecks/HealthScenarios.vb" Link="HealthScenarios.vb" />
   </ItemGroup>
 
 </Project>

@@ -36,6 +36,31 @@ Namespace UI
             Return _frames(index)
         End Function
 
+        ' Persistent health states reuse the sheet's full / 3/4 / 1/2 / 1/4 / empty frames.
+        Public Shared Sub DrawHeartFill(g As Graphics, r As RectangleF, fill As Single)
+            Dim quarters As Integer = CInt(Math.Clamp(fill, 0.0F, 1.0F) * 4)
+            If quarters = 4 Then
+                DrawHeart(g, Heart, r)
+                Return
+            End If
+            Dim img As Image = HeartFrame(DrainFrames(4 - quarters))
+            If img IsNot Nothing Then
+                DrawHeart(g, img, r)
+                Return
+            End If
+            ' Missing sheet: show a dim empty heart with only its filled portion overlaid.
+            DrawHeart(g, HeartFrame(EmptyFrame), r, 0.3F)
+            If quarters = 0 Then Return
+            Dim state As GraphicsState = g.Save()
+            Try
+                Dim filledHeight As Single = r.Height * quarters / 4.0F
+                g.SetClip(New RectangleF(r.X, r.Bottom - filledHeight, r.Width, filledHeight), CombineMode.Intersect)
+                DrawHeart(g, Heart, r)
+            Finally
+                g.Restore(state)
+            End Try
+        End Sub
+
         ' Draws a heart image crisp (nearest-neighbour) into r; img Nothing = fallback red heart shape.
         Public Shared Sub DrawHeart(g As Graphics, img As Image, r As RectangleF, Optional alpha As Single = 1.0F)
             If img Is Nothing Then

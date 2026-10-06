@@ -290,7 +290,7 @@ Namespace UI.Screens
                 ("ice", "Ice: almost no grip. Brake early"),
                 ("boost", "Boost: launches you. Pits wait past the turn"),
                 ("hole", "Hole: fall in and you restart from the entrance"),
-                ("heart", "Hearts: walls and pits cost one. Grab more"),
+                ("heart", "Walls cost 1/4 heart; pits cost one"),
                 ("star", "Stars: beat the par time for up to three")}
             For i As Integer = 0 To items.Length - 1
                 Dim iy As Single = right.Y + 96 * s + i * 52 * s
@@ -362,21 +362,15 @@ Namespace UI.Screens
         End Sub
 
         ' ── In-game HUD ─────────────────────────────────────────────────────
-        ' Full hearts, then empty frames; the heart just lost plays the draining frames for 400 ms.
+        ' Animate only the health actually lost, then hold the appropriate quarter-heart frame.
         Private Sub DrawHearts(g As Graphics, x As Single, y As Single, size As Single, gap As Single)
-            Dim drain As Integer() = Sprites.DrainFrames
+            Dim displayed As Single = _engine.Hearts
+            If _heartLostAgoMs < 400.0F AndAlso _heartsBeforeDamage > displayed Then
+                displayed += (_heartsBeforeDamage - displayed) * (1.0F - _heartLostAgoMs / 400.0F)
+            End If
             For i As Integer = 0 To GameEngine.MaxHearts - 1
-                Dim img As Image
-                Dim alpha As Single = 1.0F
-                If i < _engine.Hearts Then
-                    img = Sprites.Heart
-                ElseIf i = _heartLostIndex AndAlso _heartLostAgoMs < 400.0F Then
-                    img = Sprites.HeartFrame(drain(Math.Min(drain.Length - 1, CInt(_heartLostAgoMs / 400.0F * drain.Length))))
-                Else
-                    img = Sprites.HeartFrame(Sprites.EmptyFrame)
-                    If img Is Nothing Then alpha = 0.3F
-                End If
-                Sprites.DrawHeart(g, img, New RectangleF(x + i * (size + gap), y, size, size), alpha)
+                Dim fill As Single = Math.Clamp(displayed - i, 0.0F, 1.0F)
+                Sprites.DrawHeartFill(g, New RectangleF(x + i * (size + gap), y, size, size), fill)
             Next
         End Sub
 
