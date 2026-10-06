@@ -11,6 +11,7 @@ Imports GravityMaze.Data
 Imports GravityMaze.Engine
 Imports GravityMaze.Input
 Imports GravityMaze.Levels
+Imports GravityMaze.Rendering
 
 Namespace UI.Screens
     Public Enum ShellScreen
@@ -21,6 +22,7 @@ Namespace UI.Screens
         NameEntry
         Intro          ' level card + 3-2-1-GO; engine frozen
         Playing
+        GoalTransition
         Paused
         LevelComplete
         TimeUp
@@ -35,7 +37,6 @@ Namespace UI.Screens
         Public Const TickMs As Single = 16.0F
         Private Const IntroCardMs As Single = 1600.0F
         Private Const CountStepMs As Single = 650.0F
-        Private Const CompleteDelayMs As Single = 900.0F
 
         Public Event QuitRequested As EventHandler
 
@@ -58,6 +59,9 @@ Namespace UI.Screens
         Private _campaignStars As Integer
         Private _skipCard As Boolean
         Private _completedAtMs As Single = -1
+        Private _goalTransition As GoalDropTransition
+        Private _pausedScreen As ShellScreen = ShellScreen.Playing
+        Private _pausedScreenMs As Single
         Private _lastTile As Char = "0"c
         Private _heartLostAgoMs As Single = 99999.0F   ' time since the last heart loss (HUD drain animation)
         Private _heartsBeforeDamage As Single           ' health before the most recent damage animation
@@ -184,6 +188,8 @@ Namespace UI.Screens
                     TickIntro()
                 Case ShellScreen.Playing
                     TickPlaying(tx, ty)
+                Case ShellScreen.GoalTransition
+                    TickGoalTransition()
                 Case ShellScreen.Paused
                     Select Case Nav(_pauseMenu, tx, ty)
                         Case MenuAction.Confirm : PauseChoice(_pauseMenu.Selected)
@@ -209,9 +215,13 @@ Namespace UI.Screens
             If IsGameScreen() Then
                 _canvas.PickupTaken = AddressOf _engine.IsPickupTaken
                 _canvas.BallBlink = _engine.IsInvulnerable AndAlso _screen = ShellScreen.Playing
-                _canvas.UpdateBallPosition(_engine.BallX, _engine.BallY)
-                _canvas.UpdateBallMotion(If(_screen = ShellScreen.Playing, _engine.VelocityX, 0.0F),
-                                         If(_screen = ShellScreen.Playing, _engine.VelocityY, 0.0F), TileUnder(_engine))
+                If _screen <> ShellScreen.Paused Then
+                    _canvas.UpdateBallPosition(_engine.BallX, _engine.BallY)
+                    _canvas.UpdateBallMotion(If(_screen = ShellScreen.Playing, _engine.VelocityX, 0.0F),
+                                             If(_screen = ShellScreen.Playing, _engine.VelocityY, 0.0F), TileUnder(_engine))
+                Else
+                    _canvas.Invalidate() ' keep pause-menu navigation repainting while effects stay frozen
+                End If
             Else
                 _canvas.PickupTaken = Nothing
                 _canvas.BallBlink = False
@@ -334,7 +344,7 @@ Namespace UI.Screens
             Return m
         End Function
 
-        Private Sub StartLevel(index As Integer, campaign As Boolean)
+        Private Sub StartLevel(index As Integer, campaign As Boolean, Optional readyToPlay As Boolean = False)
             If campaign AndAlso index = 0 Then
                 _campaignTime = 0
                 _campaignStars = 0
@@ -351,6 +361,7 @@ Namespace UI.Screens
             _canvas.ShowMaze(_engine.Maze, cfg.ThemeName)
             _skipCard = False
             BeginRun()
+            If readyToPlay Then GoTo_(ShellScreen.Playing)
         End Sub
 
         Private Sub DetachEngine(e As GameEngine)
@@ -361,6 +372,7 @@ Namespace UI.Screens
         End Sub
 
         Private Sub BeginRun()
+            _goalTransition = Nothing
             _completedAtMs = -1
             _lastTile = "0"c
             _lastWholeSecondLeft = -1
@@ -371,6 +383,10 @@ Namespace UI.Screens
         End Sub
 
         Private Sub Retry()
+            If _campaign AndAlso _completedAtMs >= 0 Then
+                _campaignTime -= _resultTime
+                _campaignStars -= _resultStars
+            End If
             _engine.Reset()
             _skipCard = True
             BeginRun()
@@ -425,12 +441,35 @@ Namespace UI.Screens
             ElseIf _engine.State = GameState.LevelComplete Then
                 If _completedAtMs < 0 Then
                     _completedAtMs = _screenMs
-                    _canvas.TriggerGoalCelebration(_engine.BallX, _engine.BallY)
+                    _canvas.TriggerGoalCelebration(_engine.Maze.GoalColumn + 0.5F, _engine.Maze.GoalRow + 0.5F)
                     _sound.Play("goal")
                     RecordResult()
-                ElseIf _screenMs - _completedAtMs >= CompleteDelayMs Then
-                    EnterLevelComplete()
+                    Dim nextIndex As Integer = _levelIndex + 1
+                    Dim advance As Boolean = _campaign AndAlso nextIndex < _levels.Count
+                    _goalTransition = New GoalDropTransition(advance)
+                    _canvas.BeginGoalDrop(_goalTransition, If(advance, MazeFor(nextIndex), Nothing),
+                                          If(advance, _levels(nextIndex).ThemeName, Nothing))
+                    _starsPlayed = 0
+                    GoTo_(ShellScreen.GoalTransition)
                 End If
+            End If
+        End Sub
+
+        Private Sub TickGoalTransition()
+            Dim previousElapsed As Single = _goalTransition.ElapsedMs
+            _goalTransition.Advance(TickMs)
+            TickResultStars()
+            If _goalTransition.HasNextLevel AndAlso previousElapsed < GoalDropTransition.LandingContactMs AndAlso
+               _goalTransition.ElapsedMs >= GoalDropTransition.LandingContactMs Then _sound.Play("spawn")
+            If _goalTransition.Phase <> GoalDropPhase.Finished Then Return
+            _canvas.EndGoalDrop()
+            If Not _campaign Then
+                EnterLevelComplete()
+            ElseIf _goalTransition.HasNextLevel Then
+                StartLevel(_levelIndex + 1, campaign:=True, readyToPlay:=True)
+                _sound.Play("go")
+            Else
+                EnterVictory()
             End If
         End Sub
 
@@ -485,11 +524,6 @@ Namespace UI.Screens
             Select Case label
                 Case "NEXT LEVEL" : StartLevel(_levelIndex + 1, _campaign)
                 Case "RETRY"
-                    ' A retry after finishing replaces that level's contribution to the campaign total.
-                    If _campaign Then
-                        _campaignTime -= _resultTime
-                        _campaignStars -= _resultStars
-                    End If
                     Retry()
                 Case "FINISH" : EnterVictory()
                 Case Else : ToMainMenu()
@@ -516,11 +550,14 @@ Namespace UI.Screens
         End Sub
 
         Private Sub Pause()
+            _pausedScreen = _screen
+            _pausedScreenMs = _screenMs
             GoTo_(ShellScreen.Paused)
         End Sub
 
         Private Sub ResumeGame()
-            _screen = ShellScreen.Playing
+            _screen = _pausedScreen
+            _screenMs = _pausedScreenMs
         End Sub
 
         ' ── Engine events → effects + sound ─────────────────────────────────
@@ -594,7 +631,7 @@ Namespace UI.Screens
                 Return True
             End If
             Select Case _screen
-                Case ShellScreen.Intro, ShellScreen.Playing
+                Case ShellScreen.Intro, ShellScreen.Playing, ShellScreen.GoalTransition
                     If key = Keys.Escape OrElse key = Keys.P Then Pause() : Return True
                     If key = Keys.R AndAlso _completedAtMs < 0 Then Retry() : Return True
                 Case ShellScreen.Paused
@@ -661,7 +698,7 @@ Namespace UI.Screens
 
         ' Window lost focus mid-run: pause so the timer doesn't run on.
         Public Sub OnDeactivated()
-            If _screen = ShellScreen.Playing OrElse _screen = ShellScreen.Intro Then Pause()
+            If _screen = ShellScreen.Playing OrElse _screen = ShellScreen.Intro OrElse _screen = ShellScreen.GoalTransition Then Pause()
         End Sub
 
         Private Function CurrentPalette() As ThemePalette

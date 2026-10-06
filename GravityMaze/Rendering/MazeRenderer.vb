@@ -33,7 +33,10 @@ Namespace Rendering
                         Optional goalEffect As GoalCelebrationEffect = Nothing,
                         Optional fx As BallFxState = Nothing,
                         Optional pickupTaken As Func(Of Integer, Integer, Boolean) = Nothing,
-                        Optional ballBlink As Boolean = False)
+                        Optional ballBlink As Boolean = False,
+                        Optional ballScale As Single = 1.0F,
+                        Optional ballLift As Single = 0.0F,
+                        Optional landingPulse As Single = -1.0F)
             If bounds.Width < 32 OrElse bounds.Height < 32 Then Return
 
             Dim graphicsState As GraphicsState = graphics.Save()
@@ -79,12 +82,27 @@ Namespace Rendering
                 ' 5. Metallic Silver Marble (same ball across all levels)
                 Dim ballCenter As New PointF(left + ballX * tileSize, top + ballY * tileSize)
                 Dim ballRadius As Single = tileSize * 0.27F
+                If ballLift > 0 OrElse landingPulse >= 0 Then
+                    Dim shadowSize As Single = ballRadius * (1.0F + Math.Min(3.0F, ballLift) * 0.25F)
+                    Using shadow As New SolidBrush(Color.FromArgb(70, 0, 0, 0))
+                        graphics.FillEllipse(shadow, ballCenter.X - shadowSize, ballCenter.Y - shadowSize * 0.4F,
+                                             shadowSize * 2, shadowSize * 0.8F)
+                    End Using
+                    If landingPulse >= 0 Then
+                        Dim radius As Single = tileSize * (0.35F + 0.8F * landingPulse)
+                        Using ring As New Pen(Color.FromArgb(CInt(160 * (1 - landingPulse)), 100, 240, 200), Math.Max(1, tileSize * 0.06F))
+                            graphics.DrawEllipse(ring, ballCenter.X - radius, ballCenter.Y - radius * 0.6F, radius * 2, radius * 1.2F)
+                        End Using
+                    End If
+                End If
+                ballCenter.Y -= tileSize * ballLift
+                ballRadius *= Math.Clamp(ballScale, 0.0F, 1.0F)
                 If fx IsNot Nothing Then DrawBallFxUnder(graphics, left, top, tileSize, ballRadius, fx, themeName)
-                If (fx Is Nothing OrElse Not fx.FallActive) AndAlso Not (ballBlink AndAlso (Environment.TickCount64 \ 100) Mod 2 = 0) Then
+                If ballRadius > 0.01F AndAlso (fx Is Nothing OrElse Not fx.FallActive) AndAlso Not (ballBlink AndAlso (Environment.TickCount64 \ 100) Mod 2 = 0) Then
                     If fx IsNot Nothing AndAlso fx.SpawnActive Then
                         ballRadius *= Math.Max(0.02F, EaseOutBack(fx.SpawnElapsed / BallFxState.SpawnMs))
                     End If
-                    DrawBall(graphics, ballCenter, ballRadius, themeName)
+                    DrawBall(graphics, ballCenter, ballRadius, themeName, castShadow:=ballLift <= 0)
                 End If
                 If fx IsNot Nothing Then DrawFallAndSpawn(graphics, left, top, tileSize, fx, themeName)
 
@@ -552,7 +570,8 @@ Namespace Rendering
         End Sub
 
         ' ── Ball ────────────────────────────────────────────────────────────
-        Private Shared Sub DrawBall(graphics As Graphics, center As PointF, radius As Single, theme As String)
+        Private Shared Sub DrawBall(graphics As Graphics, center As PointF, radius As Single, theme As String,
+                                    Optional castShadow As Boolean = True)
             Dim ball As New RectangleF(center.X - radius, center.Y - radius, radius * 2.0F, radius * 2.0F)
 
             ' Contact shadow under ball
@@ -563,10 +582,12 @@ Namespace Rendering
                 shadowColor = Color.FromArgb(95, 30, 20, 12)
             End If
 
-            Using shadowBrush As New SolidBrush(shadowColor)
-                graphics.FillEllipse(shadowBrush, ball.X + radius * 0.18F, ball.Y + radius * 0.25F,
-                                     ball.Width, ball.Height)
-            End Using
+            If castShadow Then
+                Using shadowBrush As New SolidBrush(shadowColor)
+                    graphics.FillEllipse(shadowBrush, ball.X + radius * 0.18F, ball.Y + radius * 0.25F,
+                                         ball.Width, ball.Height)
+                End Using
+            End If
 
             ' Metallic silver marble
             Using ballPath As New GraphicsPath()

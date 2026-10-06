@@ -21,6 +21,10 @@ Namespace VerificationRunner
 
         <STAThread>
         Public Sub Main()
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--transition-only") >= 0 Then
+                GoalTransitionTour.Run(Path.Combine(AppContext.BaseDirectory, "transition-checks"))
+                Return
+            End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--hearts-only") >= 0 Then
                 GravityMaze.Verification.HealthScenarios.Run()
                 HeartTour.Run(Path.Combine(AppContext.BaseDirectory, "heart-checks"))
