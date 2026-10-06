@@ -41,6 +41,7 @@ The bottom-right footer says `SOUND ON [M] · NO BOARD · KEYBOARD`.
 
 - **F11** switches between fullscreen and a normal window. A window makes recording and switching to VS easier.
 - **F8** switches the perspective tilt view on or off. It starts on: the board sits at a slight angle and tilts smoothly with Arduino or keyboard input. For board-only control, pause and select **TILT VIEW: ON/OFF**. This preference lasts for the current game session.
+- **F9** cycles camera zoom between **FULL MAZE**, **1.5x**, and **2x** on every level. You can also pause and select **CAMERA** using keyboard or board navigation. Closer views follow the marble smoothly; hold **Tab** for a full-maze overview. The zoom preference carries between levels and retries for the current session.
 - Arrow keys or WASD move through the menus, and Enter selects. The first time you press PLAY it asks for a player name, which you type on the keyboard.
 - In a level, **Esc** pauses. To exit, choose MAIN MENU and then QUIT.
 - In **PLAY** (campaign), reaching the goal drops the marble through the exit and automatically reveals the next maze. A brief time/stars overlay accompanies the transition; the next timer starts after the marble lands and the READY cue finishes. The final goal leads to victory. Levels started through **LEVEL SELECT** still show their results menu after the goal drop.

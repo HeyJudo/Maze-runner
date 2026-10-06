@@ -86,7 +86,8 @@ Namespace UI.Screens
         ' Menus
         Private ReadOnly _titleMenu As New MenuList("PLAY", "LEVEL SELECT", "RECORDS", "HOW TO PLAY", "CHANGE PLAYER", "QUIT")
         Private ReadOnly _levelMenu As New MenuList()
-        Private ReadOnly _pauseMenu As New MenuList("RESUME", "RESTART LEVEL", "MAIN MENU", "TILT VIEW: ON")
+        Private _cameraKeyHeld As Boolean
+        Private ReadOnly _pauseMenu As New MenuList("RESUME", "RESTART LEVEL", "MAIN MENU", "TILT VIEW: ON", "CAMERA: FULL MAZE")
         Private ReadOnly _completeMenu As New MenuList()
         Private ReadOnly _timeUpMenu As New MenuList("RETRY", "MAIN MENU")
         Private ReadOnly _heartsMenu As New MenuList("RETRY", "MAIN MENU")
@@ -229,6 +230,7 @@ Namespace UI.Screens
                 _canvas.UpdateBallMotion(_attractEngine.VelocityX, _attractEngine.VelocityY, TileUnder(_attractEngine))
             End If
             UpdateInsets()
+            _canvas.UpdateCamera(TickMs)
         End Sub
 
         Private Function Nav(menu As MenuList, tx As Single, ty As Single) As MenuAction
@@ -254,6 +256,7 @@ Namespace UI.Screens
 
         ' Menus put the board on the right (menu on the left); game screens leave room for the HUD.
         Private Sub UpdateInsets()
+            _canvas.CameraEnabled = IsGameScreen()
             Dim w As Integer = _canvas.ClientSize.Width
             Dim h As Integer = _canvas.ClientSize.Height
             Dim s As Single = UiScale()
@@ -546,6 +549,7 @@ Namespace UI.Screens
                 Case 1 : Retry()
                 Case 2 : ToMainMenu()
                 Case 3 : ToggleTiltView()
+                Case 4 : CycleCameraZoom()
             End Select
         End Sub
 
@@ -622,6 +626,16 @@ Namespace UI.Screens
 
         ' ── Keyboard shortcuts (tilt handles navigation) ────────────────────
         Public Function HandleKey(key As Keys) As Boolean
+            If key = Keys.F9 Then
+                If Not _cameraKeyHeld Then CycleCameraZoom()
+                _cameraKeyHeld = True
+                Return True
+            End If
+            If key = Keys.Tab AndAlso IsGameScreen() Then
+                _canvas.CameraOverviewHeld = True
+                _canvas.Invalidate()
+                Return True
+            End If
             If key = Keys.F8 Then
                 ToggleTiltView()
                 Return True
@@ -676,6 +690,20 @@ Namespace UI.Screens
             Return False
         End Function
 
+        Public Sub HandleKeyUp(key As Keys)
+            If key = Keys.F9 Then _cameraKeyHeld = False
+            If key = Keys.Tab Then
+                _canvas.CameraOverviewHeld = False
+                _canvas.Invalidate()
+            End If
+        End Sub
+
+        Private Sub CycleCameraZoom()
+            _canvas.CycleCameraZoom()
+            _pauseMenu.Items(4) = "CAMERA: " & _canvas.CameraLabel
+            _sound.Play("menu_move", 0.6F)
+        End Sub
+
         Private Sub ToggleTiltView()
             _canvas.TiltViewEnabled = Not _canvas.TiltViewEnabled
             _pauseMenu.Items(3) = "TILT VIEW: " & If(_canvas.TiltViewEnabled, "ON", "OFF")
@@ -698,6 +726,8 @@ Namespace UI.Screens
 
         ' Window lost focus mid-run: pause so the timer doesn't run on.
         Public Sub OnDeactivated()
+            _cameraKeyHeld = False
+            _canvas.CameraOverviewHeld = False
             If _screen = ShellScreen.Playing OrElse _screen = ShellScreen.Intro OrElse _screen = ShellScreen.GoalTransition Then Pause()
         End Sub
 

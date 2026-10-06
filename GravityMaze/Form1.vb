@@ -84,7 +84,7 @@ Public Class Form1
         End If
         ' Arrow keys must never move focus between controls.
         Select Case e.KeyCode
-            Case Keys.Up, Keys.Down, Keys.Left, Keys.Right, Keys.Space
+            Case Keys.Up, Keys.Down, Keys.Left, Keys.Right, Keys.Space, Keys.Tab, Keys.F9
                 e.Handled = True
                 e.SuppressKeyPress = e.KeyCode <> Keys.Space OrElse shell Is Nothing OrElse shell.Screen <> ShellScreen.NameEntry
         End Select
@@ -98,6 +98,7 @@ Public Class Form1
     Protected Overrides Sub OnKeyUp(e As KeyEventArgs)
         MyBase.OnKeyUp(e)
         keyboardController.NotifyKeyUp(e.KeyCode)
+        shell?.HandleKeyUp(e.KeyCode)
     End Sub
 
     Protected Overrides Function IsInputKey(keyData As Keys) As Boolean

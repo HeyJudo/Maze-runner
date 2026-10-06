@@ -21,6 +21,10 @@ Namespace VerificationRunner
 
         <STAThread>
         Public Sub Main()
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--camera-only") >= 0 Then
+                CameraTour.Run(Path.Combine(AppContext.BaseDirectory, "camera-checks"))
+                Return
+            End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--marble-only") >= 0 Then
                 MarbleTour.Run(Path.Combine(AppContext.BaseDirectory, "marble-checks"))
                 Return
