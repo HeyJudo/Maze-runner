@@ -21,6 +21,10 @@ Namespace VerificationRunner
 
         <STAThread>
         Public Sub Main()
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--marble-only") >= 0 Then
+                MarbleTour.Run(Path.Combine(AppContext.BaseDirectory, "marble-checks"))
+                Return
+            End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--transition-only") >= 0 Then
                 GoalTransitionTour.Run(Path.Combine(AppContext.BaseDirectory, "transition-checks"))
                 Return
