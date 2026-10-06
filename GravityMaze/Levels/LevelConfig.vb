@@ -13,7 +13,7 @@ Namespace Levels
         Public ReadOnly Property ThemeName     As String    ' e.g. "Wooden Workshop"
         Public ReadOnly Property MazePath      As String    ' relative to AppContext.BaseDirectory
         Public ReadOnly Property TimeLimitSecs As Integer   ' 0 = unlimited
-        Public ReadOnly Property ParSecs       As Single    ' keyboard-bot clear time; stars are earned against it
+        Public ReadOnly Property ParSecs       As Single    ' target clear time; stars are earned against it
 
         Public Sub New(levelNumber As Integer, themeName As String,
                        mazePath As String, timeLimitSecs As Integer, parSecs As Single)

@@ -11,6 +11,7 @@
     <Compile Include="../../GravityMaze/Rendering/BoardTilt.vb" Link="BoardTilt.vb" />
     <Compile Include="../../GravityMaze/Rendering/BoardProjection.vb" Link="BoardProjection.vb" />
     <Compile Include="../../GravityMaze/Engine/*.vb" Link="Engine/%(Filename)%(Extension)" />
+    <Compile Include="../../GravityMaze/Levels/DungeonDefinition.vb" Link="DungeonDefinition.vb" />
     <Compile Include="../../GravityMaze/Levels/MazeDefinition.vb" Link="MazeDefinition.vb" />
   </ItemGroup>
 </Project>

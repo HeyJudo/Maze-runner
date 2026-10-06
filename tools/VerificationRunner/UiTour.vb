@@ -48,7 +48,8 @@ Namespace VerificationRunner
             Dim levels As New List(Of LevelConfig) From {
                 New LevelConfig(1, "Wooden Workshop", Path.Combine(gameDir, "Mazes\Level1.txt"), 0, 7.3F),
                 New LevelConfig(2, "Frozen Labyrinth", Path.Combine(gameDir, "Mazes\Level2.txt"), 0, 36.9F),
-                New LevelConfig(3, "Neon Velocity", Path.Combine(gameDir, "Mazes\Level3.txt"), 57, 40.2F)}
+                New LevelConfig(3, "Neon Velocity", Path.Combine(gameDir, "Mazes\Level3.txt"), 57, 40.2F),
+                New LevelConfig(4, "Forgotten Keep", Path.Combine(gameDir, "Mazes\Level4.txt"), 0, 60.0F)}
             Dim scoresPath As String = Path.Combine(Path.GetTempPath(), $"gm_tour_{Guid.NewGuid():N}.xml")
 
             _tilt = New FakeTilt()
@@ -99,8 +100,8 @@ Namespace VerificationRunner
             If _shell.Engine.Hearts <> 2.75F Then Throw New Exception($"UI tour expected 2.75 hearts after one wall hit, got {_shell.Engine.Hearts}")
             Shot("ui_06b_hud_hearts")
 
-            ' Campaign: bot plays all three levels.
-            For level As Integer = 1 To 3
+            ' Campaign: bot plays all four levels.
+            For level As Integer = 1 To 4
                 Dim pilot As New AttractPilot(_shell.Engine.Maze)
                 Dim n As Integer = 0
                 While _shell.Screen = ShellScreen.Playing AndAlso n < 6000
@@ -108,6 +109,7 @@ Namespace VerificationRunner
                     _tilt.X = t.X : _tilt.Y = t.Y
                     _shell.Tick()
                     n += 1
+                    If level = 4 AndAlso n = 400 Then Shot("ui_07b_dungeon_hud")
                     If level = 2 AndAlso n = 400 Then
                         Shot("ui_07_hud_playing")
                         _tilt.X = 0 : _tilt.Y = 0
@@ -139,7 +141,7 @@ Namespace VerificationRunner
                     If _shell.Screen <> ShellScreen.GoalTransition Then Exit For
                     Ticks(1)
                 Next
-                If level < 3 Then
+                If level < 4 Then
                     Expect(ShellScreen.Playing)
                     If _shell.Engine.ElapsedSeconds <> 0 Then Throw New Exception("Next-level timer must start after the transition")
                 End If

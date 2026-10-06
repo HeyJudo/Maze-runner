@@ -43,7 +43,7 @@ Module Program
         Public ReadOnly Sound As New SoundManager()
         Public ReadOnly Scores As ScoreManager
         Public ReadOnly Shell As GameShell
-        Public Sub New()
+        Public Sub New(Optional includeDungeon As Boolean = False)
             Directory.CreateDirectory(Dir)
             Dim levels As New List(Of LevelConfig)()
             For i As Integer = 1 To 3
@@ -51,6 +51,7 @@ Module Program
                 IO.File.WriteAllLines(file, {"111111", "1S00G1", "111111"})
                 levels.Add(New LevelConfig(i, {"Wooden Workshop", "Frozen Labyrinth", "Neon Velocity"}(i - 1), file, If(i = 3, 57, 0), 5))
             Next
+            If includeDungeon Then levels.Add(New LevelConfig(4, "Forgotten Keep", Path.Combine(AppContext.BaseDirectory, "Mazes", "Level4.txt"), 0, 60))
             Scores = New ScoreManager(Path.Combine(Dir, "records.xml")) With {.PlayerName = "TEST"}
             Shell = New GameShell(Canvas, New InputManager(Tilt), Sound, Scores, levels)
         End Sub
@@ -70,7 +71,7 @@ Module Program
         End Sub
         Public Sub Goal()
             Dim pilot As New AttractPilot(Shell.Engine.Maze)
-            For i As Integer = 1 To 500
+            For i As Integer = 1 To If(Shell.Engine.Dungeon Is Nothing, 500, 10000)
                 If Shell.Screen = ShellScreen.GoalTransition Then
                     Tilt.X = 0 : Tilt.Y = 0
                     Return
@@ -98,6 +99,7 @@ Module Program
         TestCameraPreferences()
         TestClock()
         TestCampaign()
+        TestDungeonCampaign()
         TestPractice()
         TestRetry()
         TestCancel()
@@ -211,6 +213,33 @@ Module Program
             Check(Math.Abs(f.Scores.BestRecord(0).TimeSeconds - total) < 0.001F, "campaign time excludes transitions and pauses")
             f.Ticks(200)
             Check(f.Scores.TopRecords(0, 10).Count = 1, "victory does not record repeatedly")
+        End Using
+    End Sub
+
+    Private Sub TestDungeonCampaign()
+        Using f As New Fixture(True)
+            f.Campaign()
+            For level As Integer = 1 To 3
+                f.Goal()
+                Check(f.Canvas.Transition.HasNextLevel, "Level three must lead to the dungeon in a four-level campaign")
+                f.WaitFor(ShellScreen.Playing)
+            Next
+            Check(f.Shell.Engine.Maze.Dungeon IsNot Nothing AndAlso Object.ReferenceEquals(f.Canvas.DungeonState, f.Shell.Engine.Dungeon), "Fourth level must attach its own dungeon runtime")
+            f.Ticks(75)
+            Dim clock = f.Shell.Engine.Dungeon.ElapsedMs
+            Dim time = f.Shell.Engine.ElapsedSeconds
+            f.Shell.HandleKey(Keys.Escape)
+            f.Shell.HandleKey(Keys.F9) : f.Shell.HandleKeyUp(Keys.F9)
+            f.Ticks(200)
+            Check(f.Shell.Screen = ShellScreen.Paused AndAlso f.Shell.Engine.Dungeon.ElapsedMs = clock AndAlso f.Shell.Engine.ElapsedSeconds = time, "Pause and camera changes must freeze traps and physics together")
+            f.Shell.HandleKey(Keys.Escape)
+            f.Goal()
+            Check(f.Shell.Engine.Hearts > 0 AndAlso f.Shell.Engine.Dungeon.SealCount = 2, "The real shell must complete the dungeon with both seals and health enabled")
+            Check(Not f.Canvas.Transition.HasNextLevel, "Dungeon is the final floor")
+            f.WaitFor(ShellScreen.Victory)
+            Check(f.Scores.TopRecords(4, 10).Count = 1, "Dungeon completion records its own level time")
+            Check(f.Scores.TopRecords(0, 10, 4).Count = 1 AndAlso f.Scores.TopRecords(0, 10, 3).Count = 0, "Victory records a four-level campaign")
+            Check(f.Sound.Played.Contains("dungeon_seal"), "Seal pickup must play its cue through the real shell")
         End Using
     End Sub
 

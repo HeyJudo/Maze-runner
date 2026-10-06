@@ -21,6 +21,14 @@ Namespace VerificationRunner
 
         <STAThread>
         Public Sub Main()
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--ui-only") >= 0 Then
+                UiTour.Run(If(Environment.GetEnvironmentVariable("GM_ROOT"), Directory.GetCurrentDirectory()), Path.Combine(AppContext.BaseDirectory, "ui-checks"))
+                Return
+            End If
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--dungeon-only") >= 0 Then
+                DungeonTour.Run(Path.Combine(AppContext.BaseDirectory, "dungeon-checks"))
+                Return
+            End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--camera-only") >= 0 Then
                 CameraTour.Run(Path.Combine(AppContext.BaseDirectory, "camera-checks"))
                 Return

@@ -5,6 +5,7 @@ Imports System
 Imports System.Drawing
 Imports System.Collections.Generic
 Imports GravityMaze.Levels
+Imports GravityMaze.Engine
 Imports GravityMaze.Rendering
 
 ' Test doubles for Windows presentation and serial/audio devices only.
@@ -68,6 +69,7 @@ Namespace UI
         Public Property BoardInsets As System.Windows.Forms.Padding
         Public Property BackColor As Color
         Public Property OverlayPainter As Action(Of Object, Rectangle)
+        Public Property DungeonState As DungeonRun
         Public Property PickupTaken As Func(Of Integer, Integer, Boolean)
         Public Property BallBlink As Boolean
         Private ReadOnly Camera As New BoardCamera()

@@ -1,0 +1,135 @@
+{
+  "spikes": [
+    {
+      "row": 20,
+      "column": 13,
+      "offsetMs": 1600
+    },
+    {
+      "row": 21,
+      "column": 13,
+      "offsetMs": 1600
+    },
+    {
+      "row": 9,
+      "column": 23,
+      "offsetMs": 0
+    },
+    {
+      "row": 9,
+      "column": 24,
+      "offsetMs": 0
+    }
+  ],
+  "blades": [
+    {
+      "x1": 19.5,
+      "y1": 28.5,
+      "x2": 19.5,
+      "y2": 32.5,
+      "offsetMs": 0,
+      "periodMs": 6000
+    },
+    {
+      "x1": 21.5,
+      "y1": 20.5,
+      "x2": 26.5,
+      "y2": 20.5,
+      "offsetMs": 800,
+      "periodMs": 6000
+    },
+    {
+      "x1": 22.5,
+      "y1": 6.5,
+      "x2": 25.5,
+      "y2": 6.5,
+      "offsetMs": 0,
+      "periodMs": 6000
+    }
+  ],
+  "launchers": [
+    {
+      "x": 27.5,
+      "y": 26.1,
+      "dx": 0,
+      "dy": 1,
+      "offsetMs": 1800
+    },
+    {
+      "x": 18.1,
+      "y": 8.5,
+      "dx": 1,
+      "dy": 0,
+      "offsetMs": 0
+    },
+    {
+      "x": 20.5,
+      "y": 4.1,
+      "dx": 0,
+      "dy": 1,
+      "offsetMs": 3000
+    }
+  ],
+  "landmarks": [
+    {
+      "name": "Gate of the Warden",
+      "column": 22,
+      "row": 3,
+      "kind": "torch"
+    },
+    {
+      "name": "",
+      "column": 25,
+      "row": 3,
+      "kind": "torch"
+    },
+    {
+      "name": "Ashen Hall",
+      "column": 20,
+      "row": 25,
+      "kind": "torch"
+    },
+    {
+      "name": "",
+      "column": 26,
+      "row": 25,
+      "kind": "torch"
+    },
+    {
+      "name": "Blade Crypt",
+      "column": 16,
+      "row": 13,
+      "kind": "cell"
+    },
+    {
+      "name": "Dart Gallery",
+      "column": 30,
+      "row": 13,
+      "kind": "cell"
+    },
+    {
+      "name": "Broken Courtyard",
+      "column": 20,
+      "row": 23,
+      "kind": "rubble"
+    },
+    {
+      "name": "",
+      "column": 26,
+      "row": 23,
+      "kind": "rubble"
+    },
+    {
+      "name": "Ember Seal",
+      "column": 2,
+      "row": 13,
+      "kind": "altar"
+    },
+    {
+      "name": "Amethyst Seal",
+      "column": 43,
+      "row": 13,
+      "kind": "altar"
+    }
+  ]
+}

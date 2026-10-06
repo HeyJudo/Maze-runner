@@ -87,6 +87,7 @@ Namespace Engine
         Private ReadOnly _timeLimitSecs As Integer
 
         ' ── Public surface ─────────────────────────────────────────────────
+        Public ReadOnly Property Dungeon As DungeonRun
         Public ReadOnly Property BallX As Single
             Get
                 Return _ballX
@@ -148,6 +149,7 @@ Namespace Engine
         Public Sub New(maze As MazeDefinition, timeLimitSecs As Integer)
             If maze Is Nothing Then Throw New ArgumentNullException(NameOf(maze))
             _maze = maze
+            If maze.Dungeon IsNot Nothing Then Dungeon = New DungeonRun(maze)
             _timeLimitSecs = timeLimitSecs
             _ballX = maze.StartColumn + 0.5F
             _ballY = maze.StartRow + 0.5F
@@ -173,6 +175,7 @@ Namespace Engine
             _heartQuarters = MaxHearts * QuartersPerHeart
             _invulnerableMs = 0.0F
             _takenPickups.Clear()
+            Dungeon?.Reset()
         End Sub
 
         Public ReadOnly Property Hearts As Single
@@ -213,6 +216,7 @@ Namespace Engine
             If _state <> GameState.Playing Then Return
             If _invulnerableMs > 0.0F Then _invulnerableMs -= MsPerTick
 
+            Dim oldX = _ballX, oldY = _ballY
             ' Determine current tile modifiers
             Dim cRow As Integer = Math.Max(0, Math.Min(_maze.RowCount - 1, CInt(Math.Floor(_ballY))))
             Dim cCol As Integer = Math.Max(0, Math.Min(_maze.ColumnCount - 1, CInt(Math.Floor(_ballX))))
@@ -331,6 +335,7 @@ Namespace Engine
             Dim hRow As Integer = CInt(Math.Floor(_ballY))
             Dim hCol As Integer = CInt(Math.Floor(_ballX))
             If OverHole(hRow, hCol) Then
+                If Dungeon IsNot Nothing Then Dungeon.Advance(oldX, oldY, _ballX, _ballY)
                 RaiseEvent BallFell(Me, New BallFellEventArgs(hCol + 0.5F, hRow + 0.5F))
                 _ballX = _maze.StartColumn + 0.5F
                 _ballY = _maze.StartRow + 0.5F
@@ -354,10 +359,17 @@ Namespace Engine
                 End If
             End If
 
+            If Dungeon IsNot Nothing Then
+                Dungeon.Collect(_ballX, _ballY)
+                Dim trapHit = Dungeon.Advance(oldX, oldY, _ballX, _ballY)
+                If trapHit IsNot Nothing Then TakeHit(trapHit.X, trapHit.Y, QuartersPerHeart, False)
+                If _state <> GameState.Playing Then Return
+            End If
+
             ' 8. Goal detection — ball centre within GoalRadius of goal centre.
             Dim gdx As Single = _ballX - _goalCenterX
             Dim gdy As Single = _ballY - _goalCenterY
-            If gdx * gdx + gdy * gdy <= GoalRadius * GoalRadius Then
+            If gdx * gdx + gdy * gdy <= GoalRadius * GoalRadius AndAlso (Dungeon Is Nothing OrElse Dungeon.SealMask = 3) Then
                 _state = GameState.LevelComplete
                 _velocityX = 0.0F
                 _velocityY = 0.0F
@@ -384,6 +396,10 @@ Namespace Engine
             Return True
         End Function
 
+        Private Function Solid(row As Integer, column As Integer) As Boolean
+            Return If(Dungeon Is Nothing, _maze.GetTile(row, column) = "1"c, Dungeon.Solid(row, column))
+        End Function
+
         ' ── Collision helpers ───────────────────────────────────────────────
         Private Function WallBlocksX(newX As Single) As Boolean
             Dim leadCol As Integer = If(_velocityX > 0.0F,
@@ -397,7 +413,7 @@ Namespace Engine
                 CInt(Math.Floor(_ballY + BallRadius - Eps)))
 
             For r As Integer = rowMin To rowMax
-                If _maze.GetTile(r, leadCol) = "1"c Then Return True
+                If Solid(r, leadCol) Then Return True
             Next
             Return False
         End Function
@@ -414,7 +430,7 @@ Namespace Engine
                 CInt(Math.Floor(_ballX + BallRadius - Eps)))
 
             For c As Integer = colMin To colMax
-                If _maze.GetTile(leadRow, c) = "1"c Then Return True
+                If Solid(leadRow, c) Then Return True
             Next
             Return False
         End Function

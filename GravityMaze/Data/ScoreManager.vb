@@ -13,6 +13,7 @@ Namespace Data
     Public NotInheritable Class ScoreRecord
         Public Property PlayerName As String = ""
         Public Property LevelNumber As Integer
+        Public Property CampaignLevels As Integer = 3 ' Legacy full runs contained three levels.
         Public Property TimeSeconds As Single
         Public Property Attempts As Integer
         Public Property Stars As Integer
@@ -50,25 +51,25 @@ Namespace Data
         ' Saves immediately. Returns True if this is a new personal best time for
         ' that player + level (a player's first run on a level counts as a best).
         Public Function AddRecord(record As ScoreRecord) As Boolean
-            Dim prev As ScoreRecord = BestRecordFor(record.PlayerName, record.LevelNumber)
+            Dim prev As ScoreRecord = BestRecordFor(record.PlayerName, record.LevelNumber, If(record.LevelNumber = 0, record.CampaignLevels, 0))
             Dim isBest As Boolean = prev Is Nothing OrElse record.TimeSeconds < prev.TimeSeconds
             records.Add(record)
             Save()
             Return isBest
         End Function
 
-        Public Function BestRecord(levelNumber As Integer) As ScoreRecord
-            Return records.Where(Function(r) r.LevelNumber = levelNumber).OrderBy(Function(r) r.TimeSeconds).FirstOrDefault()
+        Public Function BestRecord(levelNumber As Integer, Optional campaignLevels As Integer = 0) As ScoreRecord
+            Return records.Where(Function(r) r.LevelNumber = levelNumber AndAlso (levelNumber <> 0 OrElse campaignLevels <= 0 OrElse r.CampaignLevels = campaignLevels)).OrderBy(Function(r) r.TimeSeconds).FirstOrDefault()
         End Function
 
-        Public Function BestRecordFor(playerName As String, levelNumber As Integer) As ScoreRecord
-            Return records.Where(Function(r) r.LevelNumber = levelNumber AndAlso
+        Public Function BestRecordFor(playerName As String, levelNumber As Integer, Optional campaignLevels As Integer = 0) As ScoreRecord
+            Return records.Where(Function(r) r.LevelNumber = levelNumber AndAlso (levelNumber <> 0 OrElse campaignLevels <= 0 OrElse r.CampaignLevels = campaignLevels) AndAlso
                                      String.Equals(r.PlayerName, playerName, StringComparison.OrdinalIgnoreCase)).
                                      OrderBy(Function(r) r.TimeSeconds).FirstOrDefault()
         End Function
 
-        Public Function TopRecords(levelNumber As Integer, count As Integer) As List(Of ScoreRecord)
-            Return records.Where(Function(r) r.LevelNumber = levelNumber).OrderBy(Function(r) r.TimeSeconds).Take(Math.Max(0, count)).ToList()
+        Public Function TopRecords(levelNumber As Integer, count As Integer, Optional campaignLevels As Integer = 0) As List(Of ScoreRecord)
+            Return records.Where(Function(r) r.LevelNumber = levelNumber AndAlso (levelNumber <> 0 OrElse campaignLevels <= 0 OrElse r.CampaignLevels = campaignLevels)).OrderBy(Function(r) r.TimeSeconds).Take(Math.Max(0, count)).ToList()
         End Function
 
         ' score = stars*1000 + max(0, 3000 - time*25) - (attempts-1)*150, floored at 0
@@ -87,6 +88,7 @@ Namespace Data
                     loaded.Add(New ScoreRecord With {
                         .PlayerName = If(CStr(e.Attribute("player")), ""),
                         .LevelNumber = Integer.Parse(CStr(e.Attribute("level")), Inv),
+                        .CampaignLevels = Integer.Parse(If(CStr(e.Attribute("campaignLevels")), "3"), Inv),
                         .TimeSeconds = Single.Parse(CStr(e.Attribute("time")), Inv),
                         .Attempts = Integer.Parse(CStr(e.Attribute("attempts")), Inv),
                         .Stars = Integer.Parse(CStr(e.Attribute("stars")), Inv),
@@ -116,6 +118,7 @@ Namespace Data
                     root.Add(New XElement("Record",
                         New XAttribute("player", r.PlayerName),
                         New XAttribute("level", r.LevelNumber.ToString(Inv)),
+                        If(r.LevelNumber = 0, New XAttribute("campaignLevels", r.CampaignLevels.ToString(Inv)), Nothing),
                         New XAttribute("time", r.TimeSeconds.ToString("0.00", Inv)),
                         New XAttribute("attempts", r.Attempts.ToString(Inv)),
                         New XAttribute("stars", r.Stars.ToString(Inv)),
