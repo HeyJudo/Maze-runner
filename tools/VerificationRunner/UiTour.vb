@@ -94,9 +94,9 @@ Namespace VerificationRunner
             Ticks(CInt(1400 / 16))
             Expect(ShellScreen.Playing)
 
-            ' Bump the top wall once: HUD shows 2 of 3 hearts and the pickup is on the board.
+            ' Bump the top wall once: HUD shows 2 3/4 hearts and the pickup is on the board.
             _tilt.Y = -1 : Ticks(15) : _tilt.Y = 0 : Ticks(30)
-            If _shell.Engine.Hearts <> 2 Then Throw New Exception($"UI tour expected 2 hearts after one wall hit, got {_shell.Engine.Hearts}")
+            If _shell.Engine.Hearts <> 2.75F Then Throw New Exception($"UI tour expected 2.75 hearts after one wall hit, got {_shell.Engine.Hearts}")
             Shot("ui_06b_hud_hearts")
 
             ' Campaign: bot plays all three levels.
@@ -155,18 +155,21 @@ Namespace VerificationRunner
             Expect(ShellScreen.TimeUp)
             Shot("ui_13_time_up")
 
-            ' Out of hearts on Level 1: three wall hits (tilt into the top wall, back off, repeat).
+            ' Out of hearts on Level 1: twelve quarter-heart wall hits, with time to recover.
             Key(Keys.Escape) : Ticks(10)
             Expect(ShellScreen.Title)
             MoveTo(1) : Key(Keys.Enter) : Ticks(10)
             MoveTo(0) : Key(Keys.Enter)
             Ticks(CInt((1600 + 2000) / 16) + 10)
             Expect(ShellScreen.Playing)
-            For hit As Integer = 1 To 3
-                _tilt.Y = -1 : Ticks(20)
-                _tilt.Y = 1 : Ticks(30)       ' off the wall and past the 1 s invulnerability
-                _tilt.Y = 0 : Ticks(40)
+            For hit As Integer = 1 To 12
+                _tilt.Y = -1 : Ticks(94)     ' pinned long enough to end the grace period
+                If _shell.Engine.Hearts <> 3.0F - hit * 0.25F Then Throw New Exception($"UI tour wall hit {hit}: unexpected health {_shell.Engine.Hearts}")
+                If hit < 12 Then
+                    _tilt.Y = 1 : Ticks(12)  ' back off without reaching the opposite wall
+                End If
             Next
+            _tilt.Y = 0
             Ticks(60)
             Expect(ShellScreen.OutOfHearts)
             Shot("ui_14_out_of_hearts")

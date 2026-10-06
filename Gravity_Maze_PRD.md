@@ -42,6 +42,13 @@ and managing momentum.
 Core mechanics: - Acceleration - Velocity - Friction - Collision
 detection - Goal detection - Timer - Attempts tracking
 
+Health: players start each level/restart with three hearts. Each new wall contact
+costs 1/4 heart, followed by one second of protection from wall damage. Sustained
+wall contact does not repeatedly drain health. Pits cost one full heart even
+during this protection and respawn the ball. Heart pickups restore one full
+heart up to the three-heart cap, including when health is only partially missing.
+The HUD shows full, 3/4, 1/2, 1/4, and empty hearts. Zero health ends the run.
+
 ------------------------------------------------------------------------
 
 ## 5. Level Design

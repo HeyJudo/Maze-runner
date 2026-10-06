@@ -60,7 +60,7 @@ Namespace UI.Screens
         Private _completedAtMs As Single = -1
         Private _lastTile As Char = "0"c
         Private _heartLostAgoMs As Single = 99999.0F   ' time since the last heart loss (HUD drain animation)
-        Private _heartLostIndex As Integer              ' HUD slot of the heart that was just lost
+        Private _heartsBeforeDamage As Single           ' health before the most recent damage animation
         Private _lastWholeSecondLeft As Integer = -1
         Private _spawnSoundInMs As Single = -1
 
@@ -537,7 +537,7 @@ Namespace UI.Screens
 
         Private Sub OnHeartLost(sender As Object, e As HeartEventArgs)
             _heartLostAgoMs = 0
-            _heartLostIndex = e.Hearts
+            _heartsBeforeDamage = e.PreviousHearts
             _canvas.FlashDamage()
             _sound.Play("wall_hit", 1.0F)
         End Sub

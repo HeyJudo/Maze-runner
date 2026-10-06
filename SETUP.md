@@ -100,7 +100,7 @@ void loop() {
    - Tilt toward or away from you to move the highlight up and down.
    - Hold a **right** tilt for about 1 second to select. A fill bar shows your progress.
    - Hold a **left** tilt for about 1 second to go back.
-4. **In a level:** tilt in each of the four directions and confirm the ball rolls the same way. Check the diagonals and small, gentle tilts as well. Level 1 is the easiest to test on. You have 3 hearts: any wall touch or pit costs one, and after each hit you get 1 second where you can't lose another. Floating hearts refill one.
+4. **In a level:** tilt in each of the four directions and confirm the ball rolls the same way. Check the diagonals and small, gentle tilts as well. Level 1 is the easiest to test on. You have 3 hearts: each new wall contact costs **1/4 heart**, while a pit costs **one full heart** and respawns the ball. Wall damage grants 1 second of protection from another wall hit; pits still cost health during this protection. Holding against a wall does not drain health continuously. Floating hearts restore one full heart, capped at 3; the HUD shows partially filled hearts.
 5. **Keyboard override:** while the board is connected, hold an arrow key. The keyboard should take control. When you let go, the board takes over again.
 6. **Unplug test:** unplug the USB cable mid-game. The footer should go back to `NO BOARD` and the keyboard should still work. Plug it back in, and within a few seconds it reconnects and the footer shows `BOARD COMx` again.
 

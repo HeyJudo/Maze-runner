@@ -45,8 +45,11 @@ Namespace Engine
         ' Ball drops when its centre is this close to a hole's centre (edges can be grazed).
         Private Const HoleRadius As Single = 0.4F
 
-        ' Hearts: any new wall contact or pit costs one; L tiles refill one.
+        ' Health is stored in integer quarters: walls cost 1/4 heart, pits cost one,
+        ' and L tiles restore one heart, capped at MaxHearts.
         Public Const MaxHearts As Integer = 3
+        Public Const QuartersPerHeart As Integer = 4
+        Private Const WallDamageQuarters As Integer = 1
         Public Const InvulnerableMs As Single = 1000.0F
         Private Const PickupRadius As Single = 0.45F
         Public Property HeartsEnabled As Boolean = True      ' False for the attract demo and test bots
@@ -54,7 +57,7 @@ Namespace Engine
         Public Event HeartLost As EventHandler(Of HeartEventArgs)
         Public Event HeartGained As EventHandler(Of HeartEventArgs)
 
-        Private _hearts As Integer = MaxHearts
+        Private _heartQuarters As Integer = MaxHearts * QuartersPerHeart
         Private _invulnerableMs As Single
         Private ReadOnly _takenPickups As New HashSet(Of Integer)   ' row * ColumnCount + col
 
@@ -167,14 +170,14 @@ Namespace Engine
             _inContactRight = False
             _inContactTop = False
             _inContactBottom = False
-            _hearts = MaxHearts
+            _heartQuarters = MaxHearts * QuartersPerHeart
             _invulnerableMs = 0.0F
             _takenPickups.Clear()
         End Sub
 
-        Public ReadOnly Property Hearts As Integer
+        Public ReadOnly Property Hearts As Single
             Get
-                Return _hearts
+                Return CSng(_heartQuarters) / QuartersPerHeart
             End Get
         End Property
 
@@ -188,14 +191,15 @@ Namespace Engine
             Return _takenPickups.Contains(row * _maze.ColumnCount + col)
         End Function
 
-        ' Costs one heart unless invulnerable (pits pass ignoreInvulnerable).
-        Private Sub TakeHit(x As Single, y As Single, ignoreInvulnerable As Boolean)
+        ' Wall contacts respect the grace period; pits always apply their full damage.
+        Private Sub TakeHit(x As Single, y As Single, damageQuarters As Integer, ignoreInvulnerable As Boolean)
             If Not HeartsEnabled OrElse _state <> GameState.Playing Then Return
             If Not ignoreInvulnerable AndAlso _invulnerableMs > 0.0F Then Return
-            _hearts -= 1
+            Dim previousHearts As Single = Hearts
+            _heartQuarters = Math.Max(0, _heartQuarters - damageQuarters)
             _invulnerableMs = InvulnerableMs
-            RaiseEvent HeartLost(Me, New HeartEventArgs(x, y, _hearts))
-            If _hearts <= 0 Then
+            RaiseEvent HeartLost(Me, New HeartEventArgs(x, y, Hearts, previousHearts))
+            If _heartQuarters = 0 Then
                 _state = GameState.OutOfHearts
                 _velocityX = 0.0F
                 _velocityY = 0.0F
@@ -253,7 +257,7 @@ Namespace Engine
                         If Not _inContactRight AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(contactX, _ballY, -1.0F, 0.0F, impactSpeed))
                         End If
-                        If Not _inContactRight Then TakeHit(contactX, _ballY, False)
+                        If Not _inContactRight Then TakeHit(contactX, _ballY, WallDamageQuarters, False)
                         _inContactRight = True
                     Else
                         contactX = CSng(Math.Ceiling(newX - BallRadius))
@@ -261,7 +265,7 @@ Namespace Engine
                         If Not _inContactLeft AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(contactX, _ballY, 1.0F, 0.0F, impactSpeed))
                         End If
-                        If Not _inContactLeft Then TakeHit(contactX, _ballY, False)
+                        If Not _inContactLeft Then TakeHit(contactX, _ballY, WallDamageQuarters, False)
                         _inContactLeft = True
                     End If
                     _velocityX = 0.0F
@@ -287,7 +291,7 @@ Namespace Engine
                         If Not _inContactBottom AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(_ballX, contactY, 0.0F, -1.0F, impactSpeed))
                         End If
-                        If Not _inContactBottom Then TakeHit(_ballX, contactY, False)
+                        If Not _inContactBottom Then TakeHit(_ballX, contactY, WallDamageQuarters, False)
                         _inContactBottom = True
                     Else
                         contactY = CSng(Math.Ceiling(newY - BallRadius))
@@ -295,7 +299,7 @@ Namespace Engine
                         If Not _inContactTop AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(_ballX, contactY, 0.0F, 1.0F, impactSpeed))
                         End If
-                        If Not _inContactTop Then TakeHit(_ballX, contactY, False)
+                        If Not _inContactTop Then TakeHit(_ballX, contactY, WallDamageQuarters, False)
                         _inContactTop = True
                     End If
                     _velocityY = 0.0F
@@ -332,20 +336,21 @@ Namespace Engine
                 _ballY = _maze.StartRow + 0.5F
                 _velocityX = 0.0F
                 _velocityY = 0.0F
-                TakeHit(hCol + 0.5F, hRow + 0.5F, True)
+                TakeHit(hCol + 0.5F, hRow + 0.5F, QuartersPerHeart, True)
                 Return
             End If
 
             ' 7b. Heart pickups — only when a heart is missing; a taken pickup stays gone until Reset.
-            If HeartsEnabled AndAlso _hearts < MaxHearts AndAlso hRow >= 0 AndAlso hRow < _maze.RowCount AndAlso
+            If HeartsEnabled AndAlso Hearts < MaxHearts AndAlso hRow >= 0 AndAlso hRow < _maze.RowCount AndAlso
                hCol >= 0 AndAlso hCol < _maze.ColumnCount AndAlso _maze.GetTile(hRow, hCol) = "L"c AndAlso
                Not IsPickupTaken(hRow, hCol) Then
                 Dim pdx As Single = _ballX - (hCol + 0.5F)
                 Dim pdy As Single = _ballY - (hRow + 0.5F)
                 If pdx * pdx + pdy * pdy <= PickupRadius * PickupRadius Then
                     _takenPickups.Add(hRow * _maze.ColumnCount + hCol)
-                    _hearts += 1
-                    RaiseEvent HeartGained(Me, New HeartEventArgs(hCol + 0.5F, hRow + 0.5F, _hearts))
+                    Dim previousHearts As Single = Hearts
+                    _heartQuarters = Math.Min(MaxHearts * QuartersPerHeart, _heartQuarters + QuartersPerHeart)
+                    RaiseEvent HeartGained(Me, New HeartEventArgs(hCol + 0.5F, hRow + 0.5F, Hearts, previousHearts))
                 End If
             End If
 
@@ -415,18 +420,20 @@ Namespace Engine
         End Function
     End Class
 
-    ' Where a heart was lost or gained (tile-space) and how many remain.
+    ' Where health changed (tile-space), with exact quarter-heart totals before and after.
     Public NotInheritable Class HeartEventArgs
         Inherits EventArgs
 
         Public ReadOnly Property X As Single
         Public ReadOnly Property Y As Single
-        Public ReadOnly Property Hearts As Integer
+        Public ReadOnly Property Hearts As Single
+        Public ReadOnly Property PreviousHearts As Single
 
-        Public Sub New(x As Single, y As Single, hearts As Integer)
+        Public Sub New(x As Single, y As Single, hearts As Single, previousHearts As Single)
             Me.X = x
             Me.Y = y
             Me.Hearts = hearts
+            Me.PreviousHearts = previousHearts
         End Sub
     End Class
 
