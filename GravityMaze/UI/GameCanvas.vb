@@ -20,6 +20,9 @@ Namespace UI
         Private ReadOnly perspective As New PerspectiveSurface()
         Private ReadOnly tilt As New BoardTilt()
         Private ReadOnly marble As New MarbleMotion()
+        Private ReadOnly camera As New BoardCamera()
+        Private cameraAfterFall As Boolean
+
         Private rebaseMarble As Boolean
         Private _tiltViewEnabled As Boolean = True
         Private goalDrop As GoalDropTransition
@@ -30,6 +33,36 @@ Namespace UI
         Private ReadOnly incomingRenderer As New MazeRenderer()
         Private ReadOnly incomingSurface As New PerspectiveSurface()
         Private ReadOnly incomingTilt As New BoardTilt()
+
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property CameraEnabled As Boolean
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property CameraOverviewHeld As Boolean
+
+        Public ReadOnly Property CameraLabel As String
+            Get
+                Return camera.Label
+            End Get
+        End Property
+
+        Public Sub CycleCameraZoom()
+            camera.CycleZoom()
+            Invalidate()
+        End Sub
+
+        ' Called even while paused, so changing zoom settles without advancing the engine.
+        Public Sub UpdateCamera(elapsedMs As Single)
+            If currentMaze Is Nothing Then Return
+            If cameraAfterFall AndAlso Not fx.FallActive Then
+                camera.Recenter(_ballX / currentMaze.ColumnCount, _ballY / currentMaze.RowCount)
+                cameraAfterFall = False
+            End If
+            ' Keep the pit ghost in view until it disappears, then snap to the respawn.
+            Dim x = If(fx.FallActive, fx.HoleX, _ballX)
+            Dim y = If(fx.FallActive, fx.HoleY, _ballY)
+            camera.Advance(x / currentMaze.ColumnCount, y / currentMaze.RowCount,
+                           elapsedMs, CameraEnabled, CameraOverviewHeld)
+        End Sub
 
         Public Sub BeginGoalDrop(transition As GoalDropTransition, nextMaze As MazeDefinition, nextTheme As String)
             goalDrop = transition
@@ -120,6 +153,7 @@ Namespace UI
         ' Tile-space hole centre. Starts the fall ghost, then a spawn pulse at the (already reset) ball.
         Public Sub AddHoleFall(holeX As Single, holeY As Single)
             rebaseMarble = True
+            cameraAfterFall = True
             fx.AddHoleFall(holeX, holeY)
             Invalidate()
         End Sub
@@ -140,6 +174,7 @@ Namespace UI
             _ballY = maze.StartRow + 0.5F
             ClearEffects()
             marble.Reset(_ballX, _ballY)
+            camera.Recenter(_ballX / maze.ColumnCount, _ballY / maze.RowCount)
             Invalidate()
         End Sub
 
@@ -149,6 +184,8 @@ Namespace UI
             completedMarbleHidden = False
             tilt.Reset()
             marble.Reset()
+            camera.ResetTracking()
+            cameraAfterFall = False
             rebaseMarble = False
             SyncLock activeImpacts
                 activeImpacts.Clear()
@@ -222,6 +259,16 @@ Namespace UI
                 If _shakeMs > 0.0F Then
                     Dim amp As Single = 6.0F * _shakeMs / 200.0F
                     e.Graphics.TranslateTransform(CSng(_shakeRng.NextDouble() * 2 - 1) * amp, CSng(_shakeRng.NextDouble() * 2 - 1) * amp)
+                End If
+                e.Graphics.SetClip(boardArea, Drawing2D.CombineMode.Intersect)
+                If CameraEnabled AndAlso Not CameraOverviewHeld AndAlso goalDrop Is Nothing Then
+                    Dim projection As BoardProjection = Nothing
+                    If TiltViewEnabled AndAlso boardArea.Width >= 32 AndAlso boardArea.Height >= 32 Then
+                        projection = New BoardProjection(boardArea.Width, boardArea.Height, tilt.X, tilt.Y)
+                    End If
+                    Dim frame = camera.Frame(boardArea, currentMaze.ColumnCount, currentMaze.RowCount, projection)
+                    e.Graphics.TranslateTransform(frame.Offset.X, frame.Offset.Y)
+                    e.Graphics.ScaleTransform(frame.Scale, frame.Scale)
                 End If
                 If goalDrop IsNot Nothing Then
                     DrawGoalDrop(e.Graphics, boardArea)

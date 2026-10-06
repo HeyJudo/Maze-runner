@@ -18,6 +18,8 @@ Namespace Global.System.Windows.Forms
         R
         M
         F8
+        F9
+        Tab
         Back
     End Enum
     Public Structure Padding
@@ -68,6 +70,19 @@ Namespace UI
         Public Property OverlayPainter As Action(Of Object, Rectangle)
         Public Property PickupTaken As Func(Of Integer, Integer, Boolean)
         Public Property BallBlink As Boolean
+        Private ReadOnly Camera As New BoardCamera()
+        Public Property CameraEnabled As Boolean
+        Public Property CameraOverviewHeld As Boolean
+        Public ReadOnly Property CameraLabel As String
+            Get
+                Return Camera.Label
+            End Get
+        End Property
+        Public Sub CycleCameraZoom()
+            Camera.CycleZoom()
+        End Sub
+        Public Sub UpdateCamera(elapsedMs As Single)
+        End Sub
         Public Property TiltViewEnabled As Boolean = True
         Public Property Transition As GoalDropTransition
         Public Property Incoming As MazeDefinition

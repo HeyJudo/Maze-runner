@@ -95,6 +95,7 @@ Module Program
     End Class
 
     Sub Main()
+        TestCameraPreferences()
         TestClock()
         TestCampaign()
         TestPractice()
@@ -102,6 +103,42 @@ Module Program
         TestCancel()
         TestIntroPause()
         Console.WriteLine($"PASS: {_checks} transition and real-shell flow checks (headless presentation adapters)")
+    End Sub
+
+    Private Sub TestCameraPreferences()
+        Using f As New Fixture()
+            f.Ticks(1)
+            Check(Not f.Canvas.CameraEnabled, "Menus must retain full-maze framing")
+            f.Campaign()
+            Check(f.Canvas.CameraEnabled, "Gameplay must enable the shared camera")
+            Check(f.Shell.HandleKey(Keys.F9) AndAlso f.Canvas.CameraLabel = "1.5x", "F9 selects a closer view")
+            f.Shell.HandleKey(Keys.F9)
+            Check(f.Canvas.CameraLabel = "1.5x", "Keyboard repeat must not cycle zoom repeatedly")
+            f.Shell.HandleKeyUp(Keys.F9)
+            f.Shell.HandleKey(Keys.F9) : f.Shell.HandleKeyUp(Keys.F9)
+            Check(f.Canvas.CameraLabel = "2x", "A new F9 press selects 2x")
+            f.Shell.HandleKey(Keys.Escape)
+            Dim time = f.Shell.Engine.ElapsedSeconds
+            f.Menu(4) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Paused AndAlso f.Canvas.CameraLabel = "FULL MAZE", "Pause-menu camera control cycles without resuming")
+            f.Tilt.X = 1 : f.Tilt.Y = 0 : f.Ticks(100)
+            Check(f.Canvas.CameraLabel = "1.5x", "Arduino hold-to-confirm must select exactly one zoom step")
+            Check(f.Shell.Engine.ElapsedSeconds = time, "Changing the camera while paused must not advance physics")
+            f.Tilt.X = 0 : f.Tilt.Y = 0
+            f.Shell.HandleKey(Keys.Tab)
+            Check(f.Canvas.CameraOverviewHeld, "Tab must enable temporary overview")
+            f.Shell.HandleKeyUp(Keys.Tab)
+            Check(Not f.Canvas.CameraOverviewHeld AndAlso f.Canvas.CameraLabel = "1.5x", "Releasing Tab must retain selected zoom")
+            f.Shell.HandleKey(Keys.Tab) : f.Shell.OnDeactivated()
+            Check(Not f.Canvas.CameraOverviewHeld, "Focus loss must release overview")
+            f.Shell.HandleKey(Keys.R) : f.WaitFor(ShellScreen.Playing)
+            Check(f.Canvas.CameraLabel = "1.5x", "Retry must keep camera preference")
+            For level As Integer = 1 To 3
+                f.Goal()
+                f.WaitFor(If(level = 3, ShellScreen.Victory, ShellScreen.Playing))
+                Check(f.Canvas.CameraLabel = "1.5x", "Campaign progression must keep the shared zoom setting")
+            Next
+        End Using
     End Sub
 
     Private Sub TestClock()

@@ -14,6 +14,9 @@
     <Compile Include="../../GravityMaze/UI/Screens/GameShell.vb" Link="GameShell.vb" />
     <Compile Include="../../GravityMaze/UI/Screens/MenuList.vb" Link="MenuList.vb" />
     <Compile Include="../../GravityMaze/UI/Screens/AttractPilot.vb" Link="AttractPilot.vb" />
+    <Compile Include="../../GravityMaze/Rendering/BoardCamera.vb" Link="BoardCamera.vb" />
+    <Compile Include="../../GravityMaze/Rendering/BoardProjection.vb" Link="BoardProjection.vb" />
+    <Compile Include="../../GravityMaze/Rendering/BoardTilt.vb" Link="BoardTilt.vb" />
     <Compile Include="../../GravityMaze/Rendering/GoalDropTransition.vb" Link="GoalDropTransition.vb" />
   </ItemGroup>
 </Project>

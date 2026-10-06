@@ -275,8 +275,8 @@ Namespace UI.Screens
 
             Dim colW As Single = (b.Width - x * 2 - 40 * s) / 2
             Dim top As Single = b.Height * 0.3F
-            Dim left As New RectangleF(x, top, colW, 430 * s)
-            Dim right As New RectangleF(x + colW + 40 * s, top, colW, 430 * s)
+            Dim left As New RectangleF(x, top, colW, 520 * s)
+            Dim right As New RectangleF(x + colW + 40 * s, top, colW, 520 * s)
             UiDraw.Panel(g, left, Color.FromArgb(230, pal.Backdrop), Color.FromArgb(90, pal.Accent), 12 * s)
             UiDraw.Panel(g, right, Color.FromArgb(230, pal.Backdrop), Color.FromArgb(90, pal.Accent), 12 * s)
 
@@ -292,9 +292,11 @@ Namespace UI.Screens
                 ("R", "Restart the level"),
                 ("M", "Sound on / off"),
                 ("F8", "Tilt view on / off"),
+                ("F9", "Cycle camera zoom"),
+                ("HOLD TAB", "Full-maze overview"),
                 ("F11", "Fullscreen / window")}
             For i As Integer = 0 To lines.Length - 1
-                Dim ly As Single = left.Y + 96 * s + i * 44 * s
+                Dim ly As Single = left.Y + 96 * s + i * 40 * s
                 UiDraw.Text(g, lines(i).Item1, key, pal.Accent, left.X + 32 * s, ly, 0, 2 * s)
                 UiDraw.Text(g, lines(i).Item2, body, pal.Text, left.X + colW * 0.45F, ly)
             Next
@@ -504,6 +506,8 @@ Namespace UI.Screens
             Dim cx As Single = b.Width / 2.0F
             UiDraw.GlowText(g, "PAUSED", GameFonts.Display(150 * s), pal.Text, pal.AccentSoft, cx, b.Height * 0.24F, 0.5F, 8 * s, 5 * s)
             DrawMenu(g, _pauseMenu, cx, b.Height * 0.46F, s, pal, 0.5F, 38, 64)
+            UiDraw.Text(g, "F9  CAMERA ZOOM     HOLD TAB  OVERVIEW", GameFonts.Body(22 * s, GameFonts.FontWeight.Medium),
+                        pal.TextDim, cx, b.Height * 0.85F, 0.5F)
         End Sub
 
         ' ── Level complete ──────────────────────────────────────────────────
