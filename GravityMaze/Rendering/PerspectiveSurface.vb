@@ -18,7 +18,8 @@ Namespace Rendering
 
         Public Sub Draw(target As Graphics, bounds As Rectangle, tilt As BoardTilt,
                         paint As Action(Of Graphics, Rectangle),
-                        Optional project As Boolean = True, Optional opacity As Single = 1.0F)
+                        Optional project As Boolean = True, Optional opacity As Single = 1.0F,
+                        Optional paintSpheres As Action(Of Graphics, Rectangle, BoardProjection) = Nothing)
             If bounds.Width < 32 OrElse bounds.Height < 32 Then Return
             Dim factor As Double = Math.Min(1.0, 1024.0 / Math.Max(bounds.Width, bounds.Height))
             Dim width As Integer = Math.Max(32, CInt(bounds.Width * factor))
@@ -36,6 +37,7 @@ Namespace Rendering
                 paint(g, area)
             End Using
             Dim frame As Bitmap = _source
+            Dim projection As BoardProjection = Nothing
             If project Then
                 Dim data As BitmapData = _source.LockBits(area, ImageLockMode.ReadOnly, PixelFormat.Format32bppPArgb)
                 Try
@@ -43,7 +45,7 @@ Namespace Rendering
                 Finally
                     _source.UnlockBits(data)
                 End Try
-                Dim projection As New BoardProjection(width, height, tilt.X, tilt.Y)
+                projection = New BoardProjection(width, height, tilt.X, tilt.Y)
                 projection.Warp(_sourcePixels, _outputPixels, width, height)
                 data = _output.LockBits(area, ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb)
                 Try
@@ -52,6 +54,12 @@ Namespace Rendering
                     _output.UnlockBits(data)
                 End Try
                 frame = _output
+            End If
+            If paintSpheres IsNot Nothing Then
+                Using g As Graphics = Graphics.FromImage(frame)
+                    g.SmoothingMode = SmoothingMode.AntiAlias
+                    paintSpheres(g, area, projection)
+                End Using
             End If
             Dim state = target.Save()
             Try

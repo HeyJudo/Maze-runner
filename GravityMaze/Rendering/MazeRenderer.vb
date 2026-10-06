@@ -5,6 +5,9 @@ Imports System
 Imports System.Drawing
 Imports System.Drawing.Drawing2D
 Imports System.Collections.Generic
+Imports System.Drawing.Imaging
+Imports System.Runtime.InteropServices
+Imports System.Numerics
 Imports GravityMaze.Levels
 Imports GravityMaze.UI
 
@@ -18,9 +21,24 @@ Namespace Rendering
         Private _cacheTheme As String
         Private _cacheSize As Size
 
+        Private Structure MarbleDraw
+            Public Center As PointF
+            Public Radius As Single
+            Public Theme As String
+            Public Darkness As Single
+        End Structure
+        Private ReadOnly _marbles As New List(Of MarbleDraw)()
+        Private _deferMarbles As Boolean
+        Private _orientation As Quaternion = Quaternion.Identity
+        Private _tiltX, _tiltY As Double
+        Private _sphere As Bitmap
+        Private _spherePixels As Byte()
+
         Public Sub Dispose() Implements IDisposable.Dispose
             _cache?.Dispose()
             _cache = Nothing
+            _sphere?.Dispose()
+            _sphere = Nothing
         End Sub
 
         ' ballX / ballY are in tile-space (e.g. 1.5 = centre of column 1).
@@ -36,7 +54,15 @@ Namespace Rendering
                         Optional ballBlink As Boolean = False,
                         Optional ballScale As Single = 1.0F,
                         Optional ballLift As Single = 0.0F,
-                        Optional landingPulse As Single = -1.0F)
+                        Optional landingPulse As Single = -1.0F,
+                        Optional motion As MarbleMotion = Nothing,
+                        Optional boardTilt As BoardTilt = Nothing,
+                        Optional deferMarbles As Boolean = False)
+            _marbles.Clear()
+            _deferMarbles = deferMarbles
+            _orientation = If(motion Is Nothing, Quaternion.Identity, motion.Orientation)
+            _tiltX = If(boardTilt Is Nothing, 0, boardTilt.X)
+            _tiltY = If(boardTilt Is Nothing, 0, boardTilt.Y)
             If bounds.Width < 32 OrElse bounds.Height < 32 Then Return
 
             Dim graphicsState As GraphicsState = graphics.Save()
@@ -82,12 +108,10 @@ Namespace Rendering
                 ' 5. Metallic Silver Marble (same ball across all levels)
                 Dim ballCenter As New PointF(left + ballX * tileSize, top + ballY * tileSize)
                 Dim ballRadius As Single = tileSize * 0.27F
-                If ballLift > 0 OrElse landingPulse >= 0 Then
-                    Dim shadowSize As Single = ballRadius * (1.0F + Math.Min(3.0F, ballLift) * 0.25F)
-                    Using shadow As New SolidBrush(Color.FromArgb(70, 0, 0, 0))
-                        graphics.FillEllipse(shadow, ballCenter.X - shadowSize, ballCenter.Y - shadowSize * 0.4F,
-                                             shadowSize * 2, shadowSize * 0.8F)
-                    End Using
+                If ballScale > 0 AndAlso (fx Is Nothing OrElse Not fx.FallActive) Then
+                    DrawMarbleShadow(graphics, ballCenter, ballRadius * ballScale, ballLift)
+                End If
+                If ballScale > 0 Then
                     If landingPulse >= 0 Then
                         Dim radius As Single = tileSize * (0.35F + 0.8F * landingPulse)
                         Using ring As New Pen(Color.FromArgb(CInt(160 * (1 - landingPulse)), 100, 240, 200), Math.Max(1, tileSize * 0.06F))
@@ -102,7 +126,7 @@ Namespace Rendering
                     If fx IsNot Nothing AndAlso fx.SpawnActive Then
                         ballRadius *= Math.Max(0.02F, EaseOutBack(fx.SpawnElapsed / BallFxState.SpawnMs))
                     End If
-                    DrawBall(graphics, ballCenter, ballRadius, themeName, castShadow:=ballLift <= 0)
+                    DrawBall(graphics, ballCenter, ballRadius, themeName, castShadow:=False)
                 End If
                 If fx IsNot Nothing Then DrawFallAndSpawn(graphics, left, top, tileSize, fx, themeName)
 
@@ -570,42 +594,79 @@ Namespace Rendering
         End Sub
 
         ' ── Ball ────────────────────────────────────────────────────────────
-        Private Shared Sub DrawBall(graphics As Graphics, center As PointF, radius As Single, theme As String,
-                                    Optional castShadow As Boolean = True)
-            Dim ball As New RectangleF(center.X - radius, center.Y - radius, radius * 2.0F, radius * 2.0F)
+        Private Shared Sub DrawMarbleShadow(graphics As Graphics, center As PointF, radius As Single, lift As Single)
+            Dim spread = MarbleMaterial.ShadowSpread(lift)
+            Dim width = radius * 2.15F * spread
+            Dim height = radius * 1.35F * spread
+            Using path As New GraphicsPath()
+                path.AddEllipse(center.X - width / 2 + radius * 0.15F,
+                                center.Y - height / 2 + radius * 0.4F, width, height)
+                Using brush As New PathGradientBrush(path)
+                    brush.CenterColor = Color.FromArgb(MarbleMaterial.ShadowAlpha(lift), 0, 0, 0)
+                    brush.SurroundColors = {Color.Transparent}
+                    graphics.FillPath(brush, path)
+                End Using
+            End Using
+        End Sub
 
-            ' Contact shadow under ball
-            Dim shadowColor As Color
-            If theme = "Frozen Labyrinth" Then
-                shadowColor = Color.FromArgb(110, 8, 18, 30)
+        Private Sub DrawBall(graphics As Graphics, center As PointF, radius As Single, theme As String,
+                             Optional castShadow As Boolean = True, Optional darkness As Single = 0)
+            If castShadow Then DrawMarbleShadow(graphics, center, radius, 0)
+            If _deferMarbles Then
+                _marbles.Add(New MarbleDraw With {.Center = center, .Radius = radius, .Theme = theme, .Darkness = darkness})
             Else
-                shadowColor = Color.FromArgb(95, 30, 20, 12)
+                PaintSphere(graphics, center, radius, theme, darkness)
             End If
+        End Sub
 
-            If castShadow Then
-                Using shadowBrush As New SolidBrush(shadowColor)
-                    graphics.FillEllipse(shadowBrush, ball.X + radius * 0.18F, ball.Y + radius * 0.25F,
-                                         ball.Width, ball.Height)
-                End Using
+        ' Called after the planar image is warped, inside the surface's opacity/transform scope.
+        Public Sub DrawMarbles(graphics As Graphics, area As Rectangle, projection As BoardProjection)
+            For Each marble In _marbles
+                Dim center = marble.Center
+                Dim radius = marble.Radius
+                If projection IsNot Nothing Then
+                    Dim mapped = projection.ProjectSphere(center, radius, area.Width, area.Height)
+                    center = mapped.Center : radius = mapped.Radius
+                End If
+                PaintSphere(graphics, center, radius, marble.Theme, marble.Darkness)
+            Next
+        End Sub
+
+        Private Sub PaintSphere(graphics As Graphics, center As PointF, radius As Single, theme As String, darkness As Single)
+            If radius < 0.01F Then Return
+            Dim size As Integer = Math.Clamp(CInt(Math.Ceiling(radius * 2)) + 2, 16, 128)
+            If _sphere Is Nothing OrElse _sphere.Width <> size Then
+                _sphere?.Dispose()
+                _sphere = New Bitmap(size, size, PixelFormat.Format32bppPArgb)
+                _spherePixels = New Byte(size * size * 4 - 1) {}
             End If
-
-            ' Metallic silver marble
-            Using ballPath As New GraphicsPath()
-                ballPath.AddEllipse(ball)
-                Using metalBrush As New PathGradientBrush(ballPath)
-                    metalBrush.CenterPoint    = New PointF(center.X - radius * 0.35F, center.Y - radius * 0.4F)
-                    metalBrush.CenterColor    = Color.FromArgb(255, 255, 255)
-                    metalBrush.SurroundColors = New Color() {Color.FromArgb(64, 75, 87)}
-                    graphics.FillEllipse(metalBrush, ball)
-                End Using
-            End Using
-
-            Using rimPen     As New Pen(Color.FromArgb(65, 71, 80), Math.Max(1.0F, radius * 0.07F)),
-                  shineBrush As New SolidBrush(Color.FromArgb(210, 255, 255, 255))
-                graphics.DrawEllipse(rimPen, ball)
-                graphics.FillEllipse(shineBrush, center.X - radius * 0.5F, center.Y - radius * 0.55F,
-                                     radius * 0.4F, radius * 0.25F)
-            End Using
+            Dim extent As Single = size / 2.0F - 1
+            For row As Integer = 0 To size - 1
+                For col As Integer = 0 To size - 1
+                    Dim x As Single = (col + 0.5F - size / 2.0F) / extent
+                    Dim y As Single = (row + 0.5F - size / 2.0F) / extent
+                    Dim distance = CSng(Math.Sqrt(x * x + y * y))
+                    Dim coverage As Single = Math.Clamp((1 - distance) * extent + 0.5F, 0, 1)
+                    Dim color As Color = Color.Transparent
+                    If coverage > 0 Then
+                        Dim factor = If(distance > 0.999F, 0.999F / distance, 1.0F)
+                        color = MarbleMaterial.Shade(x * factor, y * factor, _orientation, _tiltX, _tiltY, theme, darkness)
+                    End If
+                    Dim i = (row * size + col) * 4
+                    _spherePixels(i) = CByte(color.B * coverage)
+                    _spherePixels(i + 1) = CByte(color.G * coverage)
+                    _spherePixels(i + 2) = CByte(color.R * coverage)
+                    _spherePixels(i + 3) = CByte(255 * coverage)
+                Next
+            Next
+            Dim data = _sphere.LockBits(New Rectangle(0, 0, size, size), ImageLockMode.WriteOnly, PixelFormat.Format32bppPArgb)
+            Try
+                Marshal.Copy(_spherePixels, 0, data.Scan0, _spherePixels.Length)
+            Finally
+                _sphere.UnlockBits(data)
+            End Try
+            Dim diameter = radius * 2 * size / (size - 2)
+            graphics.DrawImage(_sphere, New RectangleF(center.X - diameter / 2, center.Y - diameter / 2, diameter, diameter))
         End Sub
 
         ' ── Ball FX (trail, streak, particles, hole fall, spawn pulse) ───────
@@ -687,7 +748,7 @@ Namespace Rendering
             End If
         End Sub
 
-        Private Shared Sub DrawFallAndSpawn(graphics As Graphics, left As Single, top As Single,
+        Private Sub DrawFallAndSpawn(graphics As Graphics, left As Single, top As Single,
                                             tileSize As Single, fx As BallFxState, themeName As String)
             If fx.FallActive Then
                 Dim p As Single = Math.Min(1.0F, fx.FallElapsed / BallFxState.FallMs)
@@ -712,10 +773,7 @@ Namespace Rendering
                 Dim gy As Single = hc.Y + (ox * CSng(Math.Sin(ang)) + oy * CSng(Math.Cos(ang))) * tileSize * k
                 Dim gr As Single = tileSize * 0.27F * CSng(Math.Pow(1.0F - p, 0.85))
                 If gr >= 1.0F Then
-                    DrawBall(graphics, New PointF(gx, gy), gr, themeName)
-                    Using dark As New SolidBrush(Color.FromArgb(ClampAlpha(235.0F * p), 4, 3, 8))
-                        graphics.FillEllipse(dark, gx - gr, gy - gr, gr * 2.0F, gr * 2.0F)
-                    End Using
+                    DrawBall(graphics, New PointF(gx, gy), gr, themeName, darkness:=p)
                 End If
             End If
 

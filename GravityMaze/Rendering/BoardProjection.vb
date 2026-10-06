@@ -11,6 +11,7 @@ Namespace Rendering
     Public NotInheritable Class BoardProjection
         Private ReadOnly _a, _b, _c, _d, _p, _q As Double
         Private ReadOnly _ia, _ib, _ic, _id As Double
+        Private ReadOnly _scale As Double
 
         Public Sub New(width As Integer, height As Integer, tiltX As Double, tiltY As Double)
             If width <= 0 OrElse height <= 0 Then Throw New ArgumentOutOfRangeException(NameOf(width))
@@ -32,6 +33,7 @@ Namespace Rendering
             Dim maxPitch As Double = Math.Sin((BoardTilt.RestPitchDegrees + BoardTilt.MaxTiltDegrees) * Math.PI / 180)
             Dim nearestDepth As Double = 1 - (maxRoll * aspect + maxPitch) / cameraDistance
             Dim scale As Double = 0.97 * nearestDepth / (1 + maxRoll * maxPitch / aspect)
+            _scale = scale
             _a *= scale : _b *= scale : _c *= scale : _d *= scale
             Dim det As Double = _a * _d - _b * _c
             _ia = _d / det : _ib = -_b / det
@@ -41,6 +43,15 @@ Namespace Rendering
         Public Function Project(x As Double, y As Double) As PointF
             Dim denominator As Double = 1 + _p * x + _q * y
             Return New PointF(CSng((_a * x + _b * y) / denominator), CSng((_c * x + _d * y) / denominator))
+        End Function
+
+        ' A sphere keeps its circular silhouette; only its location and depth scale follow the plane.
+        Public Function ProjectSphere(center As PointF, radius As Single, width As Integer, height As Integer) As (Center As PointF, Radius As Single)
+            Dim x As Double = center.X * 2.0 / width - 1
+            Dim y As Double = center.Y * 2.0 / height - 1
+            Dim projected = Project(x, y)
+            Return (New PointF((projected.X + 1) * width / 2, (projected.Y + 1) * height / 2),
+                    CSng(radius * _scale / (1 + _p * x + _q * y)))
         End Function
 
         Public Function Unproject(x As Double, y As Double) As PointF

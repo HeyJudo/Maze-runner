@@ -19,6 +19,8 @@ Namespace UI
         Private ReadOnly renderer As New MazeRenderer()
         Private ReadOnly perspective As New PerspectiveSurface()
         Private ReadOnly tilt As New BoardTilt()
+        Private ReadOnly marble As New MarbleMotion()
+        Private rebaseMarble As Boolean
         Private _tiltViewEnabled As Boolean = True
         Private goalDrop As GoalDropTransition
         Private incomingMaze As MazeDefinition
@@ -117,6 +119,7 @@ Namespace UI
 
         ' Tile-space hole centre. Starts the fall ghost, then a spawn pulse at the (already reset) ball.
         Public Sub AddHoleFall(holeX As Single, holeY As Single)
+            rebaseMarble = True
             fx.AddHoleFall(holeX, holeY)
             Invalidate()
         End Sub
@@ -136,6 +139,7 @@ Namespace UI
             _ballX = maze.StartColumn + 0.5F
             _ballY = maze.StartRow + 0.5F
             ClearEffects()
+            marble.Reset(_ballX, _ballY)
             Invalidate()
         End Sub
 
@@ -144,6 +148,8 @@ Namespace UI
             EndGoalDrop()
             completedMarbleHidden = False
             tilt.Reset()
+            marble.Reset()
+            rebaseMarble = False
             SyncLock activeImpacts
                 activeImpacts.Clear()
             End SyncLock
@@ -170,6 +176,12 @@ Namespace UI
 
         ' Called by the game loop each tick with the engine's current ball position.
         Public Sub UpdateBallPosition(x As Single, y As Single)
+            If rebaseMarble OrElse completedMarbleHidden OrElse fx.FallActive OrElse fx.SpawnPending Then
+                marble.Rebase(x, y)
+                rebaseMarble = False
+            Else
+                marble.Advance(x, y)
+            End If
             _ballX = x
             _ballY = y
 
@@ -218,12 +230,13 @@ Namespace UI
                         Sub(g As Graphics, area As Rectangle)
                             renderer.Draw(g, area, currentMaze, _ballX, _ballY,
                                           currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
-                                          If(completedMarbleHidden, 0.0F, 1.0F))
-                        End Sub)
+                                          If(completedMarbleHidden, 0.0F, 1.0F),
+                                          motion:=marble, boardTilt:=tilt, deferMarbles:=True)
+                        End Sub, paintSpheres:=AddressOf renderer.DrawMarbles)
                 Else
                     renderer.Draw(e.Graphics, boardArea, currentMaze, _ballX, _ballY,
                                   currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
-                                  If(completedMarbleHidden, 0.0F, 1.0F))
+                                  If(completedMarbleHidden, 0.0F, 1.0F), motion:=marble, boardTilt:=tilt)
                 End If
                 e.Graphics.Restore(state)
                 If _flashMs > 0.0F Then
@@ -247,8 +260,9 @@ Namespace UI
                         incomingRenderer.Draw(cg, bounds, incomingMaze, incomingMaze.StartColumn + 0.5F,
                                               incomingMaze.StartRow + 0.5F, incomingTheme,
                                               ballScale:=If(visibleBall, 1.0F, 0.0F),
-                                              ballLift:=goalDrop.LandingHeight, landingPulse:=pulse)
-                    End Sub, lift, area.Height * 0.16F * (1 - lift), 0.94F + 0.06F * lift)
+                                              ballLift:=goalDrop.LandingHeight, landingPulse:=pulse,
+                                              boardTilt:=incomingTilt, deferMarbles:=True)
+                    End Sub, lift, area.Height * 0.16F * (1 - lift), 0.94F + 0.06F * lift, AddressOf incomingRenderer.DrawMarbles)
             End If
             If phase = GoalDropPhase.Drop OrElse phase = GoalDropPhase.Lift Then
                 Dim lift As Single = If(phase = GoalDropPhase.Lift, GoalDropTransition.Ease(p), 0.0F)
@@ -259,13 +273,15 @@ Namespace UI
                 DrawLayer(g, area, perspective, tilt,
                     Sub(cg, bounds)
                         renderer.Draw(cg, bounds, currentMaze, bx, by, currentTheme,
-                                      goalEffect:=goalCelebration, pickupTaken:=PickupTaken, ballScale:=shrink)
-                    End Sub, 1 - lift, -area.Height * 0.28F * lift, 1.0F + 0.06F * lift)
+                                      goalEffect:=goalCelebration, pickupTaken:=PickupTaken, ballScale:=shrink,
+                                      motion:=marble, boardTilt:=tilt, deferMarbles:=True)
+                    End Sub, 1 - lift, -area.Height * 0.28F * lift, 1.0F + 0.06F * lift, AddressOf renderer.DrawMarbles)
             End If
         End Sub
 
         Private Sub DrawLayer(g As Graphics, area As Rectangle, surface As PerspectiveSurface, pose As BoardTilt,
-                              paint As Action(Of Graphics, Rectangle), opacity As Single, offsetY As Single, scale As Single)
+                              paint As Action(Of Graphics, Rectangle), opacity As Single, offsetY As Single, scale As Single,
+                              paintSpheres As Action(Of Graphics, Rectangle, BoardProjection))
             Dim state = g.Save()
             Try
                 g.SetClip(area, Drawing2D.CombineMode.Intersect)
@@ -274,7 +290,7 @@ Namespace UI
                 g.TranslateTransform(cx, cy + offsetY)
                 g.ScaleTransform(scale, scale)
                 g.TranslateTransform(-cx, -cy)
-                surface.Draw(g, area, pose, paint, TiltViewEnabled, opacity)
+                surface.Draw(g, area, pose, paint, TiltViewEnabled, opacity, paintSpheres)
             Finally
                 g.Restore(state)
             End Try
