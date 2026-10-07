@@ -58,7 +58,7 @@ Module Program
 
         ' Use each shipped grid plus arbitrary future grids; no level number or theme enters the camera.
         For Each file In Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Mazes"), "*.txt")
-            Dim maze As New MazeDefinition(IO.File.ReadAllLines(file))
+            Dim maze = MazeManager.LoadFromFile(file)
             CheckGrid(maze.ColumnCount, maze.RowCount)
         Next
         CheckGrid(80, 11)

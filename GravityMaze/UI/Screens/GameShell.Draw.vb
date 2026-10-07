@@ -188,7 +188,7 @@ Namespace UI.Screens
             UiDraw.GlowText(g, "LEVEL SELECT", GameFonts.Display(110 * s), pal.Text, pal.AccentSoft, x, b.Height * 0.1F + 34 * s, 0, 3 * s, 4 * s)
 
             Dim cardW As Single = Math.Min(b.Width * 0.36F, 640 * s)
-            Dim cardH As Single = 128 * s
+            Dim cardH As Single = If(_levels.Count > 3, 112, 128) * s
             Dim y As Single = b.Height * 0.33F
             For i As Integer = 0 To _levels.Count - 1
                 Dim lv As LevelConfig = _levels(i)
@@ -246,10 +246,13 @@ Namespace UI.Screens
             Dim top As Single = b.Height * 0.3F
             For ci As Integer = 0 To cols.Count - 1
                 Dim c = cols(ci)
-                Dim rows As List(Of ScoreRecord) = _scores.TopRecords(c.Item2, 8)
+                Dim rows As List(Of ScoreRecord) = _scores.TopRecords(c.Item2, 8, If(c.Item2 = 0, _levels.Count, 0))
                 Dim r As New RectangleF(x + ci * (colW + gap), top, colW, (110 + Math.Max(5, rows.Count) * 44) * s)
                 UiDraw.Panel(g, r, Color.FromArgb(230, c.Item3.Backdrop), Color.FromArgb(90, c.Item3.Accent), 12 * s)
-                UiDraw.Text(g, c.Item1, GameFonts.Display(40 * s), c.Item3.Accent, r.X + 24 * s, r.Y + 20 * s, 0, 2 * s)
+                Dim heading = GameFonts.Display(40 * s)
+                Dim headingWidth = UiDraw.Measure(g, c.Item1, heading, 2 * s).Width
+                If headingWidth > colW - 48 * s Then heading = GameFonts.Display(40 * s * (colW - 48 * s) / headingWidth)
+                UiDraw.Text(g, c.Item1, heading, c.Item3.Accent, r.X + 24 * s, r.Y + 20 * s, 0, 2 * s)
                 If rows.Count = 0 Then
                     UiDraw.Text(g, "No runs yet", GameFonts.Body(22 * s), c.Item3.TextDim, r.X + 24 * s, r.Y + 90 * s)
                 End If
@@ -259,7 +262,15 @@ Namespace UI.Screens
                     Dim mine As Boolean = String.Equals(rec.PlayerName, _scores.PlayerName, StringComparison.OrdinalIgnoreCase)
                     Dim rowColor As Color = If(mine, c.Item3.Text, c.Item3.TextDim)
                     UiDraw.Text(g, (ri + 1).ToString(), GameFonts.Display(30 * s), If(ri = 0, c.Item3.Accent, rowColor), r.X + 24 * s, ry)
-                    UiDraw.Text(g, rec.PlayerName, GameFonts.Body(22 * s, GameFonts.FontWeight.SemiBold), rowColor, r.X + 60 * s, ry + 3 * s)
+                    Dim nameFont = GameFonts.Body(22 * s, GameFonts.FontWeight.SemiBold)
+                    Dim timeWidth = UiDraw.Measure(g, UiDraw.FormatTime(rec.TimeSeconds), GameFonts.Body(22 * s, GameFonts.FontWeight.Bold)).Width
+                    Dim nameWidth = Math.Max(0, colW - 96 * s - timeWidth)
+                    Dim playerLabel = rec.PlayerName
+                    While playerLabel.Length > 0 AndAlso UiDraw.Measure(g, playerLabel, nameFont).Width > nameWidth
+                        playerLabel = If(playerLabel.EndsWith("…"), playerLabel.Substring(0, Math.Max(0, playerLabel.Length - 2)), playerLabel.Substring(0, playerLabel.Length - 1))
+                        If playerLabel.Length > 0 Then playerLabel &= "…"
+                    End While
+                    UiDraw.Text(g, playerLabel, nameFont, rowColor, r.X + 60 * s, ry + 3 * s)
                     UiDraw.Text(g, UiDraw.FormatTime(rec.TimeSeconds), GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), rowColor, r.Right - 24 * s, ry + 3 * s, 1)
                 Next
             Next
@@ -303,12 +314,14 @@ Namespace UI.Screens
 
             UiDraw.Text(g, "THE BOARD", head, pal.Accent, right.X + 32 * s, right.Y + 24 * s, 0, 2 * s)
             Dim items As (String, String)() = {
-                ("goal", "Roll into the green portal to escape"),
+                ("goal", "Roll into the exit portal to escape"),
                 ("ice", "Ice: almost no grip. Brake early"),
                 ("boost", "Boost: launches you. Pits wait past the turn"),
                 ("hole", "Hole: fall in and you restart from the entrance"),
                 ("heart", "Walls cost 1/4 heart; pits cost one"),
-                ("star", "Stars: beat the par time for up to three")}
+                ("star", "Stars: beat the par time for up to three"),
+                ("seal", "Dungeon: find both seals to unlock the exit"),
+                ("trap", "Traps cost one heart. Watch amber warnings")}
             For i As Integer = 0 To items.Length - 1
                 Dim iy As Single = right.Y + 96 * s + i * 52 * s
                 DrawLegendIcon(g, items(i).Item1, right.X + 50 * s, iy + 14 * s, 20 * s, pal)
@@ -341,6 +354,15 @@ Namespace UI.Screens
                         g.FillEllipse(br, cx - r, cy - r, r * 2, r * 2)
                         g.DrawEllipse(p, cx - r, cy - r, r * 2, r * 2)
                     End Using
+                Case "seal"
+                    Using brush As New SolidBrush(Color.FromArgb(183, 137, 255))
+                        g.FillPolygon(brush, {New PointF(cx, cy - r), New PointF(cx + r * 0.7F, cy), New PointF(cx, cy + r), New PointF(cx - r * 0.7F, cy)})
+                    End Using
+                Case "trap"
+                    Using brush As New SolidBrush(Color.FromArgb(255, 174, 77))
+                        g.FillPolygon(brush, {New PointF(cx, cy - r), New PointF(cx + r, cy + r), New PointF(cx - r, cy + r)})
+                    End Using
+                    UiDraw.Text(g, "!", GameFonts.Body(r * 1.5F, GameFonts.FontWeight.Bold), pal.Backdrop, cx, cy - r * 0.5F, 0.5F)
                 Case "heart"
                     Sprites.DrawHeart(g, Sprites.Heart, New RectangleF(cx - r, cy - r, r * 2, r * 2))
                 Case Else
@@ -418,6 +440,10 @@ Namespace UI.Screens
             UiDraw.Text(g, If(timed, "TIME LEFT", "TIME"), label, If(urgent, Danger, pal.TextDim), cx, 20 * s, 0.5F, 5 * s)
             Dim timeFont As Font = GameFonts.Display((72 + If(urgent, 8 * pulse, 0)) * s)
             UiDraw.GlowText(g, UiDraw.FormatTime(secs), timeFont, timeColor, If(urgent, Danger, pal.AccentSoft), cx, 40 * s, 0.5F, 2 * s, If(urgent, 6, 3) * s)
+            If _engine.Dungeon IsNot Nothing Then
+                UiDraw.Text(g, $"SEALS {_engine.Dungeon.SealCount}/2  ·  " & If(_engine.Dungeon.SealMask = 3, "EXIT OPEN", "EXIT LOCKED"),
+                            GameFonts.Body(18 * s, GameFonts.FontWeight.Bold), pal.Accent, cx, 116 * s, 0.5F, 1 * s)
+            End If
             If timed Then
                 ' Thin time bar under the clock
                 Dim barW As Single = 260 * s
@@ -470,7 +496,7 @@ Namespace UI.Screens
                 Dim slide As Single = (1.0F - UiDraw.EaseOut(t / 500.0F)) * 60 * s
                 Dim_(g, b, CInt(170 * a))
                 Dim y As Single = b.Height * 0.3F
-                UiDraw.Text(g, $"LEVEL {cfg.LevelNumber:00}", GameFonts.Body(28 * s, GameFonts.FontWeight.Bold),
+                UiDraw.Text(g, $"LEVEL {cfg.LevelNumber:00}" & If(_engine.Dungeon IsNot Nothing, "  ·  FINAL TRIAL", ""), GameFonts.Body(28 * s, GameFonts.FontWeight.Bold),
                             UiDraw.WithAlpha(pal.Accent, a), cx, y, 0.5F, 12 * s)
                 UiDraw.GlowText(g, cfg.ThemeName.ToUpperInvariant(), GameFonts.Display(170 * s), UiDraw.WithAlpha(pal.Text, a),
                                 UiDraw.WithAlpha(pal.AccentSoft, a), cx + slide, y + 40 * s, 0.5F, 4 * s, 6 * s)
@@ -592,7 +618,7 @@ Namespace UI.Screens
                 Sprites.DrawHeart(g, empty, New RectangleF(cx - 1.5F * hs - hs * 0.25F + i * hs * 1.25F, y + 40 * s, hs, hs), If(empty Is Nothing, 0.3F, 1.0F))
             Next
             UiDraw.GlowText(g, "OUT OF HEARTS", GameFonts.Display(130 * s), pal.Text, Danger, cx, y + 100 * s, 0.5F, 6 * s, 6 * s)
-            UiDraw.Text(g, $"Attempt {_engine.Attempts}  ·  Tip: gentle tilts — walls cost hearts.", GameFonts.Body(28 * s), pal.TextDim, cx, y + 280 * s, 0.5F)
+            UiDraw.Text(g, $"Attempt {_engine.Attempts}  ·  " & If(_engine.Dungeon Is Nothing, "Tip: gentle tilts — walls cost hearts.", "Watch the warnings. Brake in safe alcoves."), GameFonts.Body(28 * s), pal.TextDim, cx, y + 280 * s, 0.5F)
             If _screenMs > 600 Then DrawMenu(g, _heartsMenu, cx, y + 350 * s, s, pal, 0.5F, 36, 60)
         End Sub
 

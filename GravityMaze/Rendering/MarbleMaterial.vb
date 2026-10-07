@@ -29,7 +29,8 @@ Namespace Rendering
             Dim horizon = Math.Exp(-Math.Pow((y - 0.15 - tiltY * 0.10) / 0.16, 2)) * 48
             Dim silver = 72 + 139 * facing - horizon + specular + grain + marking
             Dim tint = If(theme = "Frozen Labyrinth", New Vector3(135, 208, 255),
-                          If(theme = "Neon Velocity", New Vector3(150, 128, 255), New Vector3(236, 179, 112)))
+                          If(theme = "Neon Velocity", New Vector3(150, 128, 255),
+                          If(theme = "Forgotten Keep", New Vector3(235, 154, 96), New Vector3(236, 179, 112))))
             Dim reflection = (0.10 + 0.22 * (1 - normal.Z)) * Math.Clamp(0.65 + y * 0.35 + tiltX * x * 0.15, 0, 1)
             Dim dimming = 1 - Math.Clamp(darkness, 0, 1) * 0.90
             Return Color.FromArgb(Channel((silver * (1 - reflection) + tint.X * reflection) * dimming),

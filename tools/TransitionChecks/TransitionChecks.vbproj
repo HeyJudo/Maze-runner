@@ -18,5 +18,6 @@
     <Compile Include="../../GravityMaze/Rendering/BoardProjection.vb" Link="BoardProjection.vb" />
     <Compile Include="../../GravityMaze/Rendering/BoardTilt.vb" Link="BoardTilt.vb" />
     <Compile Include="../../GravityMaze/Rendering/GoalDropTransition.vb" Link="GoalDropTransition.vb" />
+    <Content Include="../../GravityMaze/Mazes/Level4*" Link="Mazes/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

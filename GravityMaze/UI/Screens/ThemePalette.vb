@@ -33,6 +33,12 @@ Namespace UI.Screens
 
         Public Shared Function ForTheme(themeName As String) As ThemePalette
             Select Case themeName
+                Case "Forgotten Keep"
+                    Return New ThemePalette(
+                        Color.FromArgb(255, 177, 73), Color.FromArgb(179, 122, 255),
+                        Color.FromArgb(241, 230, 251), Color.FromArgb(168, 146, 185),
+                        Color.FromArgb(225, 23, 16, 33), Color.FromArgb(15, 11, 23),
+                        "Two seals. One final escape.")
                 Case "Frozen Labyrinth"
                     Return New ThemePalette(
                         Color.FromArgb(120, 220, 255), Color.FromArgb(60, 160, 240),

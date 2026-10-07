@@ -71,7 +71,12 @@ Maze files are external.
 Symbols:
 
 1 = Wall 0 = Normal Path S = Start G = Goal I = Ice Zone M = Mud Zone F
-= Fast Zone H = Hole (respawn at start)
+= Fast Zone H = Hole (respawn at start) L = Healing Heart
+
+Dungeon levels add K/Q = the two seals, a/b = matching seal gates,
+E = exit gate requiring both seals, and T = spike field. These symbols require a
+matching `.dungeon.json` sidecar loaded by MazeManager. Keep authored trap tracks
+and phases there; DungeonRun owns gameplay state and DungeonRenderer reads it.
 
 S and G may sit on the outer edge as entrance/exit openings; every other edge tile must be 1.
 

@@ -1,4 +1,4 @@
-Option Strict On
+﻿Option Strict On
 Option Explicit On
 
 Imports System
@@ -39,11 +39,13 @@ Public Class Form1
         inputManager = New InputManager(keyboardController, board)
         sound = New SoundManager(Path.Combine(AppContext.BaseDirectory, "Sounds"))
 
-        ' Par = keyboard-bot clear time (VerificationRunner); Level 3 limit = 1.4x its par.
+        ' First three pars use keyboard-bot times; dungeon par allows deliberate trap timing.
+        ' Level 3 limit = 1.4x its par; the finale has no forced countdown.
         Dim levels As New List(Of LevelConfig) From {
             New LevelConfig(1, "Wooden Workshop", "Mazes\Level1.txt", 0, 7.3F),
             New LevelConfig(2, "Frozen Labyrinth", "Mazes\Level2.txt", 0, 36.9F),
-            New LevelConfig(3, "Neon Velocity", "Mazes\Level3.txt", 57, 40.2F)
+            New LevelConfig(3, "Neon Velocity", "Mazes\Level3.txt", 57, 40.2F),
+            New LevelConfig(4, "Forgotten Keep", "Mazes\Level4.txt", 0, 60.0F)
         }
 
         canvas = New GameCanvas With {.Dock = DockStyle.Fill}

@@ -9,6 +9,7 @@ Imports System.Drawing.Imaging
 Imports System.Runtime.InteropServices
 Imports System.Numerics
 Imports GravityMaze.Levels
+Imports GravityMaze.Engine
 Imports GravityMaze.UI
 
 Namespace Rendering
@@ -57,7 +58,8 @@ Namespace Rendering
                         Optional landingPulse As Single = -1.0F,
                         Optional motion As MarbleMotion = Nothing,
                         Optional boardTilt As BoardTilt = Nothing,
-                        Optional deferMarbles As Boolean = False)
+                        Optional deferMarbles As Boolean = False,
+                        Optional dungeon As DungeonRun = Nothing)
             _marbles.Clear()
             _deferMarbles = deferMarbles
             _orientation = If(motion Is Nothing, Quaternion.Identity, motion.Orientation)
@@ -96,6 +98,8 @@ Namespace Rendering
                     _cacheSize = bounds.Size
                 End If
                 graphics.DrawImageUnscaled(_cache, bounds.Location)
+
+                If maze.Dungeon IsNot Nothing Then DungeonRenderer.Draw(graphics, left, top, tileSize, maze, dungeon)
 
                 ' Heart pickups bob and pulse, so they are drawn per frame, not in the cached board.
                 DrawPickups(graphics, left, top, tileSize, maze, pickupTaken)
@@ -253,7 +257,9 @@ Namespace Rendering
         ' ── Flooring & Texture ──────────────────────────────────────────────
         Private Shared Sub DrawFloor(graphics As Graphics, board As RectangleF, tileSize As Single,
                                      maze As MazeDefinition, theme As String)
-            If theme = "Frozen Labyrinth" Then
+            If theme = "Forgotten Keep" Then
+                DungeonRenderer.Floor(graphics, board, tileSize, maze)
+            ElseIf theme = "Frozen Labyrinth" Then
                 ' Dark navy channel floor (matches the cobblestone concept art)
                 Using floorBrush As New LinearGradientBrush(board,
                                                             Color.FromArgb(22, 34, 64),
@@ -308,7 +314,9 @@ Namespace Rendering
         ' ── Walls ───────────────────────────────────────────────────────────
         Private Shared Sub DrawWall(graphics As Graphics, tile As RectangleF, theme As String,
                                     r As Integer, c As Integer)
-            If theme = "Frozen Labyrinth" Then
+            If theme = "Forgotten Keep" Then
+                DungeonRenderer.Wall(graphics, tile, r, c)
+            ElseIf theme = "Frozen Labyrinth" Then
                 ' Frosted cobblestones: dark mortar bed, then a 3x3 grid of jittered rounded stones.
                 Using mortarBrush As New SolidBrush(Color.FromArgb(58, 68, 88))
                     graphics.FillRectangle(mortarBrush, tile)
@@ -549,6 +557,10 @@ Namespace Rendering
 
         ' ── Goal ────────────────────────────────────────────────────────────
         Private Shared Sub DrawGoal(graphics As Graphics, tile As RectangleF, theme As String)
+            If theme = "Forgotten Keep" Then
+                DungeonRenderer.Portal(graphics, tile)
+                Return
+            End If
             Dim inset As Single = tile.Width * 0.16F
             Dim hole  As New RectangleF(tile.X + inset, tile.Y + inset,
                                         tile.Width  - inset * 2.0F,

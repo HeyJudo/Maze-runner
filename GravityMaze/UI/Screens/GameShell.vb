@@ -214,6 +214,7 @@ Namespace UI.Screens
             End Select
 
             If IsGameScreen() Then
+                _canvas.DungeonState = _engine.Dungeon
                 _canvas.PickupTaken = AddressOf _engine.IsPickupTaken
                 _canvas.BallBlink = _engine.IsInvulnerable AndAlso _screen = ShellScreen.Playing
                 If _screen <> ShellScreen.Paused Then
@@ -224,6 +225,7 @@ Namespace UI.Screens
                     _canvas.Invalidate() ' keep pause-menu navigation repainting while effects stay frozen
                 End If
             Else
+                _canvas.DungeonState = _attractEngine.Dungeon
                 _canvas.PickupTaken = Nothing
                 _canvas.BallBlink = False
                 _canvas.UpdateBallPosition(_attractEngine.BallX, _attractEngine.BallY)
@@ -357,17 +359,20 @@ Namespace UI.Screens
             Dim cfg As LevelConfig = _levels(index)
             If _engine IsNot Nothing Then DetachEngine(_engine)
             _engine = New GameEngine(MazeFor(index), cfg.TimeLimitSecs)
+            If _engine.Dungeon IsNot Nothing Then AddHandler _engine.Dungeon.Cue, AddressOf OnDungeonCue
             AddHandler _engine.WallImpacted, AddressOf OnWallImpacted
             AddHandler _engine.BallFell, AddressOf OnBallFell
             AddHandler _engine.HeartLost, AddressOf OnHeartLost
             AddHandler _engine.HeartGained, AddressOf OnHeartGained
             _canvas.ShowMaze(_engine.Maze, cfg.ThemeName)
+            _canvas.DungeonState = _engine.Dungeon
             _skipCard = False
             BeginRun()
             If readyToPlay Then GoTo_(ShellScreen.Playing)
         End Sub
 
         Private Sub DetachEngine(e As GameEngine)
+            If e.Dungeon IsNot Nothing Then RemoveHandler e.Dungeon.Cue, AddressOf OnDungeonCue
             RemoveHandler e.WallImpacted, AddressOf OnWallImpacted
             RemoveHandler e.BallFell, AddressOf OnBallFell
             RemoveHandler e.HeartLost, AddressOf OnHeartLost
@@ -535,9 +540,9 @@ Namespace UI.Screens
 
         Private Sub EnterVictory()
             _scores.AddRecord(New ScoreRecord With {
-                .PlayerName = _scores.PlayerName, .LevelNumber = 0, .TimeSeconds = _campaignTime,
+                .PlayerName = _scores.PlayerName, .LevelNumber = 0, .CampaignLevels = _levels.Count, .TimeSeconds = _campaignTime,
                 .Attempts = 1, .Stars = _campaignStars, .Score = 0, .Date = DateTime.Now})
-            _victoryRank = _scores.TopRecords(0, 1000).FindIndex(
+            _victoryRank = _scores.TopRecords(0, 1000, _levels.Count).FindIndex(
                 Function(r) r.PlayerName = _scores.PlayerName AndAlso Math.Abs(r.TimeSeconds - _campaignTime) < 0.001F) + 1
             _sound.Play("victory")
             GoTo_(ShellScreen.Victory)
@@ -576,6 +581,15 @@ Namespace UI.Screens
             _spawnSoundInMs = 450.0F
         End Sub
 
+        Private Sub OnDungeonCue(sender As Object, e As DungeonCueEventArgs)
+            If e.Kind = "seal" Then
+                _sound.Play("dungeon_seal", 0.8F)
+                _canvas.AddHeartBurst(e.X, e.Y)
+            ElseIf e.Kind = "warning" Then
+                _sound.Play("dungeon_warning", 0.45F)
+            End If
+        End Sub
+
         Private Sub OnHeartLost(sender As Object, e As HeartEventArgs)
             _heartLostAgoMs = 0
             _heartsBeforeDamage = e.PreviousHearts
@@ -605,6 +619,7 @@ Namespace UI.Screens
 
         Private Sub ShowAttractMaze()
             _canvas.ShowMaze(_attractEngine.Maze, _levels(_attractLevel).ThemeName)
+            _canvas.DungeonState = _attractEngine.Dungeon
         End Sub
 
         Private Sub TickAttract()

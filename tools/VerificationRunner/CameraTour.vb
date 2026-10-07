@@ -13,13 +13,14 @@ Namespace VerificationRunner
         Public Sub Run(outDir As String)
             Directory.CreateDirectory(outDir)
             For Each size In {New Size(960, 600), New Size(1600, 900)}
-                For level As Integer = 1 To 3
+                For level As Integer = 1 To 4
                     Dim maze = MazeManager.LoadFromFile(Path.Combine(AppContext.BaseDirectory, "Mazes", $"Level{level}.txt"))
-                    Dim theme = {"Wooden Workshop", "Frozen Labyrinth", "Neon Velocity"}(level - 1)
+                    Dim theme = {"Wooden Workshop", "Frozen Labyrinth", "Neon Velocity", "Forgotten Keep"}(level - 1)
                     For Each tilted In {False, True}
                         Using canvas As New GameCanvas With {.Size = size, .CameraEnabled = True, .TiltViewEnabled = tilted,
                                                              .BoardInsets = New System.Windows.Forms.Padding(24, 100, 24, 60)}
                             canvas.ShowMaze(maze, theme)
+                            If maze.Dungeon IsNot Nothing Then canvas.DungeonState = New GravityMaze.Engine.DungeonRun(maze)
                             canvas.PickupTaken = Function(row, col) True ' Keep pickup bobbing out of camera image comparisons.
                             canvas.UpdateBoardTilt(0.7F, -0.8F, 600)
                             canvas.OverlayPainter = Sub(g, bounds) g.FillRectangle(Brushes.Magenta, 0, 0, 24, 24)

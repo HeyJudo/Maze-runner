@@ -7,6 +7,7 @@ Imports System.Windows.Forms
 Imports System.Collections.Generic
 Imports System.ComponentModel
 Imports GravityMaze.Levels
+Imports GravityMaze.Engine
 Imports GravityMaze.Rendering
 
 Namespace UI
@@ -27,6 +28,7 @@ Namespace UI
         Private _tiltViewEnabled As Boolean = True
         Private goalDrop As GoalDropTransition
         Private incomingMaze As MazeDefinition
+        Private incomingDungeon As DungeonRun
         Private incomingTheme As String
         Private goalStart As PointF
         Private completedMarbleHidden As Boolean
@@ -34,6 +36,8 @@ Namespace UI
         Private ReadOnly incomingSurface As New PerspectiveSurface()
         Private ReadOnly incomingTilt As New BoardTilt()
 
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property DungeonState As DungeonRun
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
         Public Property CameraEnabled As Boolean
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
@@ -67,6 +71,7 @@ Namespace UI
         Public Sub BeginGoalDrop(transition As GoalDropTransition, nextMaze As MazeDefinition, nextTheme As String)
             goalDrop = transition
             incomingMaze = nextMaze
+            incomingDungeon = If(nextMaze IsNot Nothing AndAlso nextMaze.Dungeon IsNot Nothing, New DungeonRun(nextMaze), Nothing)
             incomingTheme = nextTheme
             goalStart = New PointF(_ballX, _ballY)
             completedMarbleHidden = True
@@ -79,6 +84,7 @@ Namespace UI
         Public Sub EndGoalDrop()
             goalDrop = Nothing
             incomingMaze = Nothing
+            incomingDungeon = Nothing
             Invalidate()
         End Sub
 
@@ -168,6 +174,7 @@ Namespace UI
 
         ' Called once when a level is loaded. Resets the ball and effects.
         Public Sub ShowMaze(maze As MazeDefinition, Optional themeName As String = "Wooden Workshop")
+            DungeonState = Nothing
             currentMaze = maze
             currentTheme = themeName
             _ballX = maze.StartColumn + 0.5F
@@ -278,12 +285,12 @@ Namespace UI
                             renderer.Draw(g, area, currentMaze, _ballX, _ballY,
                                           currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
                                           If(completedMarbleHidden, 0.0F, 1.0F),
-                                          motion:=marble, boardTilt:=tilt, deferMarbles:=True)
+                                          motion:=marble, boardTilt:=tilt, deferMarbles:=True, dungeon:=DungeonState)
                         End Sub, paintSpheres:=AddressOf renderer.DrawMarbles)
                 Else
                     renderer.Draw(e.Graphics, boardArea, currentMaze, _ballX, _ballY,
                                   currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
-                                  If(completedMarbleHidden, 0.0F, 1.0F), motion:=marble, boardTilt:=tilt)
+                                  If(completedMarbleHidden, 0.0F, 1.0F), motion:=marble, boardTilt:=tilt, dungeon:=DungeonState)
                 End If
                 e.Graphics.Restore(state)
                 If _flashMs > 0.0F Then
@@ -308,7 +315,7 @@ Namespace UI
                                               incomingMaze.StartRow + 0.5F, incomingTheme,
                                               ballScale:=If(visibleBall, 1.0F, 0.0F),
                                               ballLift:=goalDrop.LandingHeight, landingPulse:=pulse,
-                                              boardTilt:=incomingTilt, deferMarbles:=True)
+                                              boardTilt:=incomingTilt, deferMarbles:=True, dungeon:=incomingDungeon)
                     End Sub, lift, area.Height * 0.16F * (1 - lift), 0.94F + 0.06F * lift, AddressOf incomingRenderer.DrawMarbles)
             End If
             If phase = GoalDropPhase.Drop OrElse phase = GoalDropPhase.Lift Then
@@ -321,7 +328,7 @@ Namespace UI
                     Sub(cg, bounds)
                         renderer.Draw(cg, bounds, currentMaze, bx, by, currentTheme,
                                       goalEffect:=goalCelebration, pickupTaken:=PickupTaken, ballScale:=shrink,
-                                      motion:=marble, boardTilt:=tilt, deferMarbles:=True)
+                                      motion:=marble, boardTilt:=tilt, deferMarbles:=True, dungeon:=DungeonState)
                     End Sub, 1 - lift, -area.Height * 0.28F * lift, 1.0F + 0.06F * lift, AddressOf renderer.DrawMarbles)
             End If
         End Sub

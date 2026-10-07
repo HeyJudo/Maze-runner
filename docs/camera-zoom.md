@@ -45,7 +45,7 @@ dotnet run --project tools/VerificationRunner/VerificationRunner.vbproj -- --cam
 ```
 
 The tour checks magnification, fixed HUD, viewport clipping, immediate overview,
-and preference retention. Snapshots for all three levels, both tilt modes, and
+and preference retention. Snapshots for all four levels, both tilt modes, and
 two window sizes are saved under `camera-checks` in the runner output directory.
 
 Review the screenshots and play Level 2 in particular. Check camera comfort,

@@ -9,7 +9,10 @@
     <Compile Include="../../GravityMaze/Rendering/BoardCamera.vb" Link="BoardCamera.vb" />
     <Compile Include="../../GravityMaze/Rendering/BoardProjection.vb" Link="BoardProjection.vb" />
     <Compile Include="../../GravityMaze/Rendering/BoardTilt.vb" Link="BoardTilt.vb" />
+    <Compile Include="../../GravityMaze/Levels/MazeManager.vb" Link="MazeManager.vb" />
+    <Compile Include="../../GravityMaze/Levels/DungeonDefinition.vb" Link="DungeonDefinition.vb" />
     <Compile Include="../../GravityMaze/Levels/MazeDefinition.vb" Link="MazeDefinition.vb" />
+    <Content Include="../../GravityMaze/Mazes/*.json" Link="Mazes/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="../../GravityMaze/Mazes/*.txt" Link="Mazes/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

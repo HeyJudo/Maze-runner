@@ -15,10 +15,12 @@ Namespace UI.Screens
         Private ReadOnly _maze As MazeDefinition
         Private ReadOnly _path As List(Of Point)
         Private _waypoint As Integer = 1
+        Private ReadOnly _dungeon As DungeonPilot
 
         Public Sub New(maze As MazeDefinition)
             _maze = maze
             _path = ShortestPath(maze)
+            If maze.Dungeon IsNot Nothing Then _dungeon = New DungeonPilot(maze)
         End Sub
 
         Public Sub Restart()
@@ -26,6 +28,7 @@ Namespace UI.Screens
         End Sub
 
         Public Function NextTilt(engine As GameEngine) As PointF
+            If _dungeon IsNot Nothing Then Return _dungeon.NextTilt(engine)
             If _path.Count < 2 Then Return PointF.Empty
             Dim target As Point = _path(Math.Min(_waypoint, _path.Count - 1))
             Dim dx As Single = target.X + 0.5F - engine.BallX

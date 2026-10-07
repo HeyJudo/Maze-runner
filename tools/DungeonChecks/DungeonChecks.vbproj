@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>GravityMaze</RootNamespace>
+    <OptionStrict>On</OptionStrict>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../GravityMaze/Data/ScoreManager.vb" Link="ScoreManager.vb" />
+    <Compile Include="../../GravityMaze/Engine/*.vb" Link="Engine/%(Filename)%(Extension)" />
+    <Compile Include="../../GravityMaze/Levels/*.vb" Link="Levels/%(Filename)%(Extension)" />
+    <Content Include="../../GravityMaze/Mazes/Level4*" Link="Mazes/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
