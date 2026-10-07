@@ -4,6 +4,7 @@ Option Explicit On
 Imports System
 Imports System.Collections.Generic
 Imports System.IO
+Imports System.Linq
 Imports System.Text.Json
 Imports System.Text.Json.Serialization
 
@@ -32,18 +33,50 @@ Namespace Levels
         Public Property OffsetMs As Integer
     End Class
 
-    Public NotInheritable Class DungeonLandmark
-        Public Property Name As String = ""
-        Public Property Column As Integer
+    Public NotInheritable Class TilePos
         Public Property Row As Integer
-        Public Property Kind As String = "torch"
+        Public Property Column As Integer
+    End Class
+
+    Public NotInheritable Class DecorItem
+        Public Property Sprite As String = ""
+        Public Property Row As Integer
+        Public Property Column As Integer
+    End Class
+
+    Public NotInheritable Class LightSource
+        Public Property Row As Integer
+        Public Property Column As Integer
+        Public Property Radius As Single = 3.5F
+    End Class
+
+    Public NotInheritable Class Checkpoint
+        Public Property Row As Integer
+        Public Property Column As Integer
+        Public Property Escape As Boolean
+    End Class
+
+    Public NotInheritable Class CaveIn
+        Public Property AtReach As Single
+        Public Property Tiles As New List(Of TilePos)()
+    End Class
+
+    Public NotInheritable Class CollapseSpec
+        Public Property RumbleMs As Integer = 4000
+        Public Property Speed As Single = 3.0F
+        Public Property Pushback As Single = 8.0F
+        Public Property Breakaway As New List(Of TilePos)()
+        Public Property CaveIns As New List(Of CaveIn)()
     End Class
 
     Public NotInheritable Class DungeonDefinition
         Public Property Spikes As New List(Of SpikeTrap)()
         Public Property Blades As New List(Of BladeTrap)()
         Public Property Launchers As New List(Of DartLauncher)()
-        Public Property Landmarks As New List(Of DungeonLandmark)()
+        Public Property Decor As New List(Of DecorItem)()
+        Public Property Lights As New List(Of LightSource)()
+        Public Property Checkpoints As New List(Of Checkpoint)()
+        Public Property Collapse As New CollapseSpec()
 
         Public Shared Function Load(path As String) As DungeonDefinition
             Dim options As New JsonSerializerOptions With {
@@ -54,21 +87,44 @@ Namespace Levels
             Return result
         End Function
 
+        Public Function IsBreakaway(maze As MazeDefinition, row As Integer, column As Integer) As Boolean
+            For Each t In Collapse.Breakaway
+                If t.Row = row AndAlso t.Column = column Then Return True
+            Next
+            Return False
+        End Function
+
+        ' The map once the collapse starts, before any cave-in: breakaway open, vault gate shut,
+        ' pits/lava/crumble never count as floor.
+        Public Function EscapeOpen(maze As MazeDefinition, row As Integer, column As Integer) As Boolean
+            If row < 0 OrElse column < 0 OrElse row >= maze.RowCount OrElse column >= maze.ColumnCount Then Return False
+            Select Case maze.GetTile(row, column)
+                Case "1"c : Return IsBreakaway(maze, row, column)
+                Case "H"c, "W"c, "C"c, "c"c : Return False
+                Case Else : Return True
+            End Select
+        End Function
+
         Public Sub Validate(maze As MazeDefinition)
-            If Spikes Is Nothing OrElse Blades Is Nothing OrElse Launchers Is Nothing OrElse Landmarks Is Nothing Then
-                Throw New ArgumentException("Dungeon trap and landmark lists cannot be null.")
+            If Spikes Is Nothing OrElse Blades Is Nothing OrElse Launchers Is Nothing OrElse Decor Is Nothing OrElse Lights Is Nothing OrElse
+               Checkpoints Is Nothing OrElse Collapse Is Nothing OrElse Collapse.Breakaway Is Nothing OrElse Collapse.CaveIns Is Nothing OrElse
+               Collapse.CaveIns.Any(Function(ci) ci Is Nothing OrElse ci.Tiles Is Nothing) Then
+                Throw New ArgumentException("Dungeon lists cannot be null.")
             End If
-            Dim sealsA As Integer, sealsB As Integer, exits As Integer
+            Dim keys As Integer, seals As Integer, vaults As Integer, exits As Integer
+            Dim vaultAt As Integer
             For r As Integer = 0 To maze.RowCount - 1
                 For c As Integer = 0 To maze.ColumnCount - 1
                     Select Case maze.GetTile(r, c)
-                        Case "K"c : sealsA += 1
-                        Case "Q"c : sealsB += 1
+                        Case "K"c : keys += 1
+                        Case "Q"c : seals += 1
+                        Case "V"c : vaults += 1 : vaultAt = r * maze.ColumnCount + c
                         Case "E"c : exits += 1
+                        Case "a"c, "b"c : Throw New ArgumentException("Retired seal gates a/b are not supported.")
                     End Select
                 Next
             Next
-            If sealsA <> 1 OrElse sealsB <> 1 OrElse exits = 0 Then Throw New ArgumentException("A dungeon needs two distinct seals (K/Q) and an exit gate (E).")
+            If keys <> 1 OrElse seals <> 1 OrElse vaults <> 1 OrElse exits = 0 Then Throw New ArgumentException("A dungeon needs one each of K, Q, V and an exit gate (E).")
             Dim cells As New HashSet(Of Integer)()
             For Each spike In Spikes
                 If spike Is Nothing OrElse Not Floor(maze, spike.Column + 0.5F, spike.Row + 0.5F) Then Throw New ArgumentException("Spike must lie on dungeon floor.")
@@ -100,14 +156,65 @@ Namespace Levels
                     Throw New ArgumentException("Dart launchers need a floor opening and a cardinal direction.")
                 End If
             Next
-            For Each landmark In Landmarks
-                If landmark Is Nothing OrElse landmark.Column < 0 OrElse landmark.Row < 0 OrElse
-                   landmark.Column >= maze.ColumnCount OrElse landmark.Row >= maze.RowCount OrElse
-                   (landmark.Kind <> "torch" AndAlso landmark.Kind <> "cell" AndAlso landmark.Kind <> "rubble" AndAlso landmark.Kind <> "altar") Then
-                    Throw New ArgumentException("Invalid dungeon landmark.")
+            For Each d In Decor
+                If d Is Nothing OrElse Not InBounds(maze, d.Row, d.Column) Then Throw New ArgumentException("Decor must lie inside the maze.")
+            Next
+            For Each l In Lights
+                If l Is Nothing OrElse Not InBounds(maze, l.Row, l.Column) OrElse maze.GetTile(l.Row, l.Column) = "1"c Then Throw New ArgumentException("Lights must sit on open tiles.")
+            Next
+            For Each p In Checkpoints
+                If p Is Nothing OrElse Not InBounds(maze, p.Row, p.Column) OrElse maze.GetTile(p.Row, p.Column) = "1"c Then Throw New ArgumentException("Checkpoints must sit on open tiles.")
+            Next
+            If Collapse.RumbleMs < 0 OrElse Not Single.IsFinite(Collapse.Speed) OrElse Collapse.Speed <= 0 OrElse
+               Not Single.IsFinite(Collapse.Pushback) OrElse Collapse.Pushback < 0 Then
+                Throw New ArgumentException("Collapse needs a non-negative rumble and pushback and a positive front speed.")
+            End If
+            For Each t In Collapse.Breakaway
+                If t Is Nothing OrElse Not InBounds(maze, t.Row, t.Column) OrElse maze.GetTile(t.Row, t.Column) <> "1"c OrElse
+                   t.Row = 0 OrElse t.Column = 0 OrElse t.Row = maze.RowCount - 1 OrElse t.Column = maze.ColumnCount - 1 Then
+                    Throw New ArgumentException("Breakaway tiles must be interior walls.")
+                End If
+            Next
+            Dim caved As New HashSet(Of Integer)()
+            For Each cave In Collapse.CaveIns
+                For Each t In cave.Tiles
+                    If t Is Nothing OrElse Not EscapeOpen(maze, t.Row, t.Column) OrElse "SGE".Contains(maze.GetTile(t.Row, t.Column)) OrElse
+                       Checkpoints.Any(Function(p) p.Row = t.Row AndAlso p.Column = t.Column) OrElse Not caved.Add(t.Row * maze.ColumnCount + t.Column) Then
+                        Throw New ArgumentException("Cave-in tiles must be unique escape floor, not start, goal, exit or checkpoint.")
+                    End If
+                Next
+            Next
+            ' Guarantee: everything reachable from the vault can still reach the goal once cave-ins fall.
+            Dim reach = Flood(maze, vaultAt, Nothing)
+            Dim home = Flood(maze, maze.GoalRow * maze.ColumnCount + maze.GoalColumn, caved)
+            For Each cell In reach
+                If Not caved.Contains(cell) AndAlso Not home.Contains(cell) Then
+                    Throw New ArgumentException($"Cave-ins can trap the marble at row {cell \ maze.ColumnCount}, column {cell Mod maze.ColumnCount}.")
                 End If
             Next
         End Sub
+
+        Private Function InBounds(maze As MazeDefinition, row As Integer, column As Integer) As Boolean
+            Return row >= 0 AndAlso column >= 0 AndAlso row < maze.RowCount AndAlso column < maze.ColumnCount
+        End Function
+
+        ' Cells reachable over EscapeOpen from a start cell index, never entering blocked cells.
+        Private Function Flood(maze As MazeDefinition, first As Integer, blocked As HashSet(Of Integer)) As HashSet(Of Integer)
+            Dim seen As New HashSet(Of Integer) From {first}, queue As New Queue(Of Integer)()
+            queue.Enqueue(first)
+            While queue.Count > 0
+                Dim cur = queue.Dequeue()
+                Dim r = cur \ maze.ColumnCount, c = cur Mod maze.ColumnCount
+                For Each d In {(-1, 0), (1, 0), (0, -1), (0, 1)}
+                    Dim nr = r + d.Item1, nc = c + d.Item2
+                    If Not EscapeOpen(maze, nr, nc) Then Continue For
+                    Dim n = nr * maze.ColumnCount + nc
+                    If (blocked IsNot Nothing AndAlso blocked.Contains(n)) OrElse Not seen.Add(n) Then Continue For
+                    queue.Enqueue(n)
+                Next
+            End While
+            Return seen
+        End Function
 
         Private Shared Function Floor(maze As MazeDefinition, x As Single, y As Single) As Boolean
             If Not Single.IsFinite(x) OrElse Not Single.IsFinite(y) OrElse x < 0 OrElse y < 0 OrElse x >= maze.ColumnCount OrElse y >= maze.RowCount Then Return False
