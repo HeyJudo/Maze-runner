@@ -41,8 +41,8 @@ dramatic ending, and it must be beatable on the Arduino tilt board (the primary 
    dead ends, ≥2 loops, ≥1 optional side room (heart pickup `L` or decor treasure).
 3. Grand Hall (center) is trap-free. Three key-slot pedestals light as keys are collected.
 4. Vault portcullis `c` (north) opens when K and Q are both held.
-5. Taking key `V` starts the collapse; `E` opens; a cracked vault wall (a sidecar
-   `breakaway` tile group) turns to floor, opening the escape route.
+5. Taking key `V` starts the collapse; `E` opens; the vault portcullis `c` slams shut; a
+   cracked vault wall (a sidecar `breakaway` tile group) turns to floor, opening the escape route.
 6. Escape south through wing edges and lower galleries to `G`.
 
 No tile of the 46×46 board is filler: every non-border region is part of a wing,
@@ -73,14 +73,16 @@ Trigger: collecting `V`.
 1. **Rumble — 4000 ms.** Camera shake, dust particles, `E` opens (gate cue), breakaway
    tiles become floor. The front does not move yet.
 2. **Front.** On trigger, compute a BFS walking distance `d(tile)` from the `V` tile over
-   passable tiles (breakaway already open, cave-ins ignored). Front reach
+   passable tiles (breakaway open, `c` closed, every cave-in tile treated as wall, so the
+   front can never shortcut through a corridor the player cannot use). Front reach
    `R = speed × (t − rumble) − pushback`, `speed = 3.0 tiles/s` (sidecar tunable).
    A tile with `d < R` is collapsed (pit). Tiles within `R ≤ d < R + 2` render as cracking.
 3. **Cave-ins.** Sidecar list of tile groups, each with `atReach` (front reach that
    triggers it). Warning 1500 ms (cracks + dust), then the tiles become impassable rubble.
    If the marble overlaps a group when the warning ends, it waits until the marble leaves.
 4. **Caught.** Marble's tile collapsed → 1 heart lost, respawn at the latest lit escape
-   checkpoint, `pushback += 8` tiles. 1 s protection applies. Out of hearts → existing
+   checkpoint (or the `V` tile if none is lit), and the front is pushed back until it is at
+   least `pushback` (8) tiles behind the respawn point. 1 s protection applies. Out of hearts → existing
    game-over screen.
 5. **Finish.** Reaching `G` → level complete → campaign victory (existing flow).
 
@@ -88,8 +90,9 @@ Rules: no hard escape timer (the front is the clock). Pause / focus loss freezes
 front, cave-ins and crumble timers. Restart resets everything. One heart pickup `L`
 roughly halfway along the escape route. Star par ≈ 180 s (tune after board playtest).
 
-**Guarantee (validated):** with every cave-in applied, a path exists from every escape
-checkpoint and from the `V` tile to `G`. Escape fairness is proven by the board-realistic
+**Guarantee (validated):** in the post-collapse map, every tile reachable from `V` (that is
+not itself a cave-in tile) can still reach `G` with every cave-in closed. No pocket can
+trap the marble. Escape fairness is proven by the board-realistic
 pilot runs in section 7, not by a distance formula.
 
 ## 4. Art and rendering
