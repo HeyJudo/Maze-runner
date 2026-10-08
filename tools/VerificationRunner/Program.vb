@@ -21,6 +21,10 @@ Namespace VerificationRunner
 
         <STAThread>
         Public Sub Main()
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--dungeon-perf") >= 0 Then
+                DungeonPerformance.Run()
+                Return
+            End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--ui-only") >= 0 Then
                 UiTour.Run(If(Environment.GetEnvironmentVariable("GM_ROOT"), Directory.GetCurrentDirectory()), Path.Combine(AppContext.BaseDirectory, "ui-checks"))
                 Return
