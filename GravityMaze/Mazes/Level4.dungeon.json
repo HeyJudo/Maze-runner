@@ -1,92 +1,92 @@
 {
   "spikes": [
     {
+      "row": 10,
+      "column": 10,
+      "offsetMs": 0
+    },
+    {
+      "row": 11,
+      "column": 10,
+      "offsetMs": 0
+    },
+    {
+      "row": 19,
+      "column": 7,
+      "offsetMs": 1500
+    },
+    {
+      "row": 20,
+      "column": 7,
+      "offsetMs": 1500
+    },
+    {
+      "row": 28,
+      "column": 8,
+      "offsetMs": 3000
+    },
+    {
+      "row": 29,
+      "column": 8,
+      "offsetMs": 3000
+    },
+    {
       "row": 31,
-      "column": 10,
-      "offsetMs": 0
-    },
-    {
-      "row": 32,
-      "column": 10,
-      "offsetMs": 0
-    },
-    {
-      "row": 7,
-      "column": 7,
-      "offsetMs": 1500
-    },
-    {
-      "row": 8,
-      "column": 7,
-      "offsetMs": 1500
-    },
-    {
-      "row": 17,
       "column": 16,
-      "offsetMs": 3000
-    },
-    {
-      "row": 17,
-      "column": 17,
-      "offsetMs": 3000
-    },
-    {
-      "row": 25,
-      "column": 7,
       "offsetMs": 4500
     },
     {
-      "row": 25,
-      "column": 8,
+      "row": 31,
+      "column": 17,
       "offsetMs": 4500
     }
   ],
   "blades": [
     {
-      "x1": 33.5,
-      "y1": 5.0,
-      "x2": 36.5,
-      "y2": 5.0,
+      "x1": 38.0,
+      "y1": 24.5,
+      "x2": 38.0,
+      "y2": 27.5,
       "offsetMs": 0,
       "periodMs": 6000
     },
     {
-      "x1": 36.5,
-      "y1": 32.0,
-      "x2": 42.5,
-      "y2": 32.0,
+      "x1": 29.0,
+      "y1": 24.5,
+      "x2": 29.0,
+      "y2": 29.5,
       "offsetMs": 2000,
       "periodMs": 6000
     },
     {
-      "x1": 39.5,
-      "y1": 23.0,
-      "x2": 42.5,
-      "y2": 23.0,
+      "x1": 30.5,
+      "y1": 14.0,
+      "x2": 33.5,
+      "y2": 14.0,
       "offsetMs": 4000,
       "periodMs": 6000
     }
   ],
   "launchers": [
     {
-      "x": 35.5,
-      "y": 23.5,
-      "dx": -1,
-      "dy": 0,
+      "x": 43.5,
+      "y": 20.5,
+      "dx": 0,
+      "dy": -1,
       "offsetMs": 0
     },
     {
-      "x": 38.5,
-      "y": 26.5,
-      "dx": -1,
-      "dy": 0,
+      "x": 44.5,
+      "y": 22.5,
+      "dx": 0,
+      "dy": 1,
       "offsetMs": 2000
     },
     {
-      "x": 43.5,
-      "y": 1.5,
+      "x": 32.5,
+      "y": 29.5,
       "dx": 0,
-      "dy": 1,
+      "dy": -1,
       "offsetMs": 4000
     }
   ],
@@ -132,8 +132,18 @@
       "column": 18
     },
     {
+      "sprite": "arch_open",
+      "row": 23,
+      "column": 18
+    },
+    {
       "sprite": "door_wood",
       "row": 22,
+      "column": 27
+    },
+    {
+      "sprite": "door_wood",
+      "row": 23,
       "column": 27
     },
     {
@@ -149,87 +159,47 @@
     {
       "sprite": "arch_open",
       "row": 33,
-      "column": 1
-    },
-    {
-      "sprite": "arch_open",
-      "row": 33,
-      "column": 2
-    },
-    {
-      "sprite": "arch_open",
-      "row": 33,
-      "column": 16
-    },
-    {
-      "sprite": "arch_open",
-      "row": 33,
-      "column": 17
-    },
-    {
-      "sprite": "door_wood",
-      "row": 33,
-      "column": 28
-    },
-    {
-      "sprite": "door_wood",
-      "row": 33,
-      "column": 29
-    },
-    {
-      "sprite": "door_wood",
-      "row": 33,
-      "column": 34
-    },
-    {
-      "sprite": "door_wood",
-      "row": 33,
-      "column": 35
-    },
-    {
-      "sprite": "skull",
-      "row": 1,
-      "column": 5
-    },
-    {
-      "sprite": "bones",
-      "row": 19,
-      "column": 7
-    },
-    {
-      "sprite": "pot",
-      "row": 11,
       "column": 4
     },
     {
-      "sprite": "blood",
-      "row": 19,
-      "column": 11
+      "sprite": "arch_open",
+      "row": 33,
+      "column": 5
     },
     {
-      "sprite": "skull",
-      "row": 29,
-      "column": 10
+      "sprite": "arch_open",
+      "row": 33,
+      "column": 13
     },
     {
-      "sprite": "bones",
-      "row": 11,
-      "column": 10
-    },
-    {
-      "sprite": "pot",
-      "row": 5,
-      "column": 8
-    },
-    {
-      "sprite": "blood",
-      "row": 10,
-      "column": 8
-    },
-    {
-      "sprite": "skull",
-      "row": 29,
+      "sprite": "arch_open",
+      "row": 33,
       "column": 14
+    },
+    {
+      "sprite": "door_wood",
+      "row": 33,
+      "column": 40
+    },
+    {
+      "sprite": "door_wood",
+      "row": 33,
+      "column": 41
+    },
+    {
+      "sprite": "door_wood",
+      "row": 33,
+      "column": 31
+    },
+    {
+      "sprite": "door_wood",
+      "row": 33,
+      "column": 32
+    },
+    {
+      "sprite": "skull",
+      "row": 10,
+      "column": 11
     },
     {
       "sprite": "bones",
@@ -238,594 +208,649 @@
     },
     {
       "sprite": "pot",
-      "row": 20,
-      "column": 1
+      "row": 19,
+      "column": 11
     },
     {
       "sprite": "blood",
-      "row": 13,
-      "column": 17
-    },
-    {
-      "sprite": "skull",
-      "row": 28,
-      "column": 1
-    },
-    {
-      "sprite": "bones",
-      "row": 1,
-      "column": 1
-    },
-    {
-      "sprite": "pot",
-      "row": 26,
+      "row": 25,
       "column": 5
     },
     {
-      "sprite": "blood",
-      "row": 5,
-      "column": 4
-    },
-    {
-      "sprite": "rack_swords",
-      "row": 14,
-      "column": 37
-    },
-    {
-      "sprite": "rack_spears",
-      "row": 10,
-      "column": 41
-    },
-    {
-      "sprite": "iron_ball",
-      "row": 19,
-      "column": 41
-    },
-    {
-      "sprite": "keg",
-      "row": 1,
-      "column": 31
-    },
-    {
-      "sprite": "table",
-      "row": 25,
-      "column": 28
-    },
-    {
-      "sprite": "chair",
-      "row": 14,
-      "column": 44
-    },
-    {
-      "sprite": "rack_swords",
-      "row": 25,
-      "column": 44
-    },
-    {
-      "sprite": "rack_spears",
-      "row": 13,
-      "column": 28
-    },
-    {
-      "sprite": "iron_ball",
-      "row": 16,
-      "column": 28
-    },
-    {
-      "sprite": "keg",
-      "row": 20,
-      "column": 28
-    },
-    {
-      "sprite": "table",
-      "row": 29,
-      "column": 31
-    },
-    {
-      "sprite": "chair",
-      "row": 4,
-      "column": 41
-    },
-    {
-      "sprite": "rack_swords",
-      "row": 20,
-      "column": 32
-    },
-    {
-      "sprite": "rack_spears",
-      "row": 32,
-      "column": 44
-    },
-    {
-      "sprite": "iron_ball",
-      "row": 5,
-      "column": 31
-    },
-    {
-      "sprite": "keg",
-      "row": 10,
-      "column": 34
-    },
-    {
-      "sprite": "table",
-      "row": 25,
-      "column": 40
-    },
-    {
-      "sprite": "chair",
-      "row": 1,
-      "column": 44
-    },
-    {
-      "sprite": "gold_pile",
-      "row": 7,
-      "column": 13
-    },
-    {
-      "sprite": "gold_coins",
-      "row": 11,
-      "column": 31
-    },
-    {
-      "sprite": "gold_stack",
-      "row": 11,
-      "column": 25
-    },
-    {
-      "sprite": "chest",
-      "row": 11,
-      "column": 13
-    },
-    {
-      "sprite": "banner",
-      "row": 7,
-      "column": 17
-    },
-    {
-      "sprite": "gold_pile",
-      "row": 11,
-      "column": 29
-    },
-    {
-      "sprite": "gold_coins",
-      "row": 7,
-      "column": 32
-    },
-    {
-      "sprite": "gold_stack",
-      "row": 1,
+      "sprite": "skull",
+      "row": 22,
       "column": 16
     },
     {
       "sprite": "bones",
-      "row": 37,
-      "column": 1
-    },
-    {
-      "sprite": "pot",
-      "row": 43,
-      "column": 26
-    },
-    {
-      "sprite": "keg",
-      "row": 34,
-      "column": 14
-    },
-    {
-      "sprite": "bones",
-      "row": 41,
+      "row": 13,
       "column": 7
     },
     {
       "sprite": "pot",
-      "row": 43,
+      "row": 32,
+      "column": 17
+    },
+    {
+      "sprite": "blood",
+      "row": 5,
+      "column": 14
+    },
+    {
+      "sprite": "skull",
+      "row": 13,
+      "column": 1
+    },
+    {
+      "sprite": "bones",
+      "row": 17,
+      "column": 7
+    },
+    {
+      "sprite": "pot",
+      "row": 26,
+      "column": 7
+    },
+    {
+      "sprite": "blood",
+      "row": 29,
+      "column": 4
+    },
+    {
+      "sprite": "skull",
+      "row": 17,
+      "column": 10
+    },
+    {
+      "sprite": "bones",
+      "row": 32,
+      "column": 1
+    },
+    {
+      "sprite": "pot",
+      "row": 4,
+      "column": 11
+    },
+    {
+      "sprite": "blood",
+      "row": 20,
+      "column": 17
+    },
+    {
+      "sprite": "rack_swords",
+      "row": 11,
+      "column": 37
+    },
+    {
+      "sprite": "rack_spears",
+      "row": 1,
+      "column": 38
+    },
+    {
+      "sprite": "iron_ball",
+      "row": 20,
+      "column": 37
+    },
+    {
+      "sprite": "keg",
+      "row": 5,
+      "column": 31
+    },
+    {
+      "sprite": "table",
+      "row": 2,
+      "column": 40
+    },
+    {
+      "sprite": "chair",
+      "row": 13,
+      "column": 28
+    },
+    {
+      "sprite": "rack_swords",
+      "row": 4,
+      "column": 35
+    },
+    {
+      "sprite": "rack_spears",
+      "row": 26,
+      "column": 34
+    },
+    {
+      "sprite": "iron_ball",
+      "row": 29,
+      "column": 31
+    },
+    {
+      "sprite": "keg",
+      "row": 7,
+      "column": 41
+    },
+    {
+      "sprite": "table",
+      "row": 22,
+      "column": 31
+    },
+    {
+      "sprite": "chair",
+      "row": 32,
+      "column": 28
+    },
+    {
+      "sprite": "rack_swords",
+      "row": 16,
+      "column": 41
+    },
+    {
+      "sprite": "rack_spears",
+      "row": 16,
+      "column": 31
+    },
+    {
+      "sprite": "iron_ball",
+      "row": 1,
+      "column": 31
+    },
+    {
+      "sprite": "keg",
+      "row": 11,
+      "column": 41
+    },
+    {
+      "sprite": "table",
+      "row": 29,
+      "column": 41
+    },
+    {
+      "sprite": "chair",
+      "row": 20,
+      "column": 44
+    },
+    {
+      "sprite": "gold_pile",
+      "row": 11,
+      "column": 26
+    },
+    {
+      "sprite": "gold_coins",
+      "row": 11,
+      "column": 13
+    },
+    {
+      "sprite": "gold_stack",
+      "row": 11,
+      "column": 28
+    },
+    {
+      "sprite": "chest",
+      "row": 8,
+      "column": 32
+    },
+    {
+      "sprite": "banner",
+      "row": 7,
+      "column": 13
+    },
+    {
+      "sprite": "gold_pile",
+      "row": 11,
+      "column": 16
+    },
+    {
+      "sprite": "gold_coins",
+      "row": 10,
+      "column": 32
+    },
+    {
+      "sprite": "gold_stack",
+      "row": 7,
+      "column": 17
+    },
+    {
+      "sprite": "chest",
+      "row": 7,
+      "column": 23
+    },
+    {
+      "sprite": "banner",
+      "row": 1,
+      "column": 16
+    },
+    {
+      "sprite": "gold_pile",
+      "row": 7,
+      "column": 19
+    },
+    {
+      "sprite": "bones",
+      "row": 34,
       "column": 20
+    },
+    {
+      "sprite": "pot",
+      "row": 43,
+      "column": 11
     },
     {
       "sprite": "keg",
       "row": 44,
-      "column": 34
+      "column": 13
+    },
+    {
+      "sprite": "bones",
+      "row": 40,
+      "column": 14
+    },
+    {
+      "sprite": "pot",
+      "row": 34,
+      "column": 17
+    },
+    {
+      "sprite": "keg",
+      "row": 44,
+      "column": 41
+    },
+    {
+      "sprite": "torch",
+      "row": 39,
+      "column": 20
     },
     {
       "sprite": "torch",
       "row": 30,
-      "column": 32
+      "column": 9
     },
     {
       "sprite": "torch",
-      "row": 12,
+      "row": 15,
+      "column": 14
+    },
+    {
+      "sprite": "torch",
+      "row": 6,
+      "column": 36
+    },
+    {
+      "sprite": "torch",
+      "row": 0,
+      "column": 21
+    },
+    {
+      "sprite": "torch",
+      "row": 27,
+      "column": 34
+    },
+    {
+      "sprite": "torch",
+      "row": 3,
+      "column": 40
+    },
+    {
+      "sprite": "torch",
+      "row": 42,
+      "column": 6
+    },
+    {
+      "sprite": "torch",
+      "row": 6,
+      "column": 4
+    },
+    {
+      "sprite": "torch",
+      "row": 42,
+      "column": 15
+    },
+    {
+      "sprite": "torch",
+      "row": 33,
+      "column": 27
+    },
+    {
+      "sprite": "torch",
+      "row": 0,
+      "column": 4
+    },
+    {
+      "sprite": "torch",
+      "row": 0,
+      "column": 13
+    },
+    {
+      "sprite": "torch",
+      "row": 39,
+      "column": 38
+    },
+    {
+      "sprite": "torch",
+      "row": 18,
+      "column": 8
+    },
+    {
+      "sprite": "torch",
+      "row": 33,
+      "column": 38
+    },
+    {
+      "sprite": "torch",
+      "row": 21,
+      "column": 17
+    },
+    {
+      "sprite": "torch",
+      "row": 21,
       "column": 39
     },
     {
       "sprite": "torch",
       "row": 6,
-      "column": 10
+      "column": 20
     },
     {
       "sprite": "torch",
-      "row": 9,
+      "row": 6,
       "column": 27
     },
     {
       "sprite": "torch",
-      "row": 39,
-      "column": 22
-    },
-    {
-      "sprite": "torch",
-      "row": 36,
-      "column": 40
-    },
-    {
-      "sprite": "torch",
-      "row": 0,
-      "column": 25
-    },
-    {
-      "sprite": "torch",
       "row": 18,
-      "column": 36
-    },
-    {
-      "sprite": "torch",
-      "row": 33,
-      "column": 11
-    },
-    {
-      "sprite": "torch",
-      "row": 21,
-      "column": 28
-    },
-    {
-      "sprite": "torch",
-      "row": 6,
-      "column": 37
-    },
-    {
-      "sprite": "torch",
-      "row": 36,
-      "column": 27
-    },
-    {
-      "sprite": "torch",
-      "row": 0,
-      "column": 8
-    },
-    {
-      "sprite": "torch",
-      "row": 6,
-      "column": 16
-    },
-    {
-      "sprite": "torch",
-      "row": 36,
-      "column": 19
-    },
-    {
-      "sprite": "torch",
-      "row": 6,
-      "column": 4
-    },
-    {
-      "sprite": "torch",
-      "row": 12,
-      "column": 4
-    },
-    {
-      "sprite": "torch",
-      "row": 30,
-      "column": 24
-    },
-    {
-      "sprite": "torch",
-      "row": 0,
-      "column": 42
-    },
-    {
-      "sprite": "torch",
-      "row": 24,
-      "column": 36
-    },
-    {
-      "sprite": "torch",
-      "row": 6,
-      "column": 22
-    },
-    {
-      "sprite": "torch",
-      "row": 42,
-      "column": 11
-    },
-    {
-      "sprite": "torch",
-      "row": 39,
-      "column": 5
-    },
-    {
-      "sprite": "torch",
-      "row": 27,
-      "column": 12
-    },
-    {
-      "sprite": "torch",
-      "row": 18,
-      "column": 8
-    },
-    {
-      "sprite": "torch",
-      "row": 30,
-      "column": 8
-    },
-    {
-      "sprite": "torch",
-      "row": 21,
-      "column": 5
-    },
-    {
-      "sprite": "torch",
-      "row": 15,
-      "column": 42
-    },
-    {
-      "sprite": "torch",
-      "row": 27,
-      "column": 4
-    },
-    {
-      "sprite": "torch",
-      "row": 33,
-      "column": 43
-    },
-    {
-      "sprite": "torch",
-      "row": 39,
-      "column": 37
-    },
-    {
-      "sprite": "torch",
-      "row": 42,
-      "column": 18
-    },
-    {
-      "sprite": "torch",
-      "row": 42,
-      "column": 30
-    },
-    {
-      "sprite": "torch",
-      "row": 36,
-      "column": 34
-    },
-    {
-      "sprite": "torch",
-      "row": 36,
-      "column": 8
-    },
-    {
-      "sprite": "torch",
-      "row": 33,
-      "column": 37
-    },
-    {
-      "sprite": "torch",
-      "row": 14,
       "column": 21
     },
     {
       "sprite": "torch",
-      "row": 12,
-      "column": 16
+      "row": 42,
+      "column": 33
+    },
+    {
+      "sprite": "torch",
+      "row": 14,
+      "column": 24
+    },
+    {
+      "sprite": "torch",
+      "row": 21,
+      "column": 33
     },
     {
       "sprite": "torch",
       "row": 12,
-      "column": 31
+      "column": 40
+    },
+    {
+      "sprite": "torch",
+      "row": 12,
+      "column": 10
+    },
+    {
+      "sprite": "torch",
+      "row": 3,
+      "column": 1
     },
     {
       "sprite": "torch",
       "row": 0,
-      "column": 17
+      "column": 35
+    },
+    {
+      "sprite": "torch",
+      "row": 36,
+      "column": 13
+    },
+    {
+      "sprite": "torch",
+      "row": 30,
+      "column": 3
+    },
+    {
+      "sprite": "torch",
+      "row": 36,
+      "column": 4
+    },
+    {
+      "sprite": "torch",
+      "row": 3,
+      "column": 9
+    },
+    {
+      "sprite": "torch",
+      "row": 18,
+      "column": 42
+    },
+    {
+      "sprite": "torch",
+      "row": 33,
+      "column": 19
+    },
+    {
+      "sprite": "torch",
+      "row": 24,
+      "column": 11
+    },
+    {
+      "sprite": "torch",
+      "row": 30,
+      "column": 31
+    },
+    {
+      "sprite": "torch",
+      "row": 30,
+      "column": 41
+    },
+    {
+      "sprite": "torch",
+      "row": 27,
+      "column": 15
+    },
+    {
+      "sprite": "torch",
+      "row": 18,
+      "column": 30
+    },
+    {
+      "sprite": "torch",
+      "row": 0,
+      "column": 44
     }
   ],
   "lights": [
     {
-      "row": 31,
-      "column": 32,
+      "row": 40,
+      "column": 20,
       "radius": 3.5
     },
     {
-      "row": 13,
+      "row": 31,
+      "column": 9,
+      "radius": 3.5
+    },
+    {
+      "row": 16,
+      "column": 14,
+      "radius": 3.5
+    },
+    {
+      "row": 7,
+      "column": 36,
+      "radius": 3.5
+    },
+    {
+      "row": 1,
+      "column": 21,
+      "radius": 3.5
+    },
+    {
+      "row": 28,
+      "column": 34,
+      "radius": 3.5
+    },
+    {
+      "row": 4,
+      "column": 40,
+      "radius": 3.5
+    },
+    {
+      "row": 43,
+      "column": 6,
+      "radius": 3.5
+    },
+    {
+      "row": 7,
+      "column": 4,
+      "radius": 3.5
+    },
+    {
+      "row": 43,
+      "column": 15,
+      "radius": 3.5
+    },
+    {
+      "row": 34,
+      "column": 27,
+      "radius": 3.5
+    },
+    {
+      "row": 1,
+      "column": 4,
+      "radius": 3.5
+    },
+    {
+      "row": 1,
+      "column": 13,
+      "radius": 3.5
+    },
+    {
+      "row": 40,
+      "column": 38,
+      "radius": 3.5
+    },
+    {
+      "row": 19,
+      "column": 8,
+      "radius": 3.5
+    },
+    {
+      "row": 34,
+      "column": 38,
+      "radius": 3.5
+    },
+    {
+      "row": 22,
+      "column": 17,
+      "radius": 3.5
+    },
+    {
+      "row": 22,
       "column": 39,
       "radius": 3.5
     },
     {
       "row": 7,
-      "column": 10,
+      "column": 20,
       "radius": 3.5
     },
     {
-      "row": 10,
+      "row": 7,
       "column": 27,
       "radius": 3.5
     },
     {
-      "row": 40,
-      "column": 22,
-      "radius": 3.5
-    },
-    {
-      "row": 37,
-      "column": 40,
-      "radius": 3.5
-    },
-    {
-      "row": 1,
-      "column": 25,
-      "radius": 3.5
-    },
-    {
       "row": 19,
-      "column": 36,
-      "radius": 3.5
-    },
-    {
-      "row": 34,
-      "column": 11,
-      "radius": 3.5
-    },
-    {
-      "row": 22,
-      "column": 28,
-      "radius": 3.5
-    },
-    {
-      "row": 7,
-      "column": 37,
-      "radius": 3.5
-    },
-    {
-      "row": 37,
-      "column": 27,
-      "radius": 3.5
-    },
-    {
-      "row": 1,
-      "column": 8,
-      "radius": 3.5
-    },
-    {
-      "row": 7,
-      "column": 16,
-      "radius": 3.5
-    },
-    {
-      "row": 37,
-      "column": 19,
-      "radius": 3.5
-    },
-    {
-      "row": 7,
-      "column": 4,
-      "radius": 3.5
-    },
-    {
-      "row": 13,
-      "column": 4,
-      "radius": 3.5
-    },
-    {
-      "row": 31,
-      "column": 24,
-      "radius": 3.5
-    },
-    {
-      "row": 1,
-      "column": 42,
-      "radius": 3.5
-    },
-    {
-      "row": 25,
-      "column": 36,
-      "radius": 3.5
-    },
-    {
-      "row": 7,
-      "column": 22,
-      "radius": 3.5
-    },
-    {
-      "row": 43,
-      "column": 11,
-      "radius": 3.5
-    },
-    {
-      "row": 40,
-      "column": 5,
-      "radius": 3.5
-    },
-    {
-      "row": 28,
-      "column": 12,
-      "radius": 3.5
-    },
-    {
-      "row": 19,
-      "column": 8,
-      "radius": 3.5
-    },
-    {
-      "row": 31,
-      "column": 8,
-      "radius": 3.5
-    },
-    {
-      "row": 22,
-      "column": 5,
-      "radius": 3.5
-    },
-    {
-      "row": 16,
-      "column": 42,
-      "radius": 3.5
-    },
-    {
-      "row": 28,
-      "column": 4,
-      "radius": 3.5
-    },
-    {
-      "row": 34,
-      "column": 43,
-      "radius": 3.5
-    },
-    {
-      "row": 40,
-      "column": 37,
-      "radius": 3.5
-    },
-    {
-      "row": 43,
-      "column": 18,
-      "radius": 3.5
-    },
-    {
-      "row": 43,
-      "column": 30,
-      "radius": 3.5
-    },
-    {
-      "row": 37,
-      "column": 34,
-      "radius": 3.5
-    },
-    {
-      "row": 37,
-      "column": 8,
-      "radius": 3.5
-    },
-    {
-      "row": 34,
-      "column": 37,
-      "radius": 3.5
-    },
-    {
-      "row": 15,
       "column": 21,
       "radius": 3.5
     },
     {
-      "row": 13,
-      "column": 16,
+      "row": 43,
+      "column": 33,
+      "radius": 3.5
+    },
+    {
+      "row": 15,
+      "column": 24,
+      "radius": 3.5
+    },
+    {
+      "row": 22,
+      "column": 33,
       "radius": 3.5
     },
     {
       "row": 13,
-      "column": 31,
+      "column": 40,
+      "radius": 3.5
+    },
+    {
+      "row": 13,
+      "column": 10,
+      "radius": 3.5
+    },
+    {
+      "row": 4,
+      "column": 1,
       "radius": 3.5
     },
     {
       "row": 1,
-      "column": 17,
+      "column": 35,
+      "radius": 3.5
+    },
+    {
+      "row": 37,
+      "column": 13,
+      "radius": 3.5
+    },
+    {
+      "row": 31,
+      "column": 3,
+      "radius": 3.5
+    },
+    {
+      "row": 37,
+      "column": 4,
+      "radius": 3.5
+    },
+    {
+      "row": 4,
+      "column": 9,
+      "radius": 3.5
+    },
+    {
+      "row": 19,
+      "column": 42,
+      "radius": 3.5
+    },
+    {
+      "row": 34,
+      "column": 19,
+      "radius": 3.5
+    },
+    {
+      "row": 25,
+      "column": 11,
+      "radius": 3.5
+    },
+    {
+      "row": 31,
+      "column": 31,
+      "radius": 3.5
+    },
+    {
+      "row": 31,
+      "column": 41,
+      "radius": 3.5
+    },
+    {
+      "row": 28,
+      "column": 15,
+      "radius": 3.5
+    },
+    {
+      "row": 19,
+      "column": 30,
+      "radius": 3.5
+    },
+    {
+      "row": 1,
+      "column": 44,
       "radius": 3.5
     }
   ],
@@ -841,18 +866,18 @@
       "escape": false
     },
     {
-      "row": 12,
+      "row": 13,
+      "column": 4,
+      "escape": true
+    },
+    {
+      "row": 42,
       "column": 2,
       "escape": true
     },
     {
-      "row": 21,
-      "column": 14,
-      "escape": true
-    },
-    {
-      "row": 38,
-      "column": 4,
+      "row": 25,
+      "column": 17,
       "escape": true
     }
   ],
@@ -872,80 +897,80 @@
     ],
     "caveIns": [
       {
-        "atReach": 15,
+        "atReach": 4,
         "tiles": [
           {
             "row": 22,
-            "column": 12
+            "column": 5
           },
           {
             "row": 23,
-            "column": 12
+            "column": 5
           }
         ]
       },
       {
-        "atReach": 22,
-        "tiles": [
-          {
-            "row": 24,
-            "column": 22
-          },
-          {
-            "row": 24,
-            "column": 23
-          }
-        ]
-      },
-      {
-        "atReach": 24,
-        "tiles": [
-          {
-            "row": 34,
-            "column": 20
-          },
-          {
-            "row": 35,
-            "column": 20
-          }
-        ]
-      },
-      {
-        "atReach": 27,
+        "atReach": 11,
         "tiles": [
           {
             "row": 31,
-            "column": 3
+            "column": 10
           },
           {
             "row": 32,
-            "column": 3
+            "column": 10
           }
         ]
       },
       {
-        "atReach": 31,
-        "tiles": [
-          {
-            "row": 39,
-            "column": 25
-          },
-          {
-            "row": 39,
-            "column": 26
-          }
-        ]
-      },
-      {
-        "atReach": 40,
+        "atReach": 19,
         "tiles": [
           {
             "row": 40,
-            "column": 33
+            "column": 9
           },
           {
             "row": 41,
-            "column": 33
+            "column": 9
+          }
+        ]
+      },
+      {
+        "atReach": 33,
+        "tiles": [
+          {
+            "row": 40,
+            "column": 21
+          },
+          {
+            "row": 41,
+            "column": 21
+          }
+        ]
+      },
+      {
+        "atReach": 34,
+        "tiles": [
+          {
+            "row": 24,
+            "column": 19
+          },
+          {
+            "row": 24,
+            "column": 20
+          }
+        ]
+      },
+      {
+        "atReach": 38,
+        "tiles": [
+          {
+            "row": 30,
+            "column": 22
+          },
+          {
+            "row": 30,
+            "column": 23
           }
         ]
       }

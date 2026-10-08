@@ -68,7 +68,7 @@ def cells_of(name):
 
 # ---------------------------------------------------------------- source maze (31x31)
 
-def carve_cells(cells, rng, straight=0.0):
+def carve_cells(cells, rng, straight=0.0, weave=0.0):
     """Recursive backtracker over a set of cells (gen_maze.carve, but on any cell shape).
     Returns the passage list, or None when the set is not connected."""
     start = rng.choice(sorted(cells))
@@ -80,6 +80,8 @@ def carve_cells(cells, rng, straight=0.0):
             stack.pop()
             last = None
             continue
+        if weave and last in opts and len(opts) > 1 and rng.random() < weave:
+            opts.remove(last)  # weave = chance to turn instead of running on (twisty small mazes)
         dx, dy = last if straight and last in opts and rng.random() < straight else rng.choice(opts)
         last = (dx, dy)
         n = (cx + dx, cy + dy)
@@ -176,14 +178,14 @@ def build_source(rng):
     # Treasury
     t_edges = None
     while t_edges is None:
-        t_edges = carve_cells(cells_of("treasury"), rng)
+        t_edges = carve_cells(cells_of("treasury"), rng, weave=0.85)
     for a, b in t_edges:
         src.link(a, b)
     treasury = sorted(cells_of("treasury"))
     walls = [(a, c) for a in treasury for c in neighbours(a, set(treasury))
              if a < c and src.g[a[1] + c[1] + 1][a[0] + c[0] + 1] == "1"]
     rng.shuffle(walls)
-    for a, c in walls[:2]:
+    for a, c in walls[:1]:  # one loop
         src.link(a, c)
     # Hearts, keys, vault key.
     for name in ("crypt", "armory", "gallery"):
@@ -473,7 +475,8 @@ def place_traps(m, rng, escape, route_tiles):
                         break
                     lane_tiles.append((r, c))
                 if (m[behind[0]][behind[1]] != "1" or m[shot[0][0]][shot[0][1]] != "0" or len(lane_tiles) < 4
-                        or set(lane_tiles) & keep or not spaced(lane_tiles, taken, 3)):
+                        or set(lane_tiles) & keep or not spaced(lane_tiles, taken, 3)
+                        or any(tile_region(r, c) != "armory" for r, c in lane_tiles)):  # the hall stays trap-free
                     continue
                 n = len(launchers)
                 launchers.append({"x": x, "y": y, "dx": dx, "dy": dy, "offsetMs": [0, 2000, 4000][n]})
@@ -569,6 +572,12 @@ def attempt(seed):
                if sg[r][c] != "1" and sum(sg[r + dr][c + dc] != "1" for dr, dc in DIRS) >= 3)
     need(8, dead >= 20, f"{dead} dead ends (need 20)")
     need(8, junc >= 25, f"{junc} junctions (need 25)")
+    # Treasury antechamber: a maze, not a band (cell rows 2-3, cx 4-10).
+    t_links = sum(sg[2 * cy + 1][2 * cx + 2] != "1" for cx in range(4, 10) for cy in (2, 3)) +         sum(sg[6][2 * cx + 1] != "1" for cx in range(4, 11))
+    need(7, t_links >= 14, "treasury has no loop")
+    need(7, all(sum(sg[2 * cy + 1][2 * cx + 2] != "1" for cx in range(4, 10)) <= 5 for cy in (2, 3)), "treasury row is an open band")
+    t_dead = sum(sum(sg[2 * cy + 1 + dr][2 * cx + 1 + dc] != "1" for dr, dc in DIRS) == 1 for cx in range(4, 11) for cy in (2, 3))
+    need(7, t_dead >= 2, "treasury has under 2 dead ends")
     m = widen(sg)
     v, g, s = find(m, "V"), find(m, "G"), find(m, "S")
     # Lava along the vault room's inner west and east edges, clear of the breakaway and the walking line.
