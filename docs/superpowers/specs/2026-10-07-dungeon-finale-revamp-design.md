@@ -104,8 +104,21 @@ When both first keys are held, show a persistent warning before V is collected:
 
 This warning is readable while approaching the key and also appears in paused objective
 information. It does not introduce a confirmation or stop after the collapse has begun.
+
+**Vault-door reveal (owner approved after playtest):** when the second of the Crypt and
+Armory keys is collected, briefly show the newly unlocked vault door. The shell freezes
+gameplay and all engine timers for a 2000 ms camera sequence: pan/zoom toward the door
+at 2×, hold it clearly in view, then return to the marble and its prior preferred zoom
+before controls resume. Include `VAULT UNLOCKED` feedback. This runs once per run, in
+either key order; a fall does not replay it, and restart rearms it. Pausing or focus loss
+freezes the reveal and resumes the same point in its sequence. This is a temporary reveal,
+not a new player camera preference; retain manual flat/tilt and restore the chosen zoom.
+
 On V collection, highlight the newly opened breakaway passage and announce
-`ESCAPE PASSAGE OPENED` for the rumble phase. Keep `ESCAPE!` and the destination visible through the rumble
+`ESCAPE PASSAGE OPENED — HEAD LEFT` for the rumble phase. On the shipped map, the opening
+is in the vault's upper-left wall; the inbound door closes, and the player uses this new
+opening to reach the Crypt-side escape route south to the entrance/exit. Keep `ESCAPE!`
+and the destination visible through the rumble
 and escape. Guidance does not draw a route through the maze.
 
 ### Checkpoints and rules
@@ -154,7 +167,8 @@ is needed for onboarding.
 Wave 4 checks must cover fresh level-select and campaign entries, no briefing timeout,
 keyboard and board-style confirmation after neutral input, frozen clocks before play,
 countdown transition, objective updates in either key order, warning before V, checkpoint
-messages, restart reset, and view/zoom lifetime. Tours must show the briefing, rules,
+messages, second-key door reveal/frozen timers/return/pause/restart, restart reset, and
+view/zoom lifetime. Tours must show the briefing, rules, vault-door reveal,
 each objective state, paused guidance, and escape-passage feedback at representative
 window sizes. Validate existing Levels 1–3 transitions and view preferences as regressions.
 

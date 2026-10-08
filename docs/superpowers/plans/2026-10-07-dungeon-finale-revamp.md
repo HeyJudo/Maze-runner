@@ -1312,8 +1312,11 @@ chunk; review spec compliance, then code quality, before merging. No push or PR.
 4. **Checkpoint:** Step 6 plus the Release game build. Commit the verified report
    and representative screenshots, stop, and give the owner manual testing steps.
 
-Use a fresh implementer per chunk, sequentially in an isolated Wave 4 worktree. The
-controller owns this plan and the progress ledger; implementers own the files below.
+Owner's latest instruction authorizes focused GPT sessions and parallel work. Use
+independent worktrees with disjoint ownership: proof/generator checks; shell/camera/
+TransitionChecks and par config; live renderer/DungeonTour/performance harness. The
+controller owns this plan and the progress ledger. Integrate only after spec then quality
+review; UI-tour integration and final performance measurement follow these merges.
 Existing screenshot edits in the primary worktree are owner state: do not stage them
 wholesale or overwrite them when integrating newly generated tours.
 
@@ -1373,8 +1376,13 @@ End Module
 ```
 
 Record total/escape time, hearts, hits, catches and waits for each successful run.
-Confirm that each required pilot route avoids all three blade rails; explain their
-optional-detour placement rather than silently claiming they are on required routes.
+Investigate rail-avoiding connectivity to confirm the blades do not force traversal of
+their rails on every valid key-and-exit route. Report the actual pilot's selected-route
+and travel clearances as diagnostics, including any overlap and phase-safe waiting.
+Do not assert that all selected BFS routes exclude the entire swept rail: that is stronger
+than the original gameplay requirement and caused the previous controller-added failure.
+Preserve the completion/hearts/escape-time assertions and all four starting phases.
+Explain the blade placement accurately from the measured route and connectivity evidence.
 If a run fails, stop and report the failing phase and evidence to the owner. The old
 auto-tuning instruction is superseded by the owner's stop rule. If later authorized,
 front tuning is in 0.25 steps down to 2.0 via a generator `--speed` option, and exploration
@@ -1425,8 +1433,19 @@ For the first lit checkpoint in each phase, show the teaching message for 4000 m
 later checkpoints show the short confirmation for 2000 ms. Reset message/phase flags on
 restart. Freeze message time while paused. During rumble, announce the opened passage
 and highlight only the opened breakaway tiles, reading the existing collapse state.
-Keep escape destination visible after rumble; do not move or zoom the camera on V.
+Keep escape destination visible after rumble; the rumble message is `ESCAPE PASSAGE
+OPENED — HEAD LEFT`, matching the upper-left opening on the shipped map. Do not move or
+zoom the camera on V.
 Improve crack/cave-in contrast only where screenshots demonstrate a readability problem.
+
+Implement the approved second-key vault-door camera reveal in shell/camera ownership:
+2000 ms total including travel back to the marble, 2× temporary focus on the `c` gate
+centre, `VAULT UNLOCKED` feedback, frozen engine/trap/collapse clocks throughout. On
+completion restore the player's chosen zoom/focus before gameplay resumes. Trigger once
+when K+Q becomes held, either order; keep it through falls and rearm on restart. Pause
+and focus loss freeze the reveal. Keep renderer reading the same already-open gate state.
+Add transition tests for both key orders, frozen clocks, pause/resume, restored camera
+preference and restart replay; UI tour captures the focused open door before return.
 
 Extend `TransitionChecks` with behaviour assertions for: every fresh entry path; no
 briefing timeout; neutral arming and board-style Ready; keyboard Ready; rules return;
