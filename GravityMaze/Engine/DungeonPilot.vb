@@ -34,9 +34,9 @@ Namespace Engine
         Public Function NextTilt(engine As GameEngine) As PointF
             If engine.Dungeon Is Nothing OrElse engine.State <> GameState.Playing Then Return PointF.Empty
             Dim position As New PointF(engine.BallX, engine.BallY)
-            If path Is Nothing OrElse mask <> engine.Dungeon.SealMask OrElse attempts <> engine.Attempts OrElse
+            If path Is Nothing OrElse mask <> engine.Dungeon.KeyMask OrElse attempts <> engine.Attempts OrElse
                Math.Abs(position.X - lastPosition.X) + Math.Abs(position.Y - lastPosition.Y) > 3 Then
-                mask = engine.Dungeon.SealMask : attempts = engine.Attempts
+                mask = engine.Dungeon.KeyMask : attempts = engine.Attempts
                 path = Route(maze, New Point(CInt(Math.Floor(position.X)), CInt(Math.Floor(position.Y))), mask)
                 waypoint = Math.Min(1, path.Count - 1)
             End If
@@ -122,16 +122,16 @@ Namespace Engine
             Dim success As Boolean
             While queue.Count > 0
                 Dim current = queue.Dequeue()
-                If current.X = maze.GoalColumn AndAlso current.Y = maze.GoalRow AndAlso current.Mask = 3 Then
+                If current.X = maze.GoalColumn AndAlso current.Y = maze.GoalRow AndAlso current.Mask = 7 Then
                     found = current : success = True : Exit While
                 End If
                 For Each delta In {New Point(1, 0), New Point(-1, 0), New Point(0, 1), New Point(0, -1)}
                     Dim x = current.X + delta.X, y = current.Y + delta.Y
                     If x < 0 OrElse y < 0 OrElse x >= maze.ColumnCount OrElse y >= maze.RowCount Then Continue For
                     Dim tile = maze.GetTile(y, x)
-                    If tile = "1"c OrElse tile = "H"c OrElse (tile = "a"c AndAlso (current.Mask And 1) = 0) OrElse
-                       (tile = "b"c AndAlso (current.Mask And 2) = 0) OrElse (tile = "E"c AndAlso current.Mask <> 3) Then Continue For
-                    Dim nextMask = current.Mask Or If(tile = "K"c, 1, If(tile = "Q"c, 2, 0))
+                    If tile = "1"c OrElse tile = "H"c OrElse (tile = "c"c AndAlso ((current.Mask And 3) <> 3 OrElse (current.Mask And 4) <> 0)) OrElse
+                       (tile = "E"c AndAlso (current.Mask And 4) = 0) Then Continue For
+                    Dim nextMask = current.Mask Or If(tile = "K"c, 1, If(tile = "Q"c, 2, If(tile = "V"c, 4, 0)))
                     Dim next_ = (X:=x, Y:=y, Mask:=nextMask)
                     If previous.ContainsKey(next_) Then Continue For
                     previous(next_) = current : queue.Enqueue(next_)
