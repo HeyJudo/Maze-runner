@@ -28,13 +28,8 @@ Namespace Engine
         Private waits As Integer
         Private Const Cap As Single = 0.07F
 
-        ' DungeonRun exposes no tile lookup (and engine files are off-limits), so the static planner
-        ' reads tiles from the maze of the most recently constructed pilot.
-        Private Shared Bound As MazeDefinition
-
         Public Sub New(maze As MazeDefinition)
             Me.maze = maze
-            Bound = maze
         End Sub
 
         Public Function NextTilt(engine As GameEngine) As PointF
@@ -131,7 +126,7 @@ Namespace Engine
         End Function
 
         Public Shared Function Blocked(run As DungeonRun, column As Integer, row As Integer, mask As Integer) As Boolean
-            Dim maze = Bound
+            Dim maze = run.Maze
             If column < 0 OrElse row < 0 OrElse column >= maze.ColumnCount OrElse row >= maze.RowCount Then Return True
             Select Case maze.GetTile(row, column)
                 Case "1"c : If Not (run.IsBreakaway(row, column) AndAlso (mask And 4) <> 0) Then Return True
@@ -144,7 +139,7 @@ Namespace Engine
         End Function
 
         Public Shared Function Route(run As DungeonRun, start As Point) As List(Of Point)
-            Dim maze = Bound
+            Dim maze = run.Maze
             Dim initial = (X:=start.X, Y:=start.Y, Mask:=run.KeyMask)
             Dim previous As New Dictionary(Of (X As Integer, Y As Integer, Mask As Integer), (X As Integer, Y As Integer, Mask As Integer)) From {{initial, initial}}
             Dim queue As New Queue(Of (X As Integer, Y As Integer, Mask As Integer))()

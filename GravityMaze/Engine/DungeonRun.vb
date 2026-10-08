@@ -36,7 +36,7 @@ Namespace Engine
         Public Const BladeRadius As Single = 0.34F
         Public Const DartRadius As Single = 0.09F
         Public Const DartStep As Single = 0.14F
-        Private ReadOnly maze As MazeDefinition
+        Public ReadOnly Maze As MazeDefinition
         Private ReadOnly darts_ As New List(Of DungeonDart)()
         Private contacts As New HashSet(Of String)()
         Public Event Cue As EventHandler(Of DungeonCueEventArgs)
