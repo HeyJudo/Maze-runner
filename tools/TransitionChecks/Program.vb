@@ -234,7 +234,7 @@ Module Program
             Check(f.Shell.Screen = ShellScreen.Paused AndAlso f.Shell.Engine.Dungeon.ElapsedMs = clock AndAlso f.Shell.Engine.ElapsedSeconds = time, "Pause and camera changes must freeze traps and physics together")
             f.Shell.HandleKey(Keys.Escape)
             f.Goal()
-            Check(f.Shell.Engine.Hearts > 0 AndAlso f.Shell.Engine.Dungeon.SealCount = 2, "The real shell must complete the dungeon with both seals and health enabled")
+            Check(f.Shell.Engine.Hearts > 0 AndAlso f.Shell.Engine.Dungeon.KeyCount = 3, "The real shell must complete the dungeon with both seals and health enabled")
             Check(Not f.Canvas.Transition.HasNextLevel, "Dungeon is the final floor")
             f.WaitFor(ShellScreen.Victory)
             Check(f.Scores.TopRecords(4, 10).Count = 1, "Dungeon completion records its own level time")

@@ -582,7 +582,7 @@ Namespace UI.Screens
         End Sub
 
         Private Sub OnDungeonCue(sender As Object, e As DungeonCueEventArgs)
-            If e.Kind = "seal" Then
+            If e.Kind = "key" Then
                 _sound.Play("dungeon_seal", 0.8F)
                 _canvas.AddHeartBurst(e.X, e.Y)
             ElseIf e.Kind = "warning" Then

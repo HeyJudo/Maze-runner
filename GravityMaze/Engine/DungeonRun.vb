@@ -4,6 +4,7 @@ Option Explicit On
 Imports System
 Imports System.Drawing
 Imports System.Collections.Generic
+Imports System.Linq
 Imports GravityMaze.Levels
 
 Namespace Engine
@@ -35,7 +36,7 @@ Namespace Engine
         Public Const BladeRadius As Single = 0.34F
         Public Const DartRadius As Single = 0.09F
         Public Const DartStep As Single = 0.14F
-        Private ReadOnly maze As MazeDefinition
+        Public ReadOnly Maze As MazeDefinition
         Private ReadOnly darts_ As New List(Of DungeonDart)()
         Private contacts As New HashSet(Of String)()
         Public Event Cue As EventHandler(Of DungeonCueEventArgs)
@@ -49,20 +50,80 @@ Namespace Engine
             End Set
         End Property
         Private clock As Long
-        Public Property SealMask As Integer
+        Public Const CrumbleDelayMs As Integer = 800
+        Public Const CrumbleOpenMs As Integer = 6000
+        Private Const CheckpointRadius As Single = 0.6F
+        Private keys As Integer
+        Private collapse_ As Collapse
+        Private vault As Point
+        Private ReadOnly crackedAt As New Dictionary(Of Integer, Long)()
+        Private ReadOnly lit As New List(Of Integer)()
+        Private marbleX_, marbleY_ As Single
+
+        Public ReadOnly Property KeyMask As Integer
             Get
-                Return seals
+                Return keys
             End Get
-            Private Set(value As Integer)
-                seals = value
-            End Set
         End Property
-        Private seals As Integer
-        Public ReadOnly Property SealCount As Integer
+        Public ReadOnly Property KeyCount As Integer
             Get
-                Return (SealMask And 1) + ((SealMask >> 1) And 1)
+                Return (keys And 1) + ((keys >> 1) And 1) + ((keys >> 2) And 1)
             End Get
         End Property
+        Public ReadOnly Property Collapse As Collapse
+            Get
+                Return collapse_
+            End Get
+        End Property
+        Public ReadOnly Property MarbleX As Single
+            Get
+                Return marbleX_
+            End Get
+        End Property
+        Public ReadOnly Property MarbleY As Single
+            Get
+                Return marbleY_
+            End Get
+        End Property
+
+        Public Function CheckpointLit(index As Integer) As Boolean
+            Return lit.Contains(index)
+        End Function
+
+        ' Explore checkpoints only count before the collapse, escape checkpoints only after,
+        ' so lighting one early can never teleport the marble ahead of the front.
+        Public ReadOnly Property RespawnPoint As Point
+            Get
+                For i As Integer = lit.Count - 1 To 0 Step -1
+                    Dim cp = Definition.Checkpoints(lit(i))
+                    If cp.Escape = (collapse_ IsNot Nothing) Then Return New Point(cp.Column, cp.Row)
+                Next
+                Return If(collapse_ IsNot Nothing, vault, New Point(maze.StartColumn, maze.StartRow))
+            End Get
+        End Property
+
+        Public Function IsBreakaway(row As Integer, column As Integer) As Boolean
+            Return Definition.IsBreakaway(maze, row, column)
+        End Function
+
+        Public Function CrumbleStage(row As Integer, column As Integer) As Integer
+            Dim at As Long
+            If Not crackedAt.TryGetValue(row * maze.ColumnCount + column, at) Then Return 0
+            Dim age = ElapsedMs - at
+            Return If(age < CrumbleDelayMs, 1, If(age < CrumbleDelayMs + CrumbleOpenMs, 2, 0))
+        End Function
+
+        Public Function Pit(row As Integer, column As Integer) As Boolean
+            If row < 0 OrElse column < 0 OrElse row >= maze.RowCount OrElse column >= maze.ColumnCount Then Return False
+            Return maze.GetTile(row, column) = "W"c OrElse CrumbleStage(row, column) = 2 OrElse
+                   (collapse_ IsNot Nothing AndAlso collapse_.IsCollapsed(row, column))
+        End Function
+
+        Public Sub OnFell()
+            If collapse_ Is Nothing Then Return
+            Dim p = RespawnPoint
+            collapse_.Caught(p.Y, p.X)
+        End Sub
         Public ReadOnly Property Darts As IReadOnlyList(Of DungeonDart)
             Get
                 Return darts_
@@ -73,18 +134,18 @@ Namespace Engine
             Me.maze = maze
             Definition = maze.Dungeon
             If Definition Is Nothing Then Throw New ArgumentException("Dungeon runtime needs dungeon data.")
+            marbleX_ = maze.StartColumn + 0.5F : marbleY_ = maze.StartRow + 0.5F
         End Sub
 
         Public Sub Reset()
-            ElapsedMs = 0 : SealMask = 0
-            darts_.Clear() : contacts.Clear()
+            ElapsedMs = 0 : keys = 0 : collapse_ = Nothing : crackedAt.Clear() : lit.Clear() : darts_.Clear() : contacts.Clear()
+            marbleX_ = maze.StartColumn + 0.5F : marbleY_ = maze.StartRow + 0.5F
         End Sub
 
         Public Function GateOpen(tile As Char) As Boolean
             Select Case tile
-                Case "a"c : Return (SealMask And 1) <> 0
-                Case "b"c : Return (SealMask And 2) <> 0
-                Case "E"c : Return SealMask = 3
+                Case "c"c : Return (keys And 3) = 3 AndAlso collapse_ Is Nothing
+                Case "E"c : Return collapse_ IsNot Nothing
                 Case Else : Return True
             End Select
         End Function
@@ -93,10 +154,16 @@ Namespace Engine
             Dim r = CInt(Math.Floor(y)), c = CInt(Math.Floor(x))
             If r < 0 OrElse c < 0 OrElse r >= maze.RowCount OrElse c >= maze.ColumnCount Then Return
             Dim tile = maze.GetTile(r, c)
-            Dim bit = If(tile = "K"c, 1, If(tile = "Q"c, 2, 0))
-            If bit = 0 OrElse (SealMask And bit) <> 0 OrElse DistanceSquared(x, y, c + 0.5F, r + 0.5F) > 0.45F * 0.45F Then Return
-            SealMask = SealMask Or bit
-            RaiseEvent Cue(Me, New DungeonCueEventArgs("seal", c + 0.5F, r + 0.5F))
+            Dim bit = If(tile = "K"c, 1, If(tile = "Q"c, 2, If(tile = "V"c, 4, 0)))
+            If bit = 0 OrElse (keys And bit) <> 0 OrElse DistanceSquared(x, y, c + 0.5F, r + 0.5F) > 0.45F * 0.45F Then Return
+            keys = keys Or bit
+            RaiseEvent Cue(Me, New DungeonCueEventArgs("key", c + 0.5F, r + 0.5F))
+            If bit = 4 Then
+                vault = New Point(c, r)
+                collapse_ = New Collapse(Definition.Collapse, maze.RowCount, maze.ColumnCount, vault,
+                                         Function(row, column) Definition.EscapeOpen(maze, row, column))
+                RaiseEvent Cue(Me, New DungeonCueEventArgs("collapse", c + 0.5F, r + 0.5F))
+            End If
         End Sub
 
         Public Shared Function Phase(atMs As Long, offset As Integer, Optional period As Integer = CycleMs) As Integer
@@ -135,13 +202,39 @@ Namespace Engine
         Public Function Solid(row As Integer, column As Integer) As Boolean
             If row < 0 OrElse column < 0 OrElse row >= maze.RowCount OrElse column >= maze.ColumnCount Then Return True
             Dim tile = maze.GetTile(row, column)
-            Return tile = "1"c OrElse Not GateOpen(tile)
+            If tile = "1"c Then Return Not (collapse_ IsNot Nothing AndAlso IsBreakaway(row, column))
+            If Not GateOpen(tile) Then Return True
+            Return collapse_ IsNot Nothing AndAlso collapse_.IsRubble(row, column)
         End Function
 
         ' Return at most one damage cue per frame, but consume every dart and record every contact.
         Public Function Advance(oldX As Single, oldY As Single, x As Single, y As Single) As DungeonCueEventArgs
             Dim previous = ElapsedMs
             ElapsedMs += 16
+            marbleX_ = x : marbleY_ = y
+            Dim tr = CInt(Math.Floor(y)), tc = CInt(Math.Floor(x))
+            If tr >= 0 AndAlso tc >= 0 AndAlso tr < maze.RowCount AndAlso tc < maze.ColumnCount AndAlso
+               maze.GetTile(tr, tc) = "C"c AndAlso CrumbleStage(tr, tc) = 0 Then
+                crackedAt(tr * maze.ColumnCount + tc) = ElapsedMs
+                RaiseEvent Cue(Me, New DungeonCueEventArgs("crumble", tc + 0.5F, tr + 0.5F))
+            End If
+            For i As Integer = 0 To Definition.Checkpoints.Count - 1
+                Dim cp = Definition.Checkpoints(i)
+                If Not lit.Contains(i) AndAlso cp.Escape = (collapse_ IsNot Nothing) AndAlso
+                   DistanceSquared(x, y, cp.Column + 0.5F, cp.Row + 0.5F) < CheckpointRadius * CheckpointRadius Then
+                    lit.Add(i)
+                    RaiseEvent Cue(Me, New DungeonCueEventArgs("checkpoint", cp.Column + 0.5F, cp.Row + 0.5F))
+                End If
+            Next
+            If collapse_ IsNot Nothing Then
+                Dim before = collapse_.Version
+                Dim warnings = Enumerable.Range(0, Definition.Collapse.CaveIns.Count).Count(Function(i) collapse_.CaveInState(i) = Collapse.Warning)
+                collapse_.Advance(16, Function(row, column) TouchesTile(x, y, column, row, GameEngine.BallRadius))
+                If collapse_.Version <> before Then
+                    Dim nowWarnings = Enumerable.Range(0, Definition.Collapse.CaveIns.Count).Count(Function(i) collapse_.CaveInState(i) = Collapse.Warning)
+                    RaiseEvent Cue(Me, New DungeonCueEventArgs(If(nowWarnings > warnings, "cavein_warning", "cavein"), x, y))
+                End If
+            End If
             Dim hit As DungeonCueEventArgs = Nothing
             Dim nowContacts As New HashSet(Of String)()
             For i As Integer = 0 To Definition.Spikes.Count - 1

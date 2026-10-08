@@ -441,7 +441,7 @@ Namespace UI.Screens
             Dim timeFont As Font = GameFonts.Display((72 + If(urgent, 8 * pulse, 0)) * s)
             UiDraw.GlowText(g, UiDraw.FormatTime(secs), timeFont, timeColor, If(urgent, Danger, pal.AccentSoft), cx, 40 * s, 0.5F, 2 * s, If(urgent, 6, 3) * s)
             If _engine.Dungeon IsNot Nothing Then
-                UiDraw.Text(g, $"SEALS {_engine.Dungeon.SealCount}/2  ·  " & If(_engine.Dungeon.SealMask = 3, "EXIT OPEN", "EXIT LOCKED"),
+                UiDraw.Text(g, $"KEYS {_engine.Dungeon.KeyCount}/3  ·  " & If(_engine.Dungeon.Collapse IsNot Nothing, "ESCAPE!", "EXIT LOCKED"),
                             GameFonts.Body(18 * s, GameFonts.FontWeight.Bold), pal.Accent, cx, 116 * s, 0.5F, 1 * s)
             End If
             If timed Then

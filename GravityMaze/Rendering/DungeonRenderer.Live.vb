@@ -18,10 +18,10 @@ Namespace Rendering
                 For c As Integer = 0 To maze.ColumnCount - 1
                     Dim symbol = maze.GetTile(r, c)
                     Dim center As New PointF(left + (c + 0.5F) * tile, top + (r + 0.5F) * tile)
-                    If symbol = "K"c OrElse symbol = "Q"c Then
-                        Dim taken = run IsNot Nothing AndAlso (run.SealMask And If(symbol = "K"c, 1, 2)) <> 0
+                    If symbol = "K"c OrElse symbol = "Q"c OrElse symbol = "V"c Then
+                        Dim taken = run IsNot Nothing AndAlso (run.KeyMask And If(symbol = "K"c, 1, If(symbol = "Q"c, 2, 4))) <> 0
                         DrawSeal(g, center, tile * 0.33F, symbol = "K"c, taken, at)
-                    ElseIf symbol = "a"c OrElse symbol = "b"c OrElse symbol = "E"c Then
+                    ElseIf symbol = "c"c OrElse symbol = "E"c Then
                         DrawGate(g, center, tile, symbol, run IsNot Nothing AndAlso run.GateOpen(symbol))
                     End If
                 Next
