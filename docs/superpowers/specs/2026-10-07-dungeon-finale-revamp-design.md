@@ -1,6 +1,6 @@
 # Level 4 Revamp: The Forgotten Keep — Design
 
-Date: 2026-10-07 · Branch: `feature/dungeon-finale`
+Date: 2026-10-07 · Onboarding decisions: 2026-10-08 · Branch: `feature/dungeon-revamp`
 
 ## Why
 
@@ -19,6 +19,9 @@ dramatic ending, and it must be beatable on the Arduino tilt board (the primary 
 - Art = **sprite atlas + wall auto-tiling**. Raou sheets for structure/props, Timberwolf
   sheet for moving parts. Repo is private, so sheets are committed.
 - Implementation runs as parallel subagent tracks (see the end of this spec).
+- Level 4 teaches its objectives in stages, with a player-paced opening overview.
+- Level 4 starts in **flat view**, then uses a **1.5× following camera** for play;
+  players can select full-maze view or turn tilt view on themselves.
 
 ## 1. Layout and flow
 
@@ -47,6 +50,113 @@ dramatic ending, and it must be beatable on the Arduino tilt board (the primary 
 
 No tile of the 46×46 board is filler: every non-border region is part of a wing,
 hub, gallery or escape route.
+
+## 1a. Onboarding, objectives and camera (agreed 2026-10-08)
+
+### Opening briefing
+
+Every fresh entry to Level 4, from level select, next-level selection or the campaign
+landing from Level 3, shows a player-paced briefing before the countdown. The campaign's
+existing direct-to-play landing must not bypass it. The engine remains frozen: the marble,
+elapsed run time, traps, crumble and collapse do not advance while reading the briefing
+or during the countdown. Restarts and retries skip the briefing and use the countdown.
+
+The briefing shows the whole keep in flat view. The entrance/exit, western Crypt,
+eastern Armory and northern vault are labelled, and the maze geometry is readable behind
+the briefing. It gives orientation without drawing a solved route. Its main instruction is:
+
+> Find the keys in the Crypt and Armory, in either order.
+> Together, they unlock the northern vault.
+
+The opening does not explain the entire finale upfront. A `RULES` option provides the
+hazard and checkpoint reference below. A `READY` option starts the existing countdown;
+the briefing never dismisses on a timer. Both options use the existing `MenuList` input:
+up/down selects, hold right confirms, and Enter is the keyboard shortcut. The menu is
+reset on entry so an already-held tilt cannot accidentally dismiss the briefing.
+
+Include a board-operable `CAMERA` choice on the briefing, defaulting to `1.5×` and
+cycling through the existing full-maze / 1.5× / 2× modes. While reading, the board remains
+in overview regardless of that choice. On Ready, the camera smoothly settles toward the
+selected play zoom, focused on the entrance, during the countdown. Full-maze selection
+remains full-maze. Keyboard Tab overview and F9 cycling remain available; the existing
+pause-menu camera choice remains operable through tilt navigation. The Arduino supplies
+tilt only, so this design adds no during-play gesture or firmware/button requirement.
+
+### Objectives and key identity
+
+Show a persistent objective derived from `DungeonRun.KeyMask` and `Collapse`, alongside
+three labelled key icons: `CRYPT`, `ARMORY`, `VAULT`. Collected state uses both icon
+appearance and a visible completion indicator. Map characters K/Q/V stay internal; the
+player-facing instructions use names. Required objective states are:
+
+| State | Objective |
+|---|---|
+| Neither Crypt nor Armory key held | Find the Crypt and Armory keys. |
+| Crypt key held, Armory key missing | Find the Armory key in the east wing. |
+| Armory key held, Crypt key missing | Find the Crypt key in the west wing. |
+| Both held, no collapse | Vault unlocked — head north and take the vault key. |
+| Collapse started | Escape through the new passage and return to the entrance. |
+
+When both first keys are held, show a persistent warning before V is collected:
+
+> Taking the vault key starts the collapse. Escape through the new passage
+> and return to the entrance.
+
+This warning is readable while approaching the key and also appears in paused objective
+information. It does not introduce a confirmation or stop after the collapse has begun.
+On V collection, highlight the newly opened breakaway passage and announce
+`ESCAPE PASSAGE OPENED` for the rumble phase. Keep `ESCAPE!` and the destination visible through the rumble
+and escape. Guidance does not draw a route through the maze.
+
+### Checkpoints and rules
+
+On the first checkpoint activation in each phase of a run (exploration and escape), show
+`Checkpoint lit — falls return you here; collected keys stay.` for four seconds.
+Later activations show `Checkpoint lit` for two seconds. These messages respond to the existing checkpoint
+cue; a fall does not erase collected-key feedback or objective progress.
+
+The briefing's Rules option and Level 4's pause screen explain:
+
+- Walls cost a quarter heart; traps and falls cost one heart.
+- Amber trap warnings indicate danger is approaching; wait on safe floor.
+- Crumbling floor gives way shortly after contact; lava and open pits cause falls.
+- Activated checkpoints set the return point, and collected keys survive a fall.
+- During escape, the collapse front is the clock. Cracks warn of the approaching front;
+  cave-in warnings precede rubble. The vault entrance closes and the new passage opens.
+- Escape checkpoints replace the exploration return points during collapse. Before the
+  first escape checkpoint, falls return to the vault key position.
+
+The pause screen also shows the current objective and, when applicable, the pre-V warning.
+Text must remain readable without overlapping hearts, time, key icons or the board controls.
+
+### Flat view and camera lifetime
+
+Each fresh Level 4 entry defaults tilt view to OFF. F8 and the existing pause-menu option
+can turn it on. Preserve a player's manual view and zoom choices during that run, including
+pause, falls, collapse, restart and retry. The collapse does not force another zoom change.
+When leaving Level 4, restore the view/zoom preferences that were active before entry;
+Level 4's defaults must not change Levels 1–3 or the menu attract views.
+
+Keep the existing torchlit darkness during normal play. Check the collapse crack band,
+breakaway-opening highlight and cave-in warnings in full-maze, 1.5× and 2× views, including
+the optional tilt view. Adjust readability within the existing visual language if needed.
+The plan's 6 ms live-layer target and section 4's 16 ms frame limit still apply.
+
+### Responsibilities and acceptance
+
+The shell owns briefing/rules navigation, countdown, transient messages and preference
+restoration. A focused Level 4 presentation unit derives objective/warning copy from the
+existing engine state; it must not hold a second key progression or alter gate rules.
+The canvas/camera owns overview, zoom and flat/tilt presentation. Rendering of the new
+passage highlight reads the existing breakaway/collapse state. No engine physics change
+is needed for onboarding.
+
+Wave 4 checks must cover fresh level-select and campaign entries, no briefing timeout,
+keyboard and board-style confirmation after neutral input, frozen clocks before play,
+countdown transition, objective updates in either key order, warning before V, checkpoint
+messages, restart reset, and view/zoom lifetime. Tours must show the briefing, rules,
+each objective state, paused guidance, and escape-passage feedback at representative
+window sizes. Validate existing Levels 1–3 transitions and view preferences as regressions.
 
 ## 2. Hazards
 
@@ -194,7 +304,7 @@ horizontally. Sheets copied to `GravityMaze/Sprites/Dungeon/` as `dungeon.png`,
 | `Engine/GameEngine.vb` | `W`/`C`-collapsed/front-collapsed treated as pits; cave-in rubble and closed gates as walls. |
 | `Levels/DungeonDefinition.vb` | New schema + validation above. |
 | `Rendering/DungeonRenderer.vb` | Rewritten for sprites, auto-tiled walls, overlays, lighting. |
-| `UI` HUD | Seal progress → 3 key icons; "ESCAPE!" banner during collapse. |
+| `UI` HUD and Level 4 presentation | Labelled key icons, state-derived objectives, briefing/rules, checkpoint feedback and "ESCAPE!" banner. |
 | `Mazes/Level4.txt`, `.dungeon.json`, `tools/maze_src/Level4.txt` | New 46×46 layout. |
 | `docs/dungeon-finale.md` | Rewritten for the new level. |
 
@@ -207,6 +317,8 @@ Extend `tools/DungeonChecks`:
 - Collapse: BFS distances on a fixture, reach over time, catch → heart + respawn +
   pushback, cave-in deferral while occupied, pause freezes everything, restart resets.
 - Keys/gates: `c` needs K+Q, `E` opens on V, retired `a`/`b` rejected.
+- Onboarding and camera: the entry, input, frozen-clock, objective and preference cases
+  in section 1a, including the campaign landing that previously skipped the intro.
 - Reachability guarantee on the real Level 4 data.
 - **Board-realistic proof runs:** `DungeonPilot` clears the whole level (explore + escape)
   with −1/0/+1 inputs fed through an exponential smoother (weight 0.35, the Arduino
