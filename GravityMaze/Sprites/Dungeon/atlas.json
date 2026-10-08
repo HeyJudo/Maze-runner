@@ -32,9 +32,9 @@
   "frames": 1
  },
  "wall_top": {
-  "sheet": "dungeon",
-  "x": 12,
-  "y": 204,
+  "sheet": "extra",
+  "x": 160,
+  "y": 0,
   "w": 16,
   "h": 16,
   "frames": 1

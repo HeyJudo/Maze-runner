@@ -46,7 +46,7 @@ ATLAS = {
 # spikes (reversed strip) and saw (toothed disc) are composed into extra.png below the tiles.
 # Composed 16-px tiles, packed on a grid in extra.png (in this order); gate_open (37x44) sits below them.
 EXTRA = ["wall_edge_n", "wall_edge_e", "wall_edge_s", "wall_edge_w", "wall_inner_ne", "wall_inner_nw",
-         "wall_inner_se", "wall_inner_sw", "pit", "rubble"]
+         "wall_inner_se", "wall_inner_sw", "pit", "rubble", "wall_top"]
 
 REQUIRED = ("floor_0 floor_1 floor_2 floor_3 wall_top wall_face wall_edge_n wall_edge_e wall_edge_s wall_edge_w "
             "wall_inner_ne wall_inner_nw wall_inner_se wall_inner_sw gate_closed gate_open door_wood arch_open arch_pillars "
@@ -81,9 +81,11 @@ def darken(im, k):
 
 
 def build_extra(sheets):
-    top, floor, dun = crop(sheets, "wall_top"), crop(sheets, "floor_0"), sheets[D]
+    floor, dun = crop(sheets, "floor_0"), sheets[D]
+    # Raou's wall top is the same lilac as the floor slab; darken it so walls read as solid mass (still lighter than wall_face).
+    top = darken(crop(sheets, "wall_top"), 0.58)
     rim = darken(top, 0.45)
-    t = {}
+    t = {"wall_top": top}
     # Edges: wall_top with a 4-px dark rim on the side that meets the floor.
     for name, box in (("wall_edge_n", (0, 0, 16, 4)), ("wall_edge_e", (12, 0, 16, 16)),
                       ("wall_edge_s", (0, 12, 16, 16)), ("wall_edge_w", (0, 0, 4, 16))):

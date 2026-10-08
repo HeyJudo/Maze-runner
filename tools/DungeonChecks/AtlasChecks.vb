@@ -23,6 +23,10 @@ Public Module AtlasChecks
             threw = True
         End Try
         Check(threw, "A sprite rectangle outside its sheet is rejected")
+        Using sheet As New System.Drawing.Bitmap(Path.Combine(SpriteDir, "extra.png")), dun As New System.Drawing.Bitmap(Path.Combine(SpriteDir, "dungeon.png"))
+            Dim top = atlas("wall_top"), floor = atlas("floor_0")
+            Check(AvgLuma(If(top.Sheet = "extra", sheet, dun), top) < AvgLuma(dun, floor) - 20, "wall_top is clearly darker than the floor")
+        End Using
         Dim atlasForWalls = SpriteAtlas.Load(Path.Combine(SpriteDir, "atlas.json"))
         For mask As Integer = 0 To 255
             Dim m = mask
@@ -47,4 +51,15 @@ Public Module AtlasChecks
         Dim innerCorner = Rendering.WallAutotile.Pieces(Function(r, c) Not (r = 0 AndAlso c = 2), 1, 1)
         Check(innerCorner.SequenceEqual({"wall_top", "wall_inner_ne"}), "Diagonal-only floor yields one inner corner")
     End Sub
+
+    Private Function AvgLuma(sheet As System.Drawing.Bitmap, s As AtlasSprite) As Double
+        Dim sum As Double, n As Integer
+        For y As Integer = s.Y To s.Y + s.H - 1
+            For x As Integer = s.X To s.X + s.W - 1
+                Dim p = sheet.GetPixel(x, y)
+                If p.A > 0 Then sum += p.R * 0.3 + p.G * 0.59 + p.B * 0.11 : n += 1
+            Next
+        Next
+        Return sum / Math.Max(1, n)
+    End Function
 End Module
