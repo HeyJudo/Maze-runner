@@ -582,12 +582,26 @@ Namespace UI.Screens
         End Sub
 
         Private Sub OnDungeonCue(sender As Object, e As DungeonCueEventArgs)
-            If e.Kind = "key" Then
-                _sound.Play("dungeon_seal", 0.8F)
-                _canvas.AddHeartBurst(e.X, e.Y)
-            ElseIf e.Kind = "warning" Then
-                _sound.Play("dungeon_warning", 0.45F)
-            End If
+            Select Case e.Kind
+                Case "key"
+                    _sound.Play("dungeon_seal", 0.8F)
+                    _canvas.AddHeartBurst(e.X, e.Y)
+                Case "collapse"
+                    _sound.Play("dungeon_warning", 1.0F)
+                    _sound.Play("hole_fall", 0.6F)
+                    _canvas.Shake(4000.0F, 5.0F)
+                Case "cavein_warning"
+                    _sound.Play("dungeon_warning", 0.5F)
+                Case "cavein"
+                    _sound.Play("wall_hit", 0.9F)
+                    _canvas.Shake(300.0F, 7.0F)
+                Case "crumble"
+                    _sound.Play("dungeon_warning", 0.3F)
+                Case "checkpoint"
+                    _sound.Play("dungeon_seal", 0.4F)
+                Case "warning"
+                    _sound.Play("dungeon_warning", 0.45F)
+            End Select
         End Sub
 
         Private Sub OnHeartLost(sender As Object, e As HeartEventArgs)

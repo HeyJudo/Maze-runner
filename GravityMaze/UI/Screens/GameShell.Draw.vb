@@ -8,6 +8,7 @@ Imports System.Drawing.Drawing2D
 Imports GravityMaze.Data
 Imports GravityMaze.Engine
 Imports GravityMaze.Levels
+Imports GravityMaze.Rendering
 
 Namespace UI.Screens
     ' All screen drawing. Layout is authored for 1080p and scaled by s = height / 1080.
@@ -320,7 +321,7 @@ Namespace UI.Screens
                 ("hole", "Hole: fall in and you restart from the entrance"),
                 ("heart", "Walls cost 1/4 heart; pits cost one"),
                 ("star", "Stars: beat the par time for up to three"),
-                ("seal", "Dungeon: find both seals to unlock the exit"),
+                ("seal", "Dungeon: 3 keys. The last one wakes the keep. Run!"),
                 ("trap", "Traps cost one heart. Watch amber warnings")}
             For i As Integer = 0 To items.Length - 1
                 Dim iy As Single = right.Y + 96 * s + i * 52 * s
@@ -355,6 +356,7 @@ Namespace UI.Screens
                         g.DrawEllipse(p, cx - r, cy - r, r * 2, r * 2)
                     End Using
                 Case "seal"
+                    If DungeonAtlas.Draw(g, "key", New RectangleF(cx - r, cy - r, r * 2, r * 2)) Then Return
                     Using brush As New SolidBrush(Color.FromArgb(183, 137, 255))
                         g.FillPolygon(brush, {New PointF(cx, cy - r), New PointF(cx + r * 0.7F, cy), New PointF(cx, cy + r), New PointF(cx - r * 0.7F, cy)})
                     End Using
@@ -441,8 +443,23 @@ Namespace UI.Screens
             Dim timeFont As Font = GameFonts.Display((72 + If(urgent, 8 * pulse, 0)) * s)
             UiDraw.GlowText(g, UiDraw.FormatTime(secs), timeFont, timeColor, If(urgent, Danger, pal.AccentSoft), cx, 40 * s, 0.5F, 2 * s, If(urgent, 6, 3) * s)
             If _engine.Dungeon IsNot Nothing Then
-                UiDraw.Text(g, $"KEYS {_engine.Dungeon.KeyCount}/3  ·  " & If(_engine.Dungeon.Collapse IsNot Nothing, "ESCAPE!", "EXIT LOCKED"),
-                            GameFonts.Body(18 * s, GameFonts.FontWeight.Bold), pal.Accent, cx, 116 * s, 0.5F, 1 * s)
+                Dim d As DungeonRun = _engine.Dungeon
+                Dim ico As Single = 22 * s
+                Dim lbl As String = $"KEYS {d.KeyCount}/3"
+                Dim keyFont As Font = GameFonts.Body(18 * s, GameFonts.FontWeight.Bold)
+                Dim textW As Single = g.MeasureString(lbl, keyFont).Width
+                Dim x0 As Single = cx - (3 * ico + 12 * s + textW) / 2
+                For k As Integer = 0 To 2
+                    DungeonAtlas.Draw(g, "key", New RectangleF(x0 + k * ico, 126 * s, ico, ico), 0, If((d.KeyMask And (1 << k)) <> 0, 1.0F, 0.25F))
+                Next
+                UiDraw.Text(g, lbl, keyFont, pal.Accent, x0 + 3 * ico + 12 * s, 126 * s, 0, 1 * s)
+                If d.Collapse IsNot Nothing Then
+                    Dim a2 As Single = CSng(0.7 + 0.3 * Math.Sin(Environment.TickCount / 1000.0 * 2 * Math.PI * 2))
+                    UiDraw.Text(g, "ESCAPE!", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), UiDraw.WithAlpha(Danger, a2), cx, 126 * s + ico + 6 * s, 0.5F, 2 * s)
+                    If d.Collapse.Rumbling Then
+                        UiDraw.Text(g, "THE KEEP IS COLLAPSING", GameFonts.Body(16 * s, GameFonts.FontWeight.Bold), Danger, cx, 126 * s + ico + 34 * s, 0.5F, 2 * s)
+                    End If
+                End If
             End If
             If timed Then
                 ' Thin time bar under the clock

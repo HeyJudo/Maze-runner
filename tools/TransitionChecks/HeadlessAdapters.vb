@@ -120,6 +120,8 @@ Namespace UI
         End Sub
         Public Sub FlashDamage()
         End Sub
+        Public Sub Shake(durationMs As Single, amplitude As Single)
+        End Sub
     End Class
 End Namespace
 
