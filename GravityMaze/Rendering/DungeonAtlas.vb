@@ -26,6 +26,12 @@ Namespace Rendering
             Return _atlas(name).Frames
         End Function
 
+        Public Shared Function SizeOf(name As String) As Size
+            EnsureLoaded()
+            If _atlas Is Nothing OrElse Not _atlas.Has(name) Then Return Size.Empty
+            Return New Size(_atlas(name).W, _atlas(name).H)
+        End Function
+
         Public Shared Function Draw(g As Graphics, name As String, dest As RectangleF, Optional frame As Integer = 0, Optional alpha As Single = 1.0F) As Boolean
             EnsureLoaded()
             If _atlas Is Nothing OrElse Not _atlas.Has(name) Then Return False

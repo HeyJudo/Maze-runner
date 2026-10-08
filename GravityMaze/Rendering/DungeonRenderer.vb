@@ -14,12 +14,15 @@ Namespace Rendering
         End Sub
 
         Public Shared Sub Floor(g As Graphics, board As RectangleF, tile As Single, maze As MazeDefinition)
-            Using base As New SolidBrush(Color.FromArgb(32, 29, 40))
+            Using base As New SolidBrush(Color.FromArgb(24, 20, 32))
                 g.FillRectangle(base, board)
             End Using
             For r As Integer = 0 To maze.RowCount - 1
                 For c As Integer = 0 To maze.ColumnCount - 1
                     If maze.GetTile(r, c) = "1"c Then Continue For
+                    Dim h = ((r * 92821) Xor (c * 68917)) And &H7FFFFFFF
+                    Dim pick = If(h Mod 10 < 6, 0, 1 + (h \ 10) Mod 3)
+                    If DungeonAtlas.Draw(g, "floor_" & pick, New RectangleF(board.Left + c * tile, board.Top + r * tile, tile, tile)) Then Continue For
                     Dim rect As New RectangleF(board.Left + c * tile + 0.6F, board.Top + r * tile + 0.6F, tile - 1.2F, tile - 1.2F)
                     Dim tone = (r * 17 + c * 29) Mod 13
                     Using brush As New SolidBrush(Color.FromArgb(48 + tone, 44 + tone, 59 + tone)),
@@ -36,7 +39,14 @@ Namespace Rendering
             Next
         End Sub
 
-        Public Shared Sub Wall(g As Graphics, rect As RectangleF, r As Integer, c As Integer)
+        Public Shared Sub Wall(g As Graphics, rect As RectangleF, maze As MazeDefinition, r As Integer, c As Integer)
+            Dim pieces = WallAutotile.Pieces(Function(rr, cc) rr < 0 OrElse cc < 0 OrElse rr >= maze.RowCount OrElse cc >= maze.ColumnCount OrElse maze.GetTile(rr, cc) = "1"c, r, c)
+            If DungeonAtlas.Draw(g, pieces(0), rect) Then
+                For i As Integer = 1 To pieces.Count - 1
+                    DungeonAtlas.Draw(g, pieces(i), rect)
+                Next
+                Return
+            End If
             Using mortar As New SolidBrush(Color.FromArgb(38, 31, 49)),
                   edge As New Pen(Color.FromArgb(142, 125, 158), Math.Max(0.6F, rect.Width * 0.06F))
                 g.FillRectangle(mortar, rect)
@@ -53,6 +63,25 @@ Namespace Rendering
                 Next
                 g.DrawLine(edge, rect.Left, rect.Top + 1, rect.Right, rect.Top + 1)
             End Using
+        End Sub
+
+        Public Shared Sub StaticDecor(g As Graphics, board As RectangleF, tile As Single, maze As MazeDefinition)
+            For Each d In maze.Dungeon.Decor
+                If d.Sprite <> "torch" Then DrawFitted(g, d.Sprite, board, tile, d.Row, d.Column)
+            Next
+            DrawFitted(g, "arch_pillars", board, tile, maze.StartRow, maze.StartColumn)
+            DrawFitted(g, "arch_open", board, tile, maze.GoalRow, maze.GoalColumn)
+        End Sub
+
+        ' Aspect-preserving, bottom-centred in the tile; tile/16 per source pixel, capped at 2 tiles.
+        Private Shared Sub DrawFitted(g As Graphics, sprite As String, board As RectangleF, tile As Single, r As Integer, c As Integer)
+            Dim size = DungeonAtlas.SizeOf(sprite)
+            If size.Width <= 0 Then Return
+            Dim w = Math.Min(size.Width * tile / 16.0F, tile * 2.0F)
+            Dim h = Math.Min(size.Height * tile / 16.0F, tile * 2.0F)
+            Dim k = Math.Min(w / size.Width, h / size.Height)
+            w = size.Width * k : h = size.Height * k
+            DungeonAtlas.Draw(g, sprite, New RectangleF(board.Left + (c + 0.5F) * tile - w / 2.0F, board.Top + (r + 1) * tile - h, w, h))
         End Sub
 
         Public Shared Sub Portal(g As Graphics, rect As RectangleF)

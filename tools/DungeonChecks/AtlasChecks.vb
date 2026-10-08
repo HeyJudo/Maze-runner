@@ -1,5 +1,6 @@
 Imports System
 Imports System.IO
+Imports System.Linq
 Imports GravityMaze.Levels
 
 Public Module AtlasChecks
@@ -22,5 +23,28 @@ Public Module AtlasChecks
             threw = True
         End Try
         Check(threw, "A sprite rectangle outside its sheet is rejected")
+        Dim atlasForWalls = SpriteAtlas.Load(Path.Combine(SpriteDir, "atlas.json"))
+        For mask As Integer = 0 To 255
+            Dim m = mask
+            ' bits: 0 N, 1 E, 2 S, 3 W, 4 NE, 5 NW, 6 SE, 7 SW; centre (1,1) is the wall being tiled.
+            Dim isWall As Func(Of Integer, Integer, Boolean) =
+                Function(r, c)
+                    If r = 1 AndAlso c = 1 Then Return True
+                    Dim bit = If(r = 0 AndAlso c = 1, 0, If(r = 1 AndAlso c = 2, 1, If(r = 2 AndAlso c = 1, 2, If(r = 1 AndAlso c = 0, 3,
+                              If(r = 0 AndAlso c = 2, 4, If(r = 0 AndAlso c = 0, 5, If(r = 2 AndAlso c = 2, 6, 7)))))))
+                    Return (m >> bit And 1) = 1
+                End Function
+            Dim pieces = Rendering.WallAutotile.Pieces(isWall, 1, 1)
+            Check(pieces.Count >= 1, "Every wall gets at least one piece")
+            For Each p In pieces
+                Check(atlasForWalls.Has(p), "Auto-tile piece missing from atlas: " & p)
+            Next
+        Next
+        Dim alone = Rendering.WallAutotile.Pieces(Function(r, c) r = 1 AndAlso c = 1, 1, 1)
+        Check(alone(0) = "wall_face" AndAlso alone.Contains("wall_edge_n") AndAlso alone.Contains("wall_edge_e") AndAlso alone.Contains("wall_edge_w"), "A lone pillar shows its face and three rims")
+        Dim buried = Rendering.WallAutotile.Pieces(Function(r, c) True, 1, 1)
+        Check(buried.Count = 1 AndAlso buried(0) = "wall_top", "A wall surrounded by walls is plain top")
+        Dim innerCorner = Rendering.WallAutotile.Pieces(Function(r, c) Not (r = 0 AndAlso c = 2), 1, 1)
+        Check(innerCorner.SequenceEqual({"wall_top", "wall_inner_ne"}), "Diagonal-only floor yields one inner corner")
     End Sub
 End Module
