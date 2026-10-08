@@ -10,5 +10,6 @@
     <Compile Include="../../GravityMaze/Engine/*.vb" Link="Engine/%(Filename)%(Extension)" />
     <Compile Include="../../GravityMaze/Levels/*.vb" Link="Levels/%(Filename)%(Extension)" />
     <Content Include="../../GravityMaze/Mazes/Level4*" Link="Mazes/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../GravityMaze/Sprites/Dungeon/*" Link="Sprites/Dungeon/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

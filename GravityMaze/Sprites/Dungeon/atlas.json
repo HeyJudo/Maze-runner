@@ -1,0 +1,362 @@
+{
+ "floor_0": {
+  "sheet": "dungeon",
+  "x": 20,
+  "y": 52,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "floor_1": {
+  "sheet": "dungeon",
+  "x": 36,
+  "y": 84,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "floor_2": {
+  "sheet": "dungeon",
+  "x": 84,
+  "y": 52,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "floor_3": {
+  "sheet": "dungeon",
+  "x": 100,
+  "y": 20,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "wall_top": {
+  "sheet": "dungeon",
+  "x": 12,
+  "y": 204,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "wall_face": {
+  "sheet": "dungeon",
+  "x": 48,
+  "y": 296,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "gate_closed": {
+  "sheet": "dungeon",
+  "x": 13,
+  "y": 457,
+  "w": 37,
+  "h": 44,
+  "frames": 1
+ },
+ "door_wood": {
+  "sheet": "dungeon",
+  "x": 78,
+  "y": 457,
+  "w": 37,
+  "h": 44,
+  "frames": 1
+ },
+ "arch_open": {
+  "sheet": "dungeon",
+  "x": 13,
+  "y": 521,
+  "w": 37,
+  "h": 44,
+  "frames": 1
+ },
+ "chains": {
+  "sheet": "dungeon",
+  "x": 75,
+  "y": 203,
+  "w": 9,
+  "h": 35,
+  "frames": 1
+ },
+ "gold_pile": {
+  "sheet": "dungeon",
+  "x": 77,
+  "y": 640,
+  "w": 42,
+  "h": 33,
+  "frames": 1
+ },
+ "gold_coins": {
+  "sheet": "dungeon",
+  "x": 38,
+  "y": 617,
+  "w": 23,
+  "h": 15,
+  "frames": 1
+ },
+ "gold_stack": {
+  "sheet": "dungeon",
+  "x": 1,
+  "y": 673,
+  "w": 31,
+  "h": 29,
+  "frames": 1
+ },
+ "iron_ball": {
+  "sheet": "dungeon",
+  "x": 103,
+  "y": 681,
+  "w": 19,
+  "h": 19,
+  "frames": 1
+ },
+ "table": {
+  "sheet": "dungeon",
+  "x": 11,
+  "y": 769,
+  "w": 42,
+  "h": 31,
+  "frames": 1
+ },
+ "chair": {
+  "sheet": "dungeon",
+  "x": 72,
+  "y": 740,
+  "w": 14,
+  "h": 26,
+  "frames": 1
+ },
+ "rack_swords": {
+  "sheet": "dungeon",
+  "x": 65,
+  "y": 787,
+  "w": 29,
+  "h": 38,
+  "frames": 1
+ },
+ "rack_spears": {
+  "sheet": "dungeon",
+  "x": 97,
+  "y": 786,
+  "w": 29,
+  "h": 39,
+  "frames": 1
+ },
+ "arch_pillars": {
+  "sheet": "freed",
+  "x": 294,
+  "y": 323,
+  "w": 52,
+  "h": 62,
+  "frames": 1
+ },
+ "torch": {
+  "sheet": "freed",
+  "x": 329,
+  "y": 262,
+  "w": 14,
+  "h": 22,
+  "frames": 1
+ },
+ "banner": {
+  "sheet": "freed",
+  "x": 322,
+  "y": 229,
+  "w": 29,
+  "h": 26,
+  "frames": 1
+ },
+ "chest": {
+  "sheet": "freed",
+  "x": 292,
+  "y": 261,
+  "w": 26,
+  "h": 25,
+  "frames": 1
+ },
+ "pot": {
+  "sheet": "freed",
+  "x": 264,
+  "y": 232,
+  "w": 16,
+  "h": 18,
+  "frames": 1
+ },
+ "skull": {
+  "sheet": "freed",
+  "x": 295,
+  "y": 232,
+  "w": 18,
+  "h": 17,
+  "frames": 1
+ },
+ "bones": {
+  "sheet": "freed",
+  "x": 296,
+  "y": 204,
+  "w": 16,
+  "h": 12,
+  "frames": 1
+ },
+ "keg": {
+  "sheet": "freed",
+  "x": 327,
+  "y": 198,
+  "w": 18,
+  "h": 24,
+  "frames": 1
+ },
+ "pedestal": {
+  "sheet": "freed",
+  "x": 229,
+  "y": 255,
+  "w": 23,
+  "h": 34,
+  "frames": 1
+ },
+ "spikes": {
+  "sheet": "maze",
+  "x": 224,
+  "y": 40,
+  "w": 16,
+  "h": 20,
+  "frames": 4
+ },
+ "saw": {
+  "sheet": "maze",
+  "x": 31,
+  "y": 111,
+  "w": 16,
+  "h": 17,
+  "frames": 8
+ },
+ "arrow": {
+  "sheet": "maze",
+  "x": 46,
+  "y": 228,
+  "w": 18,
+  "h": 8,
+  "frames": 1
+ },
+ "crumble": {
+  "sheet": "maze",
+  "x": 0,
+  "y": 288,
+  "w": 16,
+  "h": 16,
+  "frames": 8
+ },
+ "lava": {
+  "sheet": "maze",
+  "x": 288,
+  "y": 240,
+  "w": 16,
+  "h": 16,
+  "frames": 2
+ },
+ "key": {
+  "sheet": "maze",
+  "x": 224,
+  "y": 304,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "blood": {
+  "sheet": "maze",
+  "x": 32,
+  "y": 128,
+  "w": 32,
+  "h": 32,
+  "frames": 4
+ },
+ "wall_edge_n": {
+  "sheet": "extra",
+  "x": 0,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "wall_edge_e": {
+  "sheet": "extra",
+  "x": 16,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "wall_edge_s": {
+  "sheet": "extra",
+  "x": 32,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "wall_edge_w": {
+  "sheet": "extra",
+  "x": 48,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "wall_inner_ne": {
+  "sheet": "extra",
+  "x": 64,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "wall_inner_nw": {
+  "sheet": "extra",
+  "x": 80,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "wall_inner_se": {
+  "sheet": "extra",
+  "x": 96,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "wall_inner_sw": {
+  "sheet": "extra",
+  "x": 112,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "pit": {
+  "sheet": "extra",
+  "x": 128,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "rubble": {
+  "sheet": "extra",
+  "x": 144,
+  "y": 0,
+  "w": 16,
+  "h": 16,
+  "frames": 1
+ },
+ "gate_open": {
+  "sheet": "extra",
+  "x": 0,
+  "y": 16,
+  "w": 37,
+  "h": 44,
+  "frames": 1
+ }
+}
