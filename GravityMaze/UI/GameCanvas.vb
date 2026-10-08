@@ -77,7 +77,7 @@ Namespace UI
             completedMarbleHidden = True
             fx.Reset()
             activeImpacts.Clear()
-            _flashMs = 0 : _shakeMs = 0
+            _flashMs = 0 : _shakeMs = 0 : _shakeAmp = 0
             Invalidate()
         End Sub
 
@@ -123,7 +123,7 @@ Namespace UI
         Private ReadOnly fx As New BallFxState()
         Private _flashMs As Single      ' red damage overlay, counts down
         Private _shakeMs As Single      ' board shake, counts down
-        Private ReadOnly _shakeRng As New Random()
+        Private _shakeAmp As Single     ' board shake amplitude in px
 
         ' Hearts: the engine's pickup lookup (Nothing = draw every pickup) and the invulnerable blink.
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
@@ -152,7 +152,14 @@ Namespace UI
         ' Red flash plus a short shake when a heart is lost.
         Public Sub FlashDamage()
             _flashMs = 250.0F
-            _shakeMs = 200.0F
+            Shake(200.0F, 6.0F)
+            Invalidate()
+        End Sub
+
+        ' Board-only shake; keeps the larger remaining duration and amplitude.
+        Public Sub Shake(durationMs As Single, amplitude As Single)
+            _shakeMs = Math.Max(_shakeMs, durationMs)
+            _shakeAmp = Math.Max(If(_shakeMs > 0.0F, _shakeAmp, 0.0F), amplitude)
             Invalidate()
         End Sub
 
@@ -201,6 +208,7 @@ Namespace UI
             fx.Reset()
             _flashMs = 0.0F
             _shakeMs = 0.0F
+            _shakeAmp = 0.0F
             Invalidate()
         End Sub
 
@@ -264,8 +272,9 @@ Namespace UI
                                                Math.Max(0, ClientSize.Height - BoardInsets.Vertical))
                 Dim state As Drawing2D.GraphicsState = e.Graphics.Save()
                 If _shakeMs > 0.0F Then
-                    Dim amp As Single = 6.0F * _shakeMs / 200.0F
-                    e.Graphics.TranslateTransform(CSng(_shakeRng.NextDouble() * 2 - 1) * amp, CSng(_shakeRng.NextDouble() * 2 - 1) * amp)
+                    Dim amp As Single = _shakeAmp * Math.Min(1.0F, _shakeMs / 400.0F)
+                    Dim tMs As Double = Environment.TickCount
+                    e.Graphics.TranslateTransform(CSng(amp * Math.Sin(tMs * 0.09)), CSng(amp * Math.Cos(tMs * 0.11)))
                 End If
                 e.Graphics.SetClip(boardArea, Drawing2D.CombineMode.Intersect)
                 If CameraEnabled AndAlso Not CameraOverviewHeld AndAlso goalDrop Is Nothing Then
