@@ -1289,8 +1289,53 @@ git commit -m "Show keys and escape state in the HUD with collapse cues and scre
 
 ### Task 10: Integration, proofs, tours and docs (Wave 4)
 
+**Approved amendment (2026-10-08):** implement spec section 1a (onboarding, objectives,
+camera and Level 4 flat default) in this task. The owner reviewed the written spec and
+approved GPT subagents in place of unavailable Sonnet. Commit after each reviewable
+chunk; review spec compliance, then code quality, before merging. No push or PR.
+
+**Execution order and review boundaries:**
+
+0. **Preflight recovery:** the owner authorized continuing after the baseline
+   `TestRecords` failure on 2026-10-08. Diagnose it with a GPT subagent before changing
+   production code; establish whether sandboxed file I/O or an application defect caused
+   the failure. Use normal authorized execution permissions if the harness requires them;
+   never weaken the record-separation assertion. Review any actual fix before integration.
+1. **10A — proof and atlas integration:** Step 1 below. Establish that the shipped
+   map clears at all four phases before adding presentation. Commit, spec review,
+   quality review, then merge into `feature/dungeon-revamp`.
+2. **10B — onboarding and shell/camera integration:** Step 1b below plus Steps 2–3.
+   Commit the presentation and regression checks in coherent increments; review the
+   complete chunk against section 1a before merging.
+3. **10C — tours, idle performance and documentation:** Steps 4–5 and the additional
+   acceptance captures/performance measurement below. Commit, both reviews, then merge.
+4. **Checkpoint:** Step 6 plus the Release game build. Commit the verified report
+   and representative screenshots, stop, and give the owner manual testing steps.
+
+Use a fresh implementer per chunk, sequentially in an isolated Wave 4 worktree. The
+controller owns this plan and the progress ledger; implementers own the files below.
+Existing screenshot edits in the primary worktree are owner state: do not stage them
+wholesale or overwrite them when integrating newly generated tours.
+
+**Owner stop rule:** any failed check or plan defect stops execution and is reported.
+Do not auto-tune, weaken assertions or enter a fix loop after a failed check. Writing
+new regression checks is appropriate, but intentionally running a failing suite is
+not part of this wave under this rule. Expected missing behaviour is inspected before
+implementation; run the checks after the implementation is ready.
+
 **Files:**
 - Modify: `tools/DungeonChecks/ProofChecks.vb`, `tools/DungeonChecks/AtlasChecks.vb` (decor names), `tools/TransitionChecks/Program.vb`, `tools/VerificationRunner/DungeonTour.vb`, `GravityMaze/Form1.vb:48`, `tools/VerificationRunner/UiTour.vb:52`, `docs/dungeon-finale.md`
+- Create: `GravityMaze/UI/Screens/DungeonPresentation.vb` (pure state-derived objective,
+  warning and rules copy), `GravityMaze/UI/Screens/GameShell.Dungeon.vb` (briefing/rules
+  navigation, checkpoint message lifetime and scoped camera/view preference handling).
+- Modify: `GravityMaze/UI/Screens/GameShell.vb`, `GameShell.Draw.vb`,
+  `GravityMaze/UI/GameCanvas.vb`, `GravityMaze/Rendering/BoardCamera.vb`,
+  `GravityMaze/Rendering/DungeonRenderer.Live.vb` (breakaway highlight/readability),
+  `tools/TransitionChecks/HeadlessAdapters.vb` (matching canvas API),
+  `tools/TransitionChecks/TransitionChecks.vbproj` (if explicit compile links require it),
+  `tools/VerificationRunner/UiTour.vb` and `Program.vb` (new onboarding captures).
+- Conditional tuning only after successful evidence: `tools/gen_level4.py` and its
+  generated source/map/sidecar; keep any tuned value reproducible through the generator.
 
 - [ ] **Step 1: Board-realistic proof** in `ProofChecks.vb`:
 
@@ -1327,15 +1372,88 @@ Public Module ProofChecks
 End Module
 ```
 
-If a run fails because the front catches the pilot, lower `collapse.speed` in the sidecar in steps of 0.25 (floor 2.0) by re-running `gen_level4.py` with a `--speed` option. If it fails on the exploration side, tune the pilot first (Task 6 notes), then the level. Record the final speed in the docs.
+Record total/escape time, hearts, hits, catches and waits for each successful run.
+Confirm that each required pilot route avoids all three blade rails; explain their
+optional-detour placement rather than silently claiming they are on required routes.
+If a run fails, stop and report the failing phase and evidence to the owner. The old
+auto-tuning instruction is superseded by the owner's stop rule. If later authorized,
+front tuning is in 0.25 steps down to 2.0 via a generator `--speed` option, and exploration
+issues are investigated in the pilot before changing the level. Record the final speed.
 
 Also append to `AtlasChecks.Run`: every `Decor` sprite in the shipped Level 4 exists in the atlas.
+
+- [ ] **Step 1b: Approved onboarding and flat camera (10B).**
+
+Create a focused presentation unit with this contract (VB files retain Option Strict /
+Explicit and existing namespaces):
+
+```vb
+' Namespace UI.Screens; no progression state stored here.
+Public NotInheritable Class DungeonPresentation
+    Public Shared Function Objective(keyMask As Integer, escaping As Boolean) As String
+    Public Shared Function VaultWarning(keyMask As Integer, escaping As Boolean) As String
+End Class
+```
+
+`Objective` returns the exact five state messages in spec section 1a. `VaultWarning`
+returns the pre-V warning only when both first keys are held and collapse has not started.
+Use the same functions in HUD and pause guidance; labelled key icons are CRYPT / ARMORY /
+VAULT with visible collected indicators. Keep text clear of time/hearts/controls.
+
+In `GameShell.Dungeon.vb`, own the Level 4 briefing/rules menus and transient checkpoint
+messages. Extend the existing shell flow with briefing and rules screens. Fresh Level 4
+entries include level select, next-level choice and campaign landing; fix the existing
+`StartLevel(... readyToPlay:=True)` bypass only for Level 4. Both briefing and rules show
+the real frozen game board. Ready goes to the existing countdown without a second timed
+title card; restart/retry go straight to countdown. Pause/focus loss resumes the same
+briefing/rules/countdown state without advancing engine or collapse clocks.
+
+Briefing menu items: READY, CAMERA (default 1.5×), RULES. Reuse `MenuList.Reset/Update`
+and neutral arming, Enter shortcut and hold-right confirmation. Rules returns to briefing
+with the selected camera preserved. Show the whole flat board with named entrance/exit,
+Crypt, Armory and vault. No route line. Keep the intro's map readable behind the text.
+
+Expose narrow camera preference/overview APIs through `GameCanvas` and `BoardCamera`,
+and mirror the necessary signatures in headless adapters. Capture pre-Level-4 tilt and
+preferred zoom once per fresh entry; set flat view and play preference 1.5×. Force overview
+while in briefing/rules; release that force on Ready so existing smoothing settles the
+selected zoom during countdown. Preserve manual F8/F9/Tab/pause-menu use, chosen play view
+and zoom across falls, pause, collapse and retries. Restore the captured preferences on
+all exits to menus/other levels; Level 4 settings must not leak into attract views.
+
+For the first lit checkpoint in each phase, show the teaching message for 4000 ms;
+later checkpoints show the short confirmation for 2000 ms. Reset message/phase flags on
+restart. Freeze message time while paused. During rumble, announce the opened passage
+and highlight only the opened breakaway tiles, reading the existing collapse state.
+Keep escape destination visible after rumble; do not move or zoom the camera on V.
+Improve crack/cave-in contrast only where screenshots demonstrate a readability problem.
+
+Extend `TransitionChecks` with behaviour assertions for: every fresh entry path; no
+briefing timeout; neutral arming and board-style Ready; keyboard Ready; rules return;
+frozen engine before Ready and through countdown; objectives for either key order;
+warning before V and its removal after V; checkpoint message durations/phase reset;
+restart skipping briefing with zero keys; preserved choices during retry; restored view
+and zoom after exit. Preserve existing Levels 1–3 transitions. Link any new source files
+required by the headless project. Run TransitionChecks and the Release game build for
+this chunk; any failure invokes the owner stop rule.
 
 - [ ] **Step 2: TransitionChecks** (`TestDungeonCampaign`): after the existing pause assertion, add `Check(f.Shell.Engine.Dungeon.Collapse Is Nothing OrElse f.Shell.Engine.Dungeon.Collapse.ElapsedMs = collapseClock, "Pause freezes the collapse")`, capturing `collapseClock` before pausing. Then force a mid-escape pause: drive via `f.Goal()` until `Collapse IsNot Nothing`, pause, tick 200, and assert `Collapse.ElapsedMs` is unchanged. Change the `LevelConfig` par in `Program.vb:54` to 180. Keep `f.Sound.Played.Contains("dungeon_seal")`.
 
 - [ ] **Step 3: Par time** 60 → 180 in `GravityMaze/Form1.vb:48` and `tools/VerificationRunner/UiTour.vb:52`.
 
 - [ ] **Step 4: DungeonTour.** Replace the four states with five: `explore` (0 keys, ball in the crypt), `vault` (K+Q, ball at the vault gate), `rumble` (V taken, 2 s in), `escape` (V taken, about 12 s in, ball near the first cave-in with one in warning), and `caved` (all cave-ins closed, ball at an escape checkpoint). Drive state by calling `run.Collect` on key tiles and `run.Advance` with the ball position, as the current tour does. Keep two sizes × flat/tilt × three zooms (60 PNGs) and the magenta HUD assertion.
+
+Also extend the UI tour for Level 4's player-paced briefing, Rules, countdown at the
+selected zoom, 0/1/2-key objectives, pre-V warning, rumble/opened passage and paused escape
+guidance. Capture representative small and large windows and verify labels do not overlap.
+Use independent renderer evidence at full-maze / 1.5× / 2× to assess cracks and cave-ins.
+
+Measure the live layer at 2× zoom with the machine otherwise idle, after rendering warmup.
+Record window size, state, number of sampled frames, median and upper-percentile timing;
+separate live-layer timing from full-frame timing. The plan's live target is 6 ms and the
+spec's full-frame limit is 16 ms. Use the existing cheaper-lighting/vignette fallback if
+measurements require it; report a failed limit check and stop. Keep measurements serial
+with builds, tests and agents inactive so load is not mistaken for idle performance.
 
 - [ ] **Step 5: Docs.** Rewrite `docs/dungeon-finale.md` for the new level: how to play, hazards table, the collapse and fairness rules, the assets used (with licence notes: Timberwolf "no credit needed, no redistribution"; Raou pack), tile and sidecar reference, how to regenerate (`python tools/build_dungeon_atlas.py`, `python tools/gen_level4.py`), and validation commands with the actual results from this task.
 
@@ -1350,6 +1468,7 @@ dotnet run --project tools/MarbleChecks/MarbleChecks.vbproj -c Release
 dotnet run --project tools/PerspectiveChecks/PerspectiveChecks.vbproj -c Release
 dotnet run --project tools/VerificationRunner/VerificationRunner.vbproj -c Release -- --dungeon-only
 dotnet run --project tools/VerificationRunner/VerificationRunner.vbproj -c Release -- --ui-only
+dotnet build GravityMaze/GravityMaze.vbproj -c Release
 ```
 
 Expected: every suite prints PASS. Copy 4 representative tour frames (explore, vault, escape, caved at 1.5× zoom) to `screenshots/level4_*.png`.
@@ -1357,8 +1476,13 @@ Expected: every suite prints PASS. Copy 4 representative tour frames (explore, v
 - [ ] **Step 7: Commit.**
 
 ```bash
-git add tools docs GravityMaze screenshots
+git add tools/DungeonChecks tools/TransitionChecks tools/VerificationRunner docs/dungeon-finale.md GravityMaze
 git commit -m "Prove the Forgotten Keep on board-smoothed tilt and refresh tours and docs"
 ```
 
+Stage screenshot paths individually only after comparison with the owner's existing edits.
+
 **Manual (owner):** play on the Arduino board: front speed, par time, darkness readability, cave-in warnings at every zoom.
+Provide the owner the Release launch command and a short checklist covering briefing,
+board Ready, flat default and optional tilt toggle, key order, pre-V warning, passage
+opening, checkpoints, mid-escape pause/resume/restart, zoom readability and final exit.
