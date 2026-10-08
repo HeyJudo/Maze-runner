@@ -123,6 +123,7 @@ Namespace UI
         Private ReadOnly fx As New BallFxState()
         Private _flashMs As Single      ' red damage overlay, counts down
         Private _shakeMs As Single      ' board shake, counts down
+        Private _shakePhaseMs As Double  ' advances with the game tick so pause freezes the shake
         Private _shakeAmp As Single     ' board shake amplitude in px
 
         ' Hearts: the engine's pickup lookup (Nothing = draw every pickup) and the invulnerable blink.
@@ -152,14 +153,14 @@ Namespace UI
         ' Red flash plus a short shake when a heart is lost.
         Public Sub FlashDamage()
             _flashMs = 250.0F
-            Shake(200.0F, 6.0F)
+            Shake(200.0F, 12.0F) ' /400 ramp halves a 200 ms hit: peaks at 6 px
             Invalidate()
         End Sub
 
         ' Board-only shake; keeps the larger remaining duration and amplitude.
         Public Sub Shake(durationMs As Single, amplitude As Single)
+            _shakeAmp = If(_shakeMs > 0.0F, Math.Max(_shakeAmp, amplitude), amplitude)
             _shakeMs = Math.Max(_shakeMs, durationMs)
-            _shakeAmp = Math.Max(If(_shakeMs > 0.0F, _shakeAmp, 0.0F), amplitude)
             Invalidate()
         End Sub
 
@@ -252,7 +253,10 @@ Namespace UI
             End If
             fx.Advance(16.0F, x, y)
             If _flashMs > 0.0F Then _flashMs -= 16.0F
-            If _shakeMs > 0.0F Then _shakeMs -= 16.0F
+            If _shakeMs > 0.0F Then
+                _shakeMs -= 16.0F
+                _shakePhaseMs += 16.0
+            End If
 
             Invalidate()
         End Sub
@@ -273,7 +277,7 @@ Namespace UI
                 Dim state As Drawing2D.GraphicsState = e.Graphics.Save()
                 If _shakeMs > 0.0F Then
                     Dim amp As Single = _shakeAmp * Math.Min(1.0F, _shakeMs / 400.0F)
-                    Dim tMs As Double = Environment.TickCount
+                    Dim tMs As Double = _shakePhaseMs
                     e.Graphics.TranslateTransform(CSng(amp * Math.Sin(tMs * 0.09)), CSng(amp * Math.Cos(tMs * 0.11)))
                 End If
                 e.Graphics.SetClip(boardArea, Drawing2D.CombineMode.Intersect)

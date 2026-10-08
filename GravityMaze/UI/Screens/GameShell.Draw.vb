@@ -450,14 +450,14 @@ Namespace UI.Screens
                 Dim textW As Single = g.MeasureString(lbl, keyFont).Width
                 Dim x0 As Single = cx - (3 * ico + 12 * s + textW) / 2
                 For k As Integer = 0 To 2
-                    DungeonAtlas.Draw(g, "key", New RectangleF(x0 + k * ico, 116 * s, ico, ico), 0, If((d.KeyMask And (1 << k)) <> 0, 1.0F, 0.25F))
+                    DungeonAtlas.Draw(g, "key", New RectangleF(x0 + k * ico, 126 * s, ico, ico), 0, If((d.KeyMask And (1 << k)) <> 0, 1.0F, 0.25F))
                 Next
-                UiDraw.Text(g, lbl, keyFont, pal.Accent, x0 + 3 * ico + 12 * s, 116 * s, 0, 1 * s)
+                UiDraw.Text(g, lbl, keyFont, pal.Accent, x0 + 3 * ico + 12 * s, 126 * s, 0, 1 * s)
                 If d.Collapse IsNot Nothing Then
                     Dim a2 As Single = CSng(0.7 + 0.3 * Math.Sin(Environment.TickCount / 1000.0 * 2 * Math.PI * 2))
-                    UiDraw.Text(g, "ESCAPE!", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), UiDraw.WithAlpha(Danger, a2), cx, 116 * s + ico + 6 * s, 0.5F, 2 * s)
+                    UiDraw.Text(g, "ESCAPE!", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), UiDraw.WithAlpha(Danger, a2), cx, 126 * s + ico + 6 * s, 0.5F, 2 * s)
                     If d.Collapse.Rumbling Then
-                        UiDraw.Text(g, "THE KEEP IS COLLAPSING", GameFonts.Body(16 * s, GameFonts.FontWeight.Bold), Danger, cx, 116 * s + ico + 34 * s, 0.5F, 2 * s)
+                        UiDraw.Text(g, "THE KEEP IS COLLAPSING", GameFonts.Body(16 * s, GameFonts.FontWeight.Bold), Danger, cx, 126 * s + ico + 34 * s, 0.5F, 2 * s)
                     End If
                 End If
             End If
