@@ -1,3 +1,6 @@
+Option Strict On
+Option Explicit On
+
 Imports System
 Imports System.IO
 Imports System.Linq
@@ -10,6 +13,10 @@ Public Module AtlasChecks
         Dim atlas = SpriteAtlas.Load(Path.Combine(SpriteDir, "atlas.json"))
         For Each name In SpriteAtlas.RequiredNames
             Check(atlas.Has(name), "Atlas is missing required sprite " & name)
+        Next
+        Dim maze = MazeManager.LoadFromFile(Path.Combine(AppContext.BaseDirectory, "Mazes", "Level4.txt"))
+        For Each item In maze.Dungeon.Decor
+            Check(atlas.Has(item.Sprite), "Atlas is missing shipped Keep decor sprite " & item.Sprite)
         Next
         atlas.Validate(Function(sheet) SpriteAtlas.PngSize(Path.Combine(SpriteDir, sheet & ".png")))
         Check(atlas("spikes").Frames = 4 AndAlso atlas("crumble").Frames >= 3 AndAlso atlas("saw").Frames >= 2 AndAlso atlas("lava").Frames >= 2, "Animated sprites carry their frames")
