@@ -185,7 +185,7 @@ Namespace Rendering
                     Dim tileChar As Char = maze.GetTile(rowIndex, columnIndex)
                     Select Case tileChar
                         Case "1"c
-                            DrawWall(graphics, tileBounds, themeName, rowIndex, columnIndex)
+                            DrawWall(graphics, tileBounds, themeName, maze, rowIndex, columnIndex)
                         Case "G"c
                             DrawGoal(graphics, tileBounds, themeName)
                         Case "H"c
@@ -201,6 +201,8 @@ Namespace Rendering
                     End Select
                 Next
             Next
+
+            If themeName = "Forgotten Keep" AndAlso maze.Dungeon IsNot Nothing Then DungeonRenderer.StaticDecor(graphics, board, tileSize, maze)
 
             ' 4. Board Border and entrance/exit arrows
             If themeName = "Neon Velocity" Then
@@ -313,9 +315,9 @@ Namespace Rendering
 
         ' ── Walls ───────────────────────────────────────────────────────────
         Private Shared Sub DrawWall(graphics As Graphics, tile As RectangleF, theme As String,
-                                    r As Integer, c As Integer)
+                                    maze As MazeDefinition, r As Integer, c As Integer)
             If theme = "Forgotten Keep" Then
-                DungeonRenderer.Wall(graphics, tile, r, c)
+                DungeonRenderer.Wall(graphics, tile, maze, r, c)
             ElseIf theme = "Frozen Labyrinth" Then
                 ' Frosted cobblestones: dark mortar bed, then a 3x3 grid of jittered rounded stones.
                 Using mortarBrush As New SolidBrush(Color.FromArgb(58, 68, 88))
