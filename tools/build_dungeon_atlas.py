@@ -8,6 +8,7 @@ Usage:  python tools/build_dungeon_atlas.py <scratch-dir> [assets-dir]
 The output is committed; the game never runs this script. Needs Pillow only.
 """
 import json
+import math
 import sys
 from pathlib import Path
 
@@ -38,11 +39,11 @@ ATLAS = {
     "bones": (F, 296, 204, 16, 12, 1), "keg": (F, 327, 198, 18, 24, 1),
     "pedestal": (F, 229, 255, 23, 34, 1),
     # Timberwolf maze_sprites(1).PNG (keyed + tinted)
-    "spikes": (M, 224, 40, 16, 20, 4), "saw": (M, 31, 111, 16, 17, 8),
-    "arrow": (M, 46, 228, 18, 8, 1), "crumble": (M, 0, 288, 16, 16, 8),
+        "arrow": (M, 46, 228, 18, 8, 1), "crumble": (M, 0, 288, 16, 16, 8),
     "lava": (M, 288, 240, 16, 16, 2), "key": (M, 224, 304, 16, 16, 1),
     "blood": (M, 32, 128, 32, 32, 4),
 }
+# spikes (reversed strip) and saw (toothed disc) are composed into extra.png below the tiles.
 # Composed 16-px tiles, packed on a grid in extra.png (in this order); gate_open (37x44) sits below them.
 EXTRA = ["wall_edge_n", "wall_edge_e", "wall_edge_s", "wall_edge_w", "wall_inner_ne", "wall_inner_nw",
          "wall_inner_se", "wall_inner_sw", "pit", "rubble"]
@@ -109,12 +110,34 @@ def build_extra(sheets):
             frag = frag.transpose(Image.FLIP_TOP_BOTTOM)
         rub.alpha_composite(frag)
     t["rubble"] = rub
-    sheet = Image.new("RGBA", (16 * 16, 16 + 44), (0, 0, 0, 0))
+    sheet = Image.new("RGBA", (16 * 16, 16 + 44 + 20 + 20), (0, 0, 0, 0))
     for i, name in enumerate(EXTRA):
         sheet.alpha_composite(t[name], (i * 16, 0))
         ATLAS[name] = (X, i * 16, 0, 16, 16, 1)
     sheet.alpha_composite(t["gate_open"], (0, 16))
     ATLAS["gate_open"] = (X, 0, 16, 37, 44, 1)
+    # Spikes: the Timberwolf strip runs fully up -> retracted; the contract wants retracted (0) -> fully up (3).
+    for i in range(4):
+        sheet.alpha_composite(sheets[M].crop((224 + (3 - i) * 16, 40, 240 + (3 - i) * 16, 60)), (i * 16, 80))
+    ATLAS["spikes"] = (X, 0, 80, 16, 20, 4)
+    # Saw: the steel disc frames (maze 31,111 and 127,111) ringed with 8 tooth tips cut from the steel
+    # knife blade's tip (maze 182,113); the second frame turns the teeth half a tooth so it spins.
+    m = sheets[M]
+    tip = m.crop((182, 113, 188, 117))
+    pyramid = Image.new("L", (6, 4), 0)
+    for row, (a, b) in enumerate(((2, 4), (1, 5), (0, 6), (0, 6))):
+        ImageDraw.Draw(pyramid).rectangle((a, row, b - 1, row), fill=255)
+    tip.putalpha(ImageChops.multiply(tip.getchannel("A"), pyramid))
+    for f, (disc_x, turn) in enumerate(((31, 0.0), (127, 22.5))):
+        frame = Image.new("RGBA", (20, 20), (0, 0, 0, 0))
+        frame.alpha_composite(m.crop((disc_x, 111, disc_x + 16, 128)), (2, 1))
+        for k in range(8):
+            ang = k * 45.0 + turn
+            rot = tip.rotate(-ang, Image.NEAREST, expand=True)
+            cx, cy = 10 + 8.6 * math.sin(math.radians(ang)), 10 - 8.6 * math.cos(math.radians(ang))
+            frame.alpha_composite(rot, (int(round(cx - rot.width / 2)), int(round(cy - rot.height / 2))))
+        sheet.alpha_composite(frame, (f * 20, 60))
+    ATLAS["saw"] = (X, 0, 60, 20, 20, 2)
     return sheet
 
 
