@@ -15,6 +15,10 @@ Namespace Rendering
         Private Const Smooth As Integer = 4            ' CPU upsample factor before the stretch -> 8 px per tile
         Private Const Darkness As Single = 0.78F
         Private Shared _light As Bitmap
+        Private Shared ReadOnly _gateShadow As New SolidBrush(Color.FromArgb(90, 5, 4, 10))
+        Private Shared ReadOnly _dustBrush As New SolidBrush(Color.White)
+        Private Shared ReadOnly _dartGlow As New Pen(Color.FromArgb(120, 255, 125, 60))
+        Private Shared ReadOnly _dartCore As New Pen(Color.FromArgb(255, 236, 159))
         Private Shared _smooth As Bitmap
         Private Shared _inBytes, _outBytes As Byte()
         Private Shared _glowMaze As MazeDefinition
@@ -93,12 +97,6 @@ Namespace Rendering
                     If col IsNot Nothing Then
                         If col.IsCollapsed(r, c) Then
                             DungeonAtlas.Draw(g, "pit", rect)
-                        ElseIf col.IsCracking(r, c) Then
-                            Dim f = (col.Reach + Collapse.CrackBand - col.Distance(r, c)) / Collapse.CrackBand
-                            DungeonAtlas.Draw(g, "crumble", rect, CInt(Math.Floor(Math.Min(0.999F, Math.Max(0.0F, f)) * DungeonAtlas.FrameCount("crumble"))))
-                        ElseIf col.IsCaveInWarning(r, c) Then
-                            DungeonAtlas.Draw(g, "crumble", rect, 0)
-                            DrawDust(g, rect, r, c, at)
                         ElseIf col.IsRubble(r, c) Then
                             DungeonAtlas.Draw(g, "rubble", rect)
                         End If
@@ -109,9 +107,7 @@ Namespace Rendering
                         Dim h = tile * 44.0F / 37.0F
                         Dim gateRect As New RectangleF(rect.Left, rect.Bottom - h, tile, h)
                         If Not opened Then
-                            Using shadow As New SolidBrush(Color.FromArgb(90, 5, 4, 10))
-                                g.FillRectangle(shadow, rect)
-                            End Using
+                            g.FillRectangle(_gateShadow, rect)
                         End If
                         If Not DungeonAtlas.Draw(g, If(opened, "gate_open", "gate_closed"), gateRect) Then DrawGate(g, center, tile, symbol, opened)
                     End If
@@ -206,6 +202,25 @@ Namespace Rendering
                 Dim tint = If(col Is Nothing, 0.0F, 18.0F + 22.0F * (0.5F + 0.5F * CSng(Math.Sin(at / 1000.0 * Math.PI * 4))))
                 DrawDarkness(g, left, top, tile, maze, run, r0, r1, c0, c1, tint)
             End If
+
+            ' Second pass, after the darkness: the crack front and cave-in warnings are danger cues and must stay
+            ' visible far from the marble's light.
+            If col IsNot Nothing Then
+                Dim crumbleFrames = DungeonAtlas.FrameCount("crumble")
+                For r As Integer = r0 To r1
+                    For c As Integer = c0 To c1
+                        If col.IsCracking(r, c) Then
+                            Dim rect As New RectangleF(left + c * tile, top + r * tile, tile, tile)
+                            Dim f = (col.Reach + Collapse.CrackBand - col.Distance(r, c)) / Collapse.CrackBand
+                            DungeonAtlas.Draw(g, "crumble", rect, CInt(Math.Floor(Math.Min(0.999F, Math.Max(0.0F, f)) * crumbleFrames)))
+                        ElseIf col.IsCaveInWarning(r, c) Then
+                            Dim rect As New RectangleF(left + c * tile, top + r * tile, tile, tile)
+                            DungeonAtlas.Draw(g, "crumble", rect, 0)
+                            DrawDust(g, rect, r, c, at)
+                        End If
+                    Next
+                Next
+            End If
         End Sub
 
         ' A translucent overlay on a floor tile is composed once into a 16x16 bitmap; per-frame alpha draws
@@ -216,11 +231,16 @@ Namespace Rendering
             Dim bmp As Bitmap = Nothing
             If Not _composites.TryGetValue(key, bmp) Then
                 bmp = New Bitmap(16, 16, Imaging.PixelFormat.Format32bppPArgb)
+                Dim ok As Boolean
                 Using cg = Graphics.FromImage(bmp)
-                    If Not DungeonAtlas.Draw(cg, floorName, New RectangleF(0, 0, 16, 16)) Then bmp.Dispose() : bmp = Nothing
-                    If bmp IsNot Nothing Then DungeonAtlas.Draw(cg, overlay, New RectangleF(0, 0, 16, 16), 0, alpha)
+                    ok = DungeonAtlas.Draw(cg, floorName, New RectangleF(0, 0, 16, 16))
+                    If ok Then DungeonAtlas.Draw(cg, overlay, New RectangleF(0, 0, 16, 16), 0, alpha)
                 End Using
-                _composites(key) = bmp
+                If ok Then
+                    _composites(key) = bmp
+                Else
+                    bmp.Dispose() : bmp = Nothing   ' not cached, so a later successful atlas load can still fill it
+                End If
             End If
             If bmp Is Nothing Then Return
             Dim mode = g.InterpolationMode
@@ -238,9 +258,8 @@ Namespace Rendering
                 Dim phase = ((at / 700.0 + (h Mod 997) / 997.0) Mod 1.0)
                 Dim x = rect.Left + (h \ 997 Mod 100) / 100.0F * rect.Width
                 Dim s = Math.Max(1.5F, rect.Width * 0.1F)
-                Using b As New SolidBrush(Color.FromArgb(CInt(235 * (1 - phase)), 215, 190, 150))
-                    g.FillRectangle(b, x, rect.Top + CSng(phase) * rect.Height, s, s)
-                End Using
+                _dustBrush.Color = Color.FromArgb(CInt(235 * (1 - phase)), 215, 190, 150)
+                g.FillRectangle(_dustBrush, x, rect.Top + CSng(phase) * rect.Height, s, s)
             Next
         End Sub
 
@@ -301,8 +320,9 @@ Namespace Rendering
 
         Private Shared Sub DrawDarts(g As Graphics, left As Single, top As Single, tile As Single, run As DungeonRun)
             Dim sheet = DungeonAtlas.SizeOf("arrow")
-            Using glow As New Pen(Color.FromArgb(120, 255, 125, 60), Math.Max(2, tile * 0.15F)),
-                  core As New Pen(Color.FromArgb(255, 236, 159), Math.Max(1, tile * 0.045F))
+            _dartGlow.Width = Math.Max(2, tile * 0.15F) : _dartCore.Width = Math.Max(1, tile * 0.045F)
+            Dim glow = _dartGlow, core = _dartCore
+            If True Then
                 For Each dart In run.Darts
                     Dim x = left + dart.X * tile, y = top + dart.Y * tile
                     If sheet.Width > 0 Then
@@ -317,7 +337,7 @@ Namespace Rendering
                         g.DrawLine(glow, a, b) : g.DrawLine(core, a, b)
                     End If
                 Next
-            End Using
+            End If
         End Sub
 
         ' Low-res light map: black = dark, white = lit. The colour matrix turns brightness into purple darkness alpha.
@@ -332,15 +352,16 @@ Namespace Rendering
                 lg.Clear(Color.Black)
                 Dim at = run.ElapsedMs
                 For Each l In maze.Dungeon.Lights
+                    If Not OnScreen(l.Column + 0.5F, l.Row + 0.5F, l.Radius * 1.05F, r0, r1, c0, c1) Then Continue For
                     AddLight(lg, l.Column + 0.5F, l.Row + 0.5F, l.Radius * (1 + 0.04F * CSng(Math.Sin(at / 170.0 + l.Row))), 1.0F)
                 Next
                 AddLight(lg, run.MarbleX, run.MarbleY, 4.5F, 1.0F)
                 For Each p In _keyTiles
                     Dim bit = If(maze.GetTile(p.Y, p.X) = "K"c, 1, If(maze.GetTile(p.Y, p.X) = "Q"c, 2, 4))
-                    If (run.KeyMask And bit) = 0 Then AddLight(lg, p.X + 0.5F, p.Y + 0.5F, 1.5F, 0.8F)
+                    If (run.KeyMask And bit) = 0 AndAlso OnScreen(p.X + 0.5F, p.Y + 0.5F, 1.5F, r0, r1, c0, c1) Then AddLight(lg, p.X + 0.5F, p.Y + 0.5F, 1.5F, 0.8F)
                 Next
                 For Each p In _lavaTiles
-                    AddLight(lg, p.X + 0.5F, p.Y + 0.5F, 1.2F, 0.8F)
+                    If OnScreen(p.X + 0.5F, p.Y + 0.5F, 1.2F, r0, r1, c0, c1) Then AddLight(lg, p.X + 0.5F, p.Y + 0.5F, 1.2F, 0.8F)
                 Next
                 For i As Integer = 0 To maze.Dungeon.Checkpoints.Count - 1
                     If run.CheckpointLit(i) Then AddLight(lg, maze.Dungeon.Checkpoints(i).Column + 0.5F, maze.Dungeon.Checkpoints(i).Row + 0.5F, 2.5F, 0.8F)
@@ -403,6 +424,10 @@ Namespace Rendering
             g.InterpolationMode = mode
             g.PixelOffsetMode = offset
         End Sub
+
+        Private Shared Function OnScreen(x As Single, y As Single, radius As Single, r0 As Integer, r1 As Integer, c0 As Integer, c1 As Integer) As Boolean
+            Return x + radius >= c0 AndAlso x - radius <= c1 + 1 AndAlso y + radius >= r0 AndAlso y - radius <= r1 + 1
+        End Function
 
         Private Shared Sub AddLight(lg As Graphics, x As Single, y As Single, radius As Single, intensity As Single)
             Dim r = radius * LightScale
