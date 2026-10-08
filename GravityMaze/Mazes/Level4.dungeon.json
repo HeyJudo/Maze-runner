@@ -1,135 +1,954 @@
 {
   "spikes": [
     {
-      "row": 20,
-      "column": 13,
-      "offsetMs": 1600
-    },
-    {
-      "row": 21,
-      "column": 13,
-      "offsetMs": 1600
-    },
-    {
-      "row": 9,
-      "column": 23,
+      "row": 31,
+      "column": 10,
       "offsetMs": 0
     },
     {
-      "row": 9,
-      "column": 24,
+      "row": 32,
+      "column": 10,
       "offsetMs": 0
+    },
+    {
+      "row": 7,
+      "column": 7,
+      "offsetMs": 1500
+    },
+    {
+      "row": 8,
+      "column": 7,
+      "offsetMs": 1500
+    },
+    {
+      "row": 17,
+      "column": 16,
+      "offsetMs": 3000
+    },
+    {
+      "row": 17,
+      "column": 17,
+      "offsetMs": 3000
+    },
+    {
+      "row": 25,
+      "column": 7,
+      "offsetMs": 4500
+    },
+    {
+      "row": 25,
+      "column": 8,
+      "offsetMs": 4500
     }
   ],
   "blades": [
     {
-      "x1": 19.5,
-      "y1": 28.5,
-      "x2": 19.5,
-      "y2": 32.5,
+      "x1": 33.5,
+      "y1": 5.0,
+      "x2": 36.5,
+      "y2": 5.0,
       "offsetMs": 0,
       "periodMs": 6000
     },
     {
-      "x1": 21.5,
-      "y1": 20.5,
-      "x2": 26.5,
-      "y2": 20.5,
-      "offsetMs": 800,
+      "x1": 36.5,
+      "y1": 32.0,
+      "x2": 42.5,
+      "y2": 32.0,
+      "offsetMs": 2000,
       "periodMs": 6000
     },
     {
-      "x1": 22.5,
-      "y1": 6.5,
-      "x2": 25.5,
-      "y2": 6.5,
-      "offsetMs": 0,
+      "x1": 39.5,
+      "y1": 23.0,
+      "x2": 42.5,
+      "y2": 23.0,
+      "offsetMs": 4000,
       "periodMs": 6000
     }
   ],
   "launchers": [
     {
-      "x": 27.5,
-      "y": 26.1,
-      "dx": 0,
-      "dy": 1,
-      "offsetMs": 1800
-    },
-    {
-      "x": 18.1,
-      "y": 8.5,
-      "dx": 1,
+      "x": 35.5,
+      "y": 23.5,
+      "dx": -1,
       "dy": 0,
       "offsetMs": 0
     },
     {
-      "x": 20.5,
-      "y": 4.1,
+      "x": 38.5,
+      "y": 26.5,
+      "dx": -1,
+      "dy": 0,
+      "offsetMs": 2000
+    },
+    {
+      "x": 43.5,
+      "y": 1.5,
       "dx": 0,
       "dy": 1,
-      "offsetMs": 3000
+      "offsetMs": 4000
     }
   ],
-  "landmarks": [
+  "decor": [
     {
-      "name": "Gate of the Warden",
-      "column": 22,
-      "row": 3,
-      "kind": "torch"
-    },
-    {
-      "name": "",
-      "column": 25,
-      "row": 3,
-      "kind": "torch"
-    },
-    {
-      "name": "Ashen Hall",
-      "column": 20,
-      "row": 25,
-      "kind": "torch"
-    },
-    {
-      "name": "",
-      "column": 26,
-      "row": 25,
-      "kind": "torch"
-    },
-    {
-      "name": "Blade Crypt",
-      "column": 16,
+      "sprite": "pedestal",
       "row": 13,
-      "kind": "cell"
+      "column": 19
     },
     {
-      "name": "Dart Gallery",
-      "column": 30,
+      "sprite": "pedestal",
       "row": 13,
-      "kind": "cell"
+      "column": 20
     },
     {
-      "name": "Broken Courtyard",
-      "column": 20,
+      "sprite": "pedestal",
+      "row": 13,
+      "column": 25
+    },
+    {
+      "sprite": "banner",
+      "row": 13,
+      "column": 26
+    },
+    {
+      "sprite": "banner",
+      "row": 32,
+      "column": 26
+    },
+    {
+      "sprite": "chains",
+      "row": 32,
+      "column": 19
+    },
+    {
+      "sprite": "pedestal",
+      "row": 1,
+      "column": 22
+    },
+    {
+      "sprite": "arch_open",
+      "row": 22,
+      "column": 18
+    },
+    {
+      "sprite": "door_wood",
+      "row": 22,
+      "column": 27
+    },
+    {
+      "sprite": "arch_pillars",
+      "row": 33,
+      "column": 22
+    },
+    {
+      "sprite": "arch_pillars",
+      "row": 33,
+      "column": 23
+    },
+    {
+      "sprite": "arch_open",
+      "row": 33,
+      "column": 1
+    },
+    {
+      "sprite": "arch_open",
+      "row": 33,
+      "column": 2
+    },
+    {
+      "sprite": "arch_open",
+      "row": 33,
+      "column": 16
+    },
+    {
+      "sprite": "arch_open",
+      "row": 33,
+      "column": 17
+    },
+    {
+      "sprite": "door_wood",
+      "row": 33,
+      "column": 28
+    },
+    {
+      "sprite": "door_wood",
+      "row": 33,
+      "column": 29
+    },
+    {
+      "sprite": "door_wood",
+      "row": 33,
+      "column": 34
+    },
+    {
+      "sprite": "door_wood",
+      "row": 33,
+      "column": 35
+    },
+    {
+      "sprite": "skull",
+      "row": 1,
+      "column": 5
+    },
+    {
+      "sprite": "bones",
+      "row": 19,
+      "column": 7
+    },
+    {
+      "sprite": "pot",
+      "row": 11,
+      "column": 4
+    },
+    {
+      "sprite": "blood",
+      "row": 19,
+      "column": 11
+    },
+    {
+      "sprite": "skull",
+      "row": 29,
+      "column": 10
+    },
+    {
+      "sprite": "bones",
+      "row": 11,
+      "column": 10
+    },
+    {
+      "sprite": "pot",
+      "row": 5,
+      "column": 8
+    },
+    {
+      "sprite": "blood",
+      "row": 10,
+      "column": 8
+    },
+    {
+      "sprite": "skull",
+      "row": 29,
+      "column": 14
+    },
+    {
+      "sprite": "bones",
       "row": 23,
-      "kind": "rubble"
+      "column": 10
     },
     {
-      "name": "",
-      "column": 26,
-      "row": 23,
-      "kind": "rubble"
+      "sprite": "pot",
+      "row": 20,
+      "column": 1
     },
     {
-      "name": "Ember Seal",
-      "column": 2,
+      "sprite": "blood",
       "row": 13,
-      "kind": "altar"
+      "column": 17
     },
     {
-      "name": "Amethyst Seal",
-      "column": 43,
+      "sprite": "skull",
+      "row": 28,
+      "column": 1
+    },
+    {
+      "sprite": "bones",
+      "row": 1,
+      "column": 1
+    },
+    {
+      "sprite": "pot",
+      "row": 26,
+      "column": 5
+    },
+    {
+      "sprite": "blood",
+      "row": 5,
+      "column": 4
+    },
+    {
+      "sprite": "rack_swords",
+      "row": 14,
+      "column": 37
+    },
+    {
+      "sprite": "rack_spears",
+      "row": 10,
+      "column": 41
+    },
+    {
+      "sprite": "iron_ball",
+      "row": 19,
+      "column": 41
+    },
+    {
+      "sprite": "keg",
+      "row": 1,
+      "column": 31
+    },
+    {
+      "sprite": "table",
+      "row": 25,
+      "column": 28
+    },
+    {
+      "sprite": "chair",
+      "row": 14,
+      "column": 44
+    },
+    {
+      "sprite": "rack_swords",
+      "row": 25,
+      "column": 44
+    },
+    {
+      "sprite": "rack_spears",
       "row": 13,
-      "kind": "altar"
+      "column": 28
+    },
+    {
+      "sprite": "iron_ball",
+      "row": 16,
+      "column": 28
+    },
+    {
+      "sprite": "keg",
+      "row": 20,
+      "column": 28
+    },
+    {
+      "sprite": "table",
+      "row": 29,
+      "column": 31
+    },
+    {
+      "sprite": "chair",
+      "row": 4,
+      "column": 41
+    },
+    {
+      "sprite": "rack_swords",
+      "row": 20,
+      "column": 32
+    },
+    {
+      "sprite": "rack_spears",
+      "row": 32,
+      "column": 44
+    },
+    {
+      "sprite": "iron_ball",
+      "row": 5,
+      "column": 31
+    },
+    {
+      "sprite": "keg",
+      "row": 10,
+      "column": 34
+    },
+    {
+      "sprite": "table",
+      "row": 25,
+      "column": 40
+    },
+    {
+      "sprite": "chair",
+      "row": 1,
+      "column": 44
+    },
+    {
+      "sprite": "gold_pile",
+      "row": 7,
+      "column": 13
+    },
+    {
+      "sprite": "gold_coins",
+      "row": 11,
+      "column": 31
+    },
+    {
+      "sprite": "gold_stack",
+      "row": 11,
+      "column": 25
+    },
+    {
+      "sprite": "chest",
+      "row": 11,
+      "column": 13
+    },
+    {
+      "sprite": "banner",
+      "row": 7,
+      "column": 17
+    },
+    {
+      "sprite": "gold_pile",
+      "row": 11,
+      "column": 29
+    },
+    {
+      "sprite": "gold_coins",
+      "row": 7,
+      "column": 32
+    },
+    {
+      "sprite": "gold_stack",
+      "row": 1,
+      "column": 16
+    },
+    {
+      "sprite": "bones",
+      "row": 37,
+      "column": 1
+    },
+    {
+      "sprite": "pot",
+      "row": 43,
+      "column": 26
+    },
+    {
+      "sprite": "keg",
+      "row": 34,
+      "column": 14
+    },
+    {
+      "sprite": "bones",
+      "row": 41,
+      "column": 7
+    },
+    {
+      "sprite": "pot",
+      "row": 43,
+      "column": 20
+    },
+    {
+      "sprite": "keg",
+      "row": 44,
+      "column": 34
+    },
+    {
+      "sprite": "torch",
+      "row": 30,
+      "column": 32
+    },
+    {
+      "sprite": "torch",
+      "row": 12,
+      "column": 39
+    },
+    {
+      "sprite": "torch",
+      "row": 6,
+      "column": 10
+    },
+    {
+      "sprite": "torch",
+      "row": 9,
+      "column": 27
+    },
+    {
+      "sprite": "torch",
+      "row": 39,
+      "column": 22
+    },
+    {
+      "sprite": "torch",
+      "row": 36,
+      "column": 40
+    },
+    {
+      "sprite": "torch",
+      "row": 0,
+      "column": 25
+    },
+    {
+      "sprite": "torch",
+      "row": 18,
+      "column": 36
+    },
+    {
+      "sprite": "torch",
+      "row": 33,
+      "column": 11
+    },
+    {
+      "sprite": "torch",
+      "row": 21,
+      "column": 28
+    },
+    {
+      "sprite": "torch",
+      "row": 6,
+      "column": 37
+    },
+    {
+      "sprite": "torch",
+      "row": 36,
+      "column": 27
+    },
+    {
+      "sprite": "torch",
+      "row": 0,
+      "column": 8
+    },
+    {
+      "sprite": "torch",
+      "row": 6,
+      "column": 16
+    },
+    {
+      "sprite": "torch",
+      "row": 36,
+      "column": 19
+    },
+    {
+      "sprite": "torch",
+      "row": 6,
+      "column": 4
+    },
+    {
+      "sprite": "torch",
+      "row": 12,
+      "column": 4
+    },
+    {
+      "sprite": "torch",
+      "row": 30,
+      "column": 24
+    },
+    {
+      "sprite": "torch",
+      "row": 0,
+      "column": 42
+    },
+    {
+      "sprite": "torch",
+      "row": 24,
+      "column": 36
+    },
+    {
+      "sprite": "torch",
+      "row": 6,
+      "column": 22
+    },
+    {
+      "sprite": "torch",
+      "row": 42,
+      "column": 11
+    },
+    {
+      "sprite": "torch",
+      "row": 39,
+      "column": 5
+    },
+    {
+      "sprite": "torch",
+      "row": 27,
+      "column": 12
+    },
+    {
+      "sprite": "torch",
+      "row": 18,
+      "column": 8
+    },
+    {
+      "sprite": "torch",
+      "row": 30,
+      "column": 8
+    },
+    {
+      "sprite": "torch",
+      "row": 21,
+      "column": 5
+    },
+    {
+      "sprite": "torch",
+      "row": 15,
+      "column": 42
+    },
+    {
+      "sprite": "torch",
+      "row": 27,
+      "column": 4
+    },
+    {
+      "sprite": "torch",
+      "row": 33,
+      "column": 43
+    },
+    {
+      "sprite": "torch",
+      "row": 39,
+      "column": 37
+    },
+    {
+      "sprite": "torch",
+      "row": 42,
+      "column": 18
+    },
+    {
+      "sprite": "torch",
+      "row": 42,
+      "column": 30
+    },
+    {
+      "sprite": "torch",
+      "row": 36,
+      "column": 34
+    },
+    {
+      "sprite": "torch",
+      "row": 36,
+      "column": 8
+    },
+    {
+      "sprite": "torch",
+      "row": 33,
+      "column": 37
+    },
+    {
+      "sprite": "torch",
+      "row": 14,
+      "column": 21
+    },
+    {
+      "sprite": "torch",
+      "row": 12,
+      "column": 16
+    },
+    {
+      "sprite": "torch",
+      "row": 12,
+      "column": 31
+    },
+    {
+      "sprite": "torch",
+      "row": 0,
+      "column": 17
     }
-  ]
+  ],
+  "lights": [
+    {
+      "row": 31,
+      "column": 32,
+      "radius": 3.5
+    },
+    {
+      "row": 13,
+      "column": 39,
+      "radius": 3.5
+    },
+    {
+      "row": 7,
+      "column": 10,
+      "radius": 3.5
+    },
+    {
+      "row": 10,
+      "column": 27,
+      "radius": 3.5
+    },
+    {
+      "row": 40,
+      "column": 22,
+      "radius": 3.5
+    },
+    {
+      "row": 37,
+      "column": 40,
+      "radius": 3.5
+    },
+    {
+      "row": 1,
+      "column": 25,
+      "radius": 3.5
+    },
+    {
+      "row": 19,
+      "column": 36,
+      "radius": 3.5
+    },
+    {
+      "row": 34,
+      "column": 11,
+      "radius": 3.5
+    },
+    {
+      "row": 22,
+      "column": 28,
+      "radius": 3.5
+    },
+    {
+      "row": 7,
+      "column": 37,
+      "radius": 3.5
+    },
+    {
+      "row": 37,
+      "column": 27,
+      "radius": 3.5
+    },
+    {
+      "row": 1,
+      "column": 8,
+      "radius": 3.5
+    },
+    {
+      "row": 7,
+      "column": 16,
+      "radius": 3.5
+    },
+    {
+      "row": 37,
+      "column": 19,
+      "radius": 3.5
+    },
+    {
+      "row": 7,
+      "column": 4,
+      "radius": 3.5
+    },
+    {
+      "row": 13,
+      "column": 4,
+      "radius": 3.5
+    },
+    {
+      "row": 31,
+      "column": 24,
+      "radius": 3.5
+    },
+    {
+      "row": 1,
+      "column": 42,
+      "radius": 3.5
+    },
+    {
+      "row": 25,
+      "column": 36,
+      "radius": 3.5
+    },
+    {
+      "row": 7,
+      "column": 22,
+      "radius": 3.5
+    },
+    {
+      "row": 43,
+      "column": 11,
+      "radius": 3.5
+    },
+    {
+      "row": 40,
+      "column": 5,
+      "radius": 3.5
+    },
+    {
+      "row": 28,
+      "column": 12,
+      "radius": 3.5
+    },
+    {
+      "row": 19,
+      "column": 8,
+      "radius": 3.5
+    },
+    {
+      "row": 31,
+      "column": 8,
+      "radius": 3.5
+    },
+    {
+      "row": 22,
+      "column": 5,
+      "radius": 3.5
+    },
+    {
+      "row": 16,
+      "column": 42,
+      "radius": 3.5
+    },
+    {
+      "row": 28,
+      "column": 4,
+      "radius": 3.5
+    },
+    {
+      "row": 34,
+      "column": 43,
+      "radius": 3.5
+    },
+    {
+      "row": 40,
+      "column": 37,
+      "radius": 3.5
+    },
+    {
+      "row": 43,
+      "column": 18,
+      "radius": 3.5
+    },
+    {
+      "row": 43,
+      "column": 30,
+      "radius": 3.5
+    },
+    {
+      "row": 37,
+      "column": 34,
+      "radius": 3.5
+    },
+    {
+      "row": 37,
+      "column": 8,
+      "radius": 3.5
+    },
+    {
+      "row": 34,
+      "column": 37,
+      "radius": 3.5
+    },
+    {
+      "row": 15,
+      "column": 21,
+      "radius": 3.5
+    },
+    {
+      "row": 13,
+      "column": 16,
+      "radius": 3.5
+    },
+    {
+      "row": 13,
+      "column": 31,
+      "radius": 3.5
+    },
+    {
+      "row": 1,
+      "column": 17,
+      "radius": 3.5
+    }
+  ],
+  "checkpoints": [
+    {
+      "row": 22,
+      "column": 22,
+      "escape": false
+    },
+    {
+      "row": 13,
+      "column": 22,
+      "escape": false
+    },
+    {
+      "row": 12,
+      "column": 2,
+      "escape": true
+    },
+    {
+      "row": 21,
+      "column": 14,
+      "escape": true
+    },
+    {
+      "row": 38,
+      "column": 4,
+      "escape": true
+    }
+  ],
+  "collapse": {
+    "rumbleMs": 4000,
+    "speed": 3.0,
+    "pushback": 8,
+    "breakaway": [
+      {
+        "row": 1,
+        "column": 15
+      },
+      {
+        "row": 2,
+        "column": 15
+      }
+    ],
+    "caveIns": [
+      {
+        "atReach": 15,
+        "tiles": [
+          {
+            "row": 22,
+            "column": 12
+          },
+          {
+            "row": 23,
+            "column": 12
+          }
+        ]
+      },
+      {
+        "atReach": 22,
+        "tiles": [
+          {
+            "row": 24,
+            "column": 22
+          },
+          {
+            "row": 24,
+            "column": 23
+          }
+        ]
+      },
+      {
+        "atReach": 24,
+        "tiles": [
+          {
+            "row": 34,
+            "column": 20
+          },
+          {
+            "row": 35,
+            "column": 20
+          }
+        ]
+      },
+      {
+        "atReach": 27,
+        "tiles": [
+          {
+            "row": 31,
+            "column": 3
+          },
+          {
+            "row": 32,
+            "column": 3
+          }
+        ]
+      },
+      {
+        "atReach": 31,
+        "tiles": [
+          {
+            "row": 39,
+            "column": 25
+          },
+          {
+            "row": 39,
+            "column": 26
+          }
+        ]
+      },
+      {
+        "atReach": 40,
+        "tiles": [
+          {
+            "row": 40,
+            "column": 33
+          },
+          {
+            "row": 41,
+            "column": 33
+          }
+        ]
+      }
+    ]
+  }
 }
