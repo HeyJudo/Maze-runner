@@ -805,6 +805,8 @@ Namespace UI.Screens
         Public Sub OnDeactivated()
             _cameraKeyHeld = False
             _canvas.CameraOverviewHeld = False
+            If _screen = ShellScreen.DungeonReveal OrElse
+               (_screen = ShellScreen.Paused AndAlso _pausedScreen = ShellScreen.DungeonReveal) Then ApplyDungeonRevealFrame()
             If _screen = ShellScreen.Playing OrElse _screen = ShellScreen.Intro OrElse _screen = ShellScreen.GoalTransition OrElse
                _screen = ShellScreen.DungeonBriefing OrElse _screen = ShellScreen.DungeonRules OrElse _screen = ShellScreen.DungeonReveal Then Pause()
         End Sub

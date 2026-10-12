@@ -123,6 +123,7 @@ Module Program
         TestDungeonObjectives()
         TestDungeonCheckpoints()
         TestDungeonReveal()
+        TestDungeonRevealFocusLossOverview()
         TestDungeonPreferences()
         TestDungeonOtherLevelExit()
         TestCameraPreferences()
@@ -302,6 +303,28 @@ Module Program
                 f.Shell.HandleKey(Keys.R) : f.WaitFor(ShellScreen.Playing)
                 CollectKey(f, order(0)) : CollectKey(f, order(1)) : f.Shell.Tick()
                 Check(f.Shell.Screen = ShellScreen.DungeonReveal, "Restart rearms vault door reveal")
+            End Using
+        Next
+    End Sub
+
+    Private Sub TestDungeonRevealFocusLossOverview()
+        For Each alreadyPaused In {False, True}
+            Using f As New Fixture(True)
+                EnterDungeon(f) : f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
+                CollectKey(f, "K"c) : CollectKey(f, "Q"c) : f.Shell.Tick() : f.Ticks(40)
+                If alreadyPaused Then f.Shell.HandleKey(Keys.P)
+                f.Shell.HandleKey(Keys.Tab) : f.Ticks(1)
+                Check(f.Canvas.CameraZoom = 1, "Held Tab shows overview before focus loss during reveal")
+                Dim revealTime = f.Shell.DungeonRevealElapsedMs
+                Dim engineTime = f.Shell.Engine.ElapsedSeconds, trapTime = f.Shell.Engine.Dungeon.ElapsedMs
+                f.Shell.OnDeactivated()
+                Dim focus = f.Canvas.CameraFocus
+                Check(f.Shell.Screen = ShellScreen.Paused AndAlso Not f.Canvas.CameraOverviewHeld AndAlso f.Canvas.CameraZoom = 2, "Focus loss restores the reveal frame after clearing held Tab, including an already paused reveal")
+                f.Ticks(200)
+                Check(f.Shell.DungeonRevealElapsedMs = revealTime AndAlso f.Canvas.CameraFocus = focus AndAlso f.Canvas.CameraZoom = 2, "Held-Tab focus loss freezes reveal time and camera frame")
+                Check(f.Shell.Engine.ElapsedSeconds = engineTime AndAlso f.Shell.Engine.Dungeon.ElapsedMs = trapTime, "Held-Tab focus loss freezes engine and trap clocks")
+                f.Shell.HandleKey(Keys.P) : f.Ticks(1)
+                Check(f.Shell.Screen = ShellScreen.DungeonReveal AndAlso f.Shell.DungeonRevealElapsedMs = revealTime + 16, "Focus return resumes the same reveal sequence")
             End Using
         Next
     End Sub

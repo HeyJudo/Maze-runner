@@ -491,8 +491,13 @@ Namespace UI.Screens
             UiDraw.Text(g, "FORGOTTEN KEEP", GameFonts.Display(52 * s), pal.Text, left, 144 * s)
             DrawWrapped(g, "Find the keys in the Crypt and Armory, in either order." & Environment.NewLine & "Together, they unlock the northern vault.", GameFonts.Body(29 * s), pal.Text, New RectangleF(left, 238 * s, width, 230 * s))
             DrawWrapped(g, "Take your time to look around. The board and clock stay still until you choose READY.", GameFonts.Body(23 * s), pal.TextDim, New RectangleF(left, 480 * s, width, 140 * s))
-            DrawMenu(g, _dungeonMenu, left, 678 * s, s, pal, 0, 30, 67)
-            DrawWrapped(g, "Tilt up/down to choose. Hold right to confirm, or press Enter / Space.", GameFonts.Body(20 * s), pal.TextDim, New RectangleF(left, 930 * s, width, 85 * s))
+            Dim hints = "Tilt up/down to choose. Hold right to confirm, or press Enter / Space."
+            Dim hintFont = GameFonts.Body(20 * s)
+            Dim hintHeight = g.MeasureString(hints, hintFont, CInt(width)).Height
+            Dim hintY = b.Bottom - 20 * s - hintHeight
+            Dim menuY = hintY - (2 * 67 + 30 + 34) * s
+            DrawMenu(g, _dungeonMenu, left, menuY, s, pal, 0, 30, 67)
+            DrawWrapped(g, hints, hintFont, pal.TextDim, New RectangleF(left, hintY, width, hintHeight))
             DrawDungeonOverviewLabels(g, b, s, pal)
         End Sub
 
@@ -515,13 +520,14 @@ Namespace UI.Screens
             Dim width As Single = b.Width * 0.33F - left
             UiDraw.Text(g, "KEEP RULES", GameFonts.Display(48 * s), pal.Text, left, 70 * s)
             Dim y As Single = 155 * s
+            Dim menuY = b.Bottom - 80 * s
             For Each rule In DungeonPresentation.Rules
                 Dim font = GameFonts.Body(21 * s)
                 Dim height = g.MeasureString(rule, font, CInt(width)).Height + 16 * s
                 DrawWrapped(g, rule, font, pal.Text, New RectangleF(left, y, width, height))
                 y += height
             Next
-            DrawMenu(g, _dungeonRulesMenu, left, Math.Max(y + 18 * s, 918 * s), s, pal, 0, 28, 55)
+            DrawMenu(g, _dungeonRulesMenu, left, menuY, s, pal, 0, 28, 55)
             DrawDungeonOverviewLabels(g, b, s, pal)
         End Sub
 
@@ -577,7 +583,10 @@ Namespace UI.Screens
                 DrawWrapped(g, rule, font, pal.TextDim, New RectangleF(x, y, rw, height))
                 y += height
             Next
-            DrawWrapped(g, "F8  TILT VIEW     F9  CAMERA ZOOM     HOLD TAB  OVERVIEW", GameFonts.Body(19 * s), pal.TextDim, New RectangleF(left, 900 * s, width, 85 * s))
+            Dim hints = "F8  TILT VIEW     F9  CAMERA ZOOM     HOLD TAB  OVERVIEW"
+            Dim hintFont = GameFonts.Body(19 * s)
+            Dim hintHeight = g.MeasureString(hints, hintFont, CInt(width)).Height
+            DrawWrapped(g, hints, hintFont, pal.TextDim, New RectangleF(left, b.Bottom - 20 * s - hintHeight, width, hintHeight))
         End Sub
 
         Private Function BoardConnected() As Boolean
