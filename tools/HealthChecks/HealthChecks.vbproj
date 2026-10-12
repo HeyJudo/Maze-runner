@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../GravityMaze/Engine/DungeonRun.vb" Link="DungeonRun.vb" />
+    <Compile Include="../../GravityMaze/Engine/Collapse.vb" Link="Engine/Collapse.vb" />
     <Compile Include="../../GravityMaze/Engine/GameEngine.vb" Link="Engine/GameEngine.vb" />
     <Compile Include="../../GravityMaze/Engine/GameState.vb" Link="Engine/GameState.vb" />
     <Compile Include="../../GravityMaze/Levels/DungeonDefinition.vb" Link="DungeonDefinition.vb" />

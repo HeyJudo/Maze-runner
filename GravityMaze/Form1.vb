@@ -45,7 +45,7 @@ Public Class Form1
             New LevelConfig(1, "Wooden Workshop", "Mazes\Level1.txt", 0, 7.3F),
             New LevelConfig(2, "Frozen Labyrinth", "Mazes\Level2.txt", 0, 36.9F),
             New LevelConfig(3, "Neon Velocity", "Mazes\Level3.txt", 57, 40.2F),
-            New LevelConfig(4, "Forgotten Keep", "Mazes\Level4.txt", 0, 60.0F)
+            New LevelConfig(4, "Forgotten Keep", "Mazes\Level4.txt", 0, 180.0F)
         }
 
         canvas = New GameCanvas With {.Dock = DockStyle.Fill}

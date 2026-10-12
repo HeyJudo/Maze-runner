@@ -8,6 +8,7 @@ Imports System.Drawing.Drawing2D
 Imports GravityMaze.Data
 Imports GravityMaze.Engine
 Imports GravityMaze.Levels
+Imports GravityMaze.Rendering
 
 Namespace UI.Screens
     ' All screen drawing. Layout is authored for 1080p and scaled by s = height / 1080.
@@ -26,10 +27,15 @@ Namespace UI.Screens
                 Case ShellScreen.Records : DrawRecords(g, b, s, pal)
                 Case ShellScreen.HowToPlay : DrawHowToPlay(g, b, s, pal)
                 Case ShellScreen.NameEntry : DrawNameEntry(g, b, s, pal)
+                Case ShellScreen.DungeonBriefing : DrawDungeonBriefing(g, b, s, pal)
+                Case ShellScreen.DungeonRules : DrawDungeonRules(g, b, s, pal)
+                Case ShellScreen.DungeonReveal : DrawHud(g, b, s, pal) : DrawDungeonReveal(g, b, s, pal)
                 Case ShellScreen.Intro : DrawHud(g, b, s, pal) : DrawIntro(g, b, s, pal)
                 Case ShellScreen.Playing : DrawHud(g, b, s, pal)
                 Case ShellScreen.GoalTransition : DrawHud(g, b, s, pal) : DrawGoalTransition(g, b, s, pal)
-                Case ShellScreen.Paused : DrawHud(g, b, s, pal) : DrawPaused(g, b, s, pal)
+                Case ShellScreen.Paused
+                    If _engine.Dungeon Is Nothing Then DrawHud(g, b, s, pal)
+                    DrawPaused(g, b, s, pal)
                 Case ShellScreen.LevelComplete : DrawHud(g, b, s, pal) : DrawLevelComplete(g, b, s, pal)
                 Case ShellScreen.TimeUp : DrawHud(g, b, s, pal) : DrawTimeUp(g, b, s, pal)
                 Case ShellScreen.OutOfHearts : DrawHud(g, b, s, pal) : DrawOutOfHearts(g, b, s, pal)
@@ -320,7 +326,7 @@ Namespace UI.Screens
                 ("hole", "Hole: fall in and you restart from the entrance"),
                 ("heart", "Walls cost 1/4 heart; pits cost one"),
                 ("star", "Stars: beat the par time for up to three"),
-                ("seal", "Dungeon: find both seals to unlock the exit"),
+                ("seal", "Dungeon: 3 keys. The last one wakes the keep. Run!"),
                 ("trap", "Traps cost one heart. Watch amber warnings")}
             For i As Integer = 0 To items.Length - 1
                 Dim iy As Single = right.Y + 96 * s + i * 52 * s
@@ -355,6 +361,7 @@ Namespace UI.Screens
                         g.DrawEllipse(p, cx - r, cy - r, r * 2, r * 2)
                     End Using
                 Case "seal"
+                    If DungeonAtlas.Draw(g, "key", New RectangleF(cx - r, cy - r, r * 2, r * 2)) Then Return
                     Using brush As New SolidBrush(Color.FromArgb(183, 137, 255))
                         g.FillPolygon(brush, {New PointF(cx, cy - r), New PointF(cx + r * 0.7F, cy), New PointF(cx, cy + r), New PointF(cx - r * 0.7F, cy)})
                     End Using
@@ -440,10 +447,7 @@ Namespace UI.Screens
             UiDraw.Text(g, If(timed, "TIME LEFT", "TIME"), label, If(urgent, Danger, pal.TextDim), cx, 20 * s, 0.5F, 5 * s)
             Dim timeFont As Font = GameFonts.Display((72 + If(urgent, 8 * pulse, 0)) * s)
             UiDraw.GlowText(g, UiDraw.FormatTime(secs), timeFont, timeColor, If(urgent, Danger, pal.AccentSoft), cx, 40 * s, 0.5F, 2 * s, If(urgent, 6, 3) * s)
-            If _engine.Dungeon IsNot Nothing Then
-                UiDraw.Text(g, $"SEALS {_engine.Dungeon.SealCount}/2  ·  " & If(_engine.Dungeon.SealMask = 3, "EXIT OPEN", "EXIT LOCKED"),
-                            GameFonts.Body(18 * s, GameFonts.FontWeight.Bold), pal.Accent, cx, 116 * s, 0.5F, 1 * s)
-            End If
+            If _engine.Dungeon IsNot Nothing Then DrawDungeonHud(g, b, s, pal)
             If timed Then
                 ' Thin time bar under the clock
                 Dim barW As Single = 260 * s
@@ -467,11 +471,122 @@ Namespace UI.Screens
             ' Bottom hints
             Dim hy As Single = b.Bottom - 44 * s
             Dim x As Single = 40 * s
-            For Each h In {("ESC", "Pause"), ("R", "Restart"), ("M", If(_sound.Muted, "Sound off", "Sound on")), ("C", "Re-center board")}
+            For Each h In {("ESC", "Pause"), ("R", "Restart"), ("M", If(_sound.Muted, "Sound off", "Sound on")), ("F9", "Camera"), ("TAB", "Overview")}
                 x += UiDraw.KeyHint(g, h.Item1, h.Item2, x, hy, pal.Accent, pal.TextDim)
             Next
             UiDraw.Text(g, _scores.PlayerName & "   ·   " & BoardStatus(), GameFonts.Body(18 * s, GameFonts.FontWeight.Bold),
                         If(BoardConnected(), pal.Accent, pal.TextDim), b.Width - 40 * s, hy + 2 * s, 1, 2 * s)
+        End Sub
+
+        Private Sub DrawWrapped(g As Graphics, text As String, font As Font, color As Color, rect As RectangleF)
+            Using brush As New SolidBrush(color)
+                g.DrawString(text, font, brush, rect)
+            End Using
+        End Sub
+
+        Private Sub DrawDungeonBriefing(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim left As Single = 36 * s
+            Dim width As Single = b.Width * 0.33F - left
+            UiDraw.Text(g, "LEVEL 04", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), pal.Accent, left, 100 * s, 0, 4 * s)
+            UiDraw.Text(g, "FORGOTTEN KEEP", GameFonts.Display(52 * s), pal.Text, left, 144 * s)
+            DrawWrapped(g, "Find the keys in the Crypt and Armory, in either order." & Environment.NewLine & "Together, they unlock the northern vault.", GameFonts.Body(29 * s), pal.Text, New RectangleF(left, 238 * s, width, 230 * s))
+            DrawWrapped(g, "Take your time to look around. The board and clock stay still until you choose READY.", GameFonts.Body(23 * s), pal.TextDim, New RectangleF(left, 480 * s, width, 140 * s))
+            Dim hints = "Tilt up/down to choose. Hold right to confirm, or press Enter / Space."
+            Dim hintFont = GameFonts.Body(20 * s)
+            Dim hintHeight = g.MeasureString(hints, hintFont, CInt(width)).Height
+            Dim hintY = b.Bottom - 20 * s - hintHeight
+            Dim menuY = hintY - (2 * 67 + 30 + 34) * s
+            DrawMenu(g, _dungeonMenu, left, menuY, s, pal, 0, 30, 67)
+            DrawWrapped(g, hints, hintFont, pal.TextDim, New RectangleF(left, hintY, width, hintHeight))
+            DrawDungeonOverviewLabels(g, b, s, pal)
+        End Sub
+
+        Private Sub DrawDungeonOverviewLabels(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim insets = _canvas.BoardInsets
+            Dim area As New RectangleF(insets.Left, insets.Top, b.Width - insets.Left - insets.Right, b.Height - insets.Top - insets.Bottom)
+            Dim margin As Single = Math.Min(area.Width, area.Height) * 0.04F
+            Dim tile As Single = Math.Min((area.Width - 2 * margin) / _engine.Maze.ColumnCount, (area.Height - 2 * margin) / _engine.Maze.RowCount)
+            Dim width = tile * _engine.Maze.ColumnCount, height = tile * _engine.Maze.RowCount
+            Dim cx = area.Left + area.Width / 2, cy = area.Top + area.Height / 2
+            Dim font = GameFonts.Body(19 * s, GameFonts.FontWeight.Bold)
+            UiDraw.Text(g, "VAULT / NORTH", font, pal.Accent, cx, cy - height / 2 - 30 * s, 0.5F)
+            UiDraw.Text(g, "ENTRANCE / EXIT / SOUTH", font, pal.Accent, cx, cy + height / 2 + 14 * s, 0.5F)
+            UiDraw.Text(g, "CRYPT / WEST", font, pal.Accent, cx - width / 2, cy - height / 2 - 58 * s)
+            UiDraw.Text(g, "ARMORY / EAST", font, pal.Accent, cx + width / 2, cy - height / 2 - 58 * s, 1)
+        End Sub
+
+        Private Sub DrawDungeonRules(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim left As Single = 30 * s
+            Dim width As Single = b.Width * 0.33F - left
+            UiDraw.Text(g, "KEEP RULES", GameFonts.Display(48 * s), pal.Text, left, 70 * s)
+            Dim y As Single = 155 * s
+            Dim menuY = b.Bottom - 80 * s
+            For Each rule In DungeonPresentation.Rules
+                Dim font = GameFonts.Body(21 * s)
+                Dim height = g.MeasureString(rule, font, CInt(width)).Height + 16 * s
+                DrawWrapped(g, rule, font, pal.Text, New RectangleF(left, y, width, height))
+                y += height
+            Next
+            DrawMenu(g, _dungeonRulesMenu, left, menuY, s, pal, 0, 28, 55)
+            DrawDungeonOverviewLabels(g, b, s, pal)
+        End Sub
+
+        Private Sub DrawDungeonHud(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim d = _engine.Dungeon
+            Dim cx = b.Width / 2.0F
+            Dim names = {"CRYPT", "ARMORY", "VAULT"}
+            For k As Integer = 0 To 2
+                Dim x = cx + (k - 1) * 175 * s
+                Dim taken = (d.KeyMask And (1 << k)) <> 0
+                DungeonAtlas.Draw(g, "key", New RectangleF(x - 70 * s, 133 * s, 26 * s, 26 * s), 0, If(taken, 1.0F, 0.35F))
+                UiDraw.Text(g, names(k), GameFonts.Body(17 * s, GameFonts.FontWeight.Bold), pal.Accent, x - 34 * s, 132 * s)
+                UiDraw.Text(g, If(taken, "TAKEN", "MISSING"), GameFonts.Body(14 * s, GameFonts.FontWeight.Bold), pal.TextDim, x - 34 * s, 154 * s)
+            Next
+            Dim escaping = d.Collapse IsNot Nothing
+            Dim objective = DungeonPresentation.Objective(d.KeyMask, escaping)
+            UiDraw.Text(g, If(escaping, "ESCAPE! — ", "") & objective, GameFonts.Body(21 * s, GameFonts.FontWeight.Bold), If(escaping, Danger, pal.Text), cx, 180 * s, 0.5F)
+            Dim warning = DungeonPresentation.VaultWarning(d.KeyMask, escaping)
+            If escaping AndAlso d.Collapse.Rumbling Then warning = "ESCAPE PASSAGE OPENED — HEAD LEFT"
+            If warning.Length > 0 Then
+                Dim width = Math.Min(b.Width - 80 * s, 1220 * s)
+                DrawWrapped(g, warning, GameFonts.Body(19 * s), If(escaping, Danger, pal.Accent), New RectangleF(cx - width / 2, 214 * s, width, 58 * s))
+            End If
+            If _checkpointMessage.Length > 0 Then
+                Dim panel As New RectangleF(160 * s, b.Bottom - 119 * s, b.Width - 320 * s, 48 * s)
+                UiDraw.Panel(g, panel, pal.Panel, pal.Accent, 8 * s)
+                UiDraw.Text(g, _checkpointMessage, GameFonts.Body(21 * s, GameFonts.FontWeight.Bold), pal.Text, cx, panel.Top + 10 * s, 0.5F)
+            End If
+        End Sub
+
+        Private Sub DrawDungeonReveal(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim panel As New RectangleF(b.Width / 2.0F - 235 * s, b.Bottom - 162 * s, 470 * s, 76 * s)
+            UiDraw.Panel(g, panel, pal.Panel, pal.Accent, 10 * s)
+            UiDraw.Text(g, "VAULT UNLOCKED", GameFonts.Display(40 * s), pal.Text, b.Width / 2.0F, panel.Top + 12 * s, 0.5F)
+        End Sub
+
+        Private Sub DrawDungeonPaused(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim_(g, b, 210)
+            Dim left As Single = 100 * s
+            Dim width As Single = b.Width * 0.45F - left
+            UiDraw.Text(g, "PAUSED", GameFonts.Display(100 * s), pal.Text, left, 150 * s)
+            DrawMenu(g, _pauseMenu, left, 325 * s, s, pal, 0, 32, 66)
+            Dim x As Single = b.Width * 0.52F
+            Dim rw As Single = b.Width - x - 65 * s
+            Dim d = _engine.Dungeon
+            DrawWrapped(g, DungeonPresentation.Objective(d.KeyMask, d.Collapse IsNot Nothing), GameFonts.Body(26 * s, GameFonts.FontWeight.Bold), pal.Accent, New RectangleF(x, 174 * s, rw, 110 * s))
+            Dim warning = DungeonPresentation.VaultWarning(d.KeyMask, d.Collapse IsNot Nothing)
+            DrawWrapped(g, warning, GameFonts.Body(21 * s), pal.Accent, New RectangleF(x, 295 * s, rw, 125 * s))
+            Dim y As Single = 430 * s
+            For Each rule In DungeonPresentation.Rules
+                Dim font = GameFonts.Body(20 * s)
+                Dim height = g.MeasureString(rule, font, CInt(rw)).Height + 13 * s
+                DrawWrapped(g, rule, font, pal.TextDim, New RectangleF(x, y, rw, height))
+                y += height
+            Next
+            Dim hints = "F8  TILT VIEW     F9  CAMERA ZOOM     HOLD TAB  OVERVIEW"
+            Dim hintFont = GameFonts.Body(19 * s)
+            Dim hintHeight = g.MeasureString(hints, hintFont, CInt(width)).Height
+            DrawWrapped(g, hints, hintFont, pal.TextDim, New RectangleF(left, b.Bottom - 20 * s - hintHeight, width, hintHeight))
         End Sub
 
         Private Function BoardConnected() As Boolean
@@ -528,6 +643,10 @@ Namespace UI.Screens
 
         ' ── Pause ───────────────────────────────────────────────────────────
         Private Sub DrawPaused(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            If _engine.Dungeon IsNot Nothing Then
+                DrawDungeonPaused(g, b, s, pal)
+                Return
+            End If
             Dim_(g, b, 185)
             Dim cx As Single = b.Width / 2.0F
             UiDraw.GlowText(g, "PAUSED", GameFonts.Display(150 * s), pal.Text, pal.AccentSoft, cx, b.Height * 0.24F, 0.5F, 8 * s, 5 * s)

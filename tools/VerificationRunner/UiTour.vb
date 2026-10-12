@@ -49,7 +49,7 @@ Namespace VerificationRunner
                 New LevelConfig(1, "Wooden Workshop", Path.Combine(gameDir, "Mazes\Level1.txt"), 0, 7.3F),
                 New LevelConfig(2, "Frozen Labyrinth", Path.Combine(gameDir, "Mazes\Level2.txt"), 0, 36.9F),
                 New LevelConfig(3, "Neon Velocity", Path.Combine(gameDir, "Mazes\Level3.txt"), 57, 40.2F),
-                New LevelConfig(4, "Forgotten Keep", Path.Combine(gameDir, "Mazes\Level4.txt"), 0, 60.0F)}
+                New LevelConfig(4, "Forgotten Keep", Path.Combine(gameDir, "Mazes\Level4.txt"), 0, 180.0F)}
             Dim scoresPath As String = Path.Combine(Path.GetTempPath(), $"gm_tour_{Guid.NewGuid():N}.xml")
 
             _tilt = New FakeTilt()
@@ -104,8 +104,18 @@ Namespace VerificationRunner
             For level As Integer = 1 To 4
                 Dim pilot As New AttractPilot(_shell.Engine.Maze)
                 Dim n As Integer = 0
-                While _shell.Screen = ShellScreen.Playing AndAlso n < 6000
+                Dim smoothed As PointF = PointF.Empty
+                While (_shell.Screen = ShellScreen.Playing OrElse _shell.Screen = ShellScreen.DungeonReveal) AndAlso n < 20000
+                    If _shell.Screen = ShellScreen.DungeonReveal Then
+                        _tilt.X = 0 : _tilt.Y = 0 : Ticks(1)
+                        n += 1
+                        Continue While
+                    End If
                     Dim t As PointF = pilot.NextTilt(_shell.Engine)
+                    If level = 4 Then
+                        smoothed = DungeonPilot.Smooth(smoothed, t)
+                        t = smoothed
+                    End If
                     _tilt.X = t.X : _tilt.Y = t.Y
                     _shell.Tick()
                     n += 1
@@ -142,6 +152,15 @@ Namespace VerificationRunner
                     Ticks(1)
                 Next
                 If level < 4 Then
+                    If level = 3 Then
+                        Expect(ShellScreen.DungeonBriefing)
+                        Ticks(20) : Shot("ui_15_campaign_dungeon_briefing")
+                        Key(Keys.Enter)
+                        For wait As Integer = 1 To 150
+                            If _shell.Screen = ShellScreen.Playing Then Exit For
+                            Ticks(1)
+                        Next
+                    End If
                     Expect(ShellScreen.Playing)
                     If _shell.Engine.ElapsedSeconds <> 0 Then Throw New Exception("Next-level timer must start after the transition")
                 End If
@@ -186,7 +205,10 @@ Namespace VerificationRunner
             Shot("ui_14_out_of_hearts")
 
             Try : File.Delete(scoresPath) : Catch : End Try
+            _canvas.Dispose()
+            DungeonUiTour.Run(projectRoot, Path.Combine(outDir, "level4"))
             Console.WriteLine("  -> Menus, intro, countdown, play, pause, results, victory, records, time-up all reached.")
+            Console.WriteLine("PASS: UI tour and Level 4 onboarding captures")
         End Sub
 
         Private Sub Ticks(n As Integer)

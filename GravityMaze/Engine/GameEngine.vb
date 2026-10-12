@@ -2,6 +2,7 @@ Option Strict On
 Option Explicit On
 
 Imports System
+Imports System.Drawing
 Imports System.Collections.Generic
 Imports GravityMaze.Levels
 
@@ -335,10 +336,14 @@ Namespace Engine
             Dim hRow As Integer = CInt(Math.Floor(_ballY))
             Dim hCol As Integer = CInt(Math.Floor(_ballX))
             If OverHole(hRow, hCol) Then
-                If Dungeon IsNot Nothing Then Dungeon.Advance(oldX, oldY, _ballX, _ballY)
+                If Dungeon IsNot Nothing Then
+                    Dungeon.Advance(oldX, oldY, _ballX, _ballY)
+                    Dungeon.OnFell()
+                End If
                 RaiseEvent BallFell(Me, New BallFellEventArgs(hCol + 0.5F, hRow + 0.5F))
-                _ballX = _maze.StartColumn + 0.5F
-                _ballY = _maze.StartRow + 0.5F
+                Dim spawn = If(Dungeon Is Nothing, New Point(_maze.StartColumn, _maze.StartRow), Dungeon.RespawnPoint)
+                _ballX = spawn.X + 0.5F
+                _ballY = spawn.Y + 0.5F
                 _velocityX = 0.0F
                 _velocityY = 0.0F
                 TakeHit(hCol + 0.5F, hRow + 0.5F, QuartersPerHeart, True)
@@ -369,7 +374,7 @@ Namespace Engine
             ' 8. Goal detection — ball centre within GoalRadius of goal centre.
             Dim gdx As Single = _ballX - _goalCenterX
             Dim gdy As Single = _ballY - _goalCenterY
-            If gdx * gdx + gdy * gdy <= GoalRadius * GoalRadius AndAlso (Dungeon Is Nothing OrElse Dungeon.SealMask = 3) Then
+            If gdx * gdx + gdy * gdy <= GoalRadius * GoalRadius AndAlso (Dungeon Is Nothing OrElse Dungeon.Collapse IsNot Nothing) Then
                 _state = GameState.LevelComplete
                 _velocityX = 0.0F
                 _velocityY = 0.0F
@@ -381,7 +386,8 @@ Namespace Engine
         End Sub
 
         Private Function IsHole(r As Integer, c As Integer) As Boolean
-            Return r >= 0 AndAlso r < _maze.RowCount AndAlso c >= 0 AndAlso c < _maze.ColumnCount AndAlso _maze.GetTile(r, c) = "H"c
+            If r < 0 OrElse r >= _maze.RowCount OrElse c < 0 OrElse c >= _maze.ColumnCount Then Return False
+            Return _maze.GetTile(r, c) = "H"c OrElse (Dungeon IsNot Nothing AndAlso Dungeon.Pit(r, c))
         End Function
 
         Private Function OverHole(r As Integer, c As Integer) As Boolean
