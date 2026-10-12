@@ -19,6 +19,8 @@ Namespace Rendering
         Private Shared ReadOnly _dustBrush As New SolidBrush(Color.White)
         Private Shared ReadOnly _dartGlow As New Pen(Color.FromArgb(120, 255, 125, 60))
         Private Shared ReadOnly _dartCore As New Pen(Color.FromArgb(255, 236, 159))
+        Private Shared ReadOnly _collapseCueBrush As New SolidBrush(Color.Transparent)
+        Private Shared ReadOnly _collapseCuePen As New Pen(Color.FromArgb(255, 184, 111))
         Private Shared _smooth As Bitmap
         Private Shared _inBytes, _outBytes As Byte()
         Private Shared _glowMaze As MazeDefinition
@@ -206,6 +208,23 @@ Namespace Rendering
             ' Second pass, after the darkness: the crack front and cave-in warnings are danger cues and must stay
             ' visible far from the marble's light.
             If col IsNot Nothing Then
+                ' The vault wall has just opened. Keep its two new floor tiles visible through the
+                ' rumble, even outside the marble's light; this cue ends when the front starts moving.
+                If col.Rumbling Then
+                    For Each t In definition.Collapse.Breakaway
+                        If t.Row < r0 OrElse t.Row > r1 OrElse t.Column < c0 OrElse t.Column > c1 Then Continue For
+                        Dim rect As New RectangleF(left + t.Column * tile, top + t.Row * tile, tile, tile)
+                        DrawComposite(g, "breakaway", "floor_0", "rubble", 0.8F, rect)
+                        Dim pulse = CSng(0.5 + 0.5 * Math.Sin(col.ElapsedMs / 180.0))
+                        Using glow As New SolidBrush(Color.FromArgb(CInt(45 + pulse * 35), 255, 193, 92)),
+                              rim As New Pen(Color.FromArgb(CInt(190 + pulse * 55), 255, 211, 127), Math.Max(1, tile * 0.07F))
+                            g.FillRectangle(glow, rect)
+                            Dim inset = tile * 0.1F
+                            g.DrawRectangle(rim, rect.Left + inset, rect.Top + inset, rect.Width - 2 * inset, rect.Height - 2 * inset)
+                        End Using
+                        DrawDust(g, rect, t.Row, t.Column, at)
+                    Next
+                End If
                 Dim crumbleFrames = DungeonAtlas.FrameCount("crumble")
                 For r As Integer = r0 To r1
                     For c As Integer = c0 To c1
@@ -213,14 +232,30 @@ Namespace Rendering
                             Dim rect As New RectangleF(left + c * tile, top + r * tile, tile, tile)
                             Dim f = (col.Reach + Collapse.CrackBand - col.Distance(r, c)) / Collapse.CrackBand
                             DungeonAtlas.Draw(g, "crumble", rect, CInt(Math.Floor(Math.Min(0.999F, Math.Max(0.0F, f)) * crumbleFrames)))
+                            DrawCollapseCue(g, rect, at, False)
                         ElseIf col.IsCaveInWarning(r, c) Then
                             Dim rect As New RectangleF(left + c * tile, top + r * tile, tile, tile)
                             DungeonAtlas.Draw(g, "crumble", rect, 0)
+                            DrawCollapseCue(g, rect, at, True)
                             DrawDust(g, rect, r, c, at)
                         End If
                     Next
                 Next
             End If
+        End Sub
+
+        Private Shared Sub DrawCollapseCue(g As Graphics, rect As RectangleF, at As Long, caveIn As Boolean)
+            Dim pulse = CSng(0.5 + 0.5 * Math.Sin(at / 110.0))
+            _collapseCueBrush.Color = Color.FromArgb(If(caveIn, CInt(48 + pulse * 42), 24), 255, 125, 57)
+            g.FillRectangle(_collapseCueBrush, rect)
+            _collapseCuePen.Color = Color.FromArgb(If(caveIn, CInt(185 + pulse * 65), 155), 255, 185, 109)
+            _collapseCuePen.Width = Math.Max(1, rect.Width * 0.055F)
+            Dim x = rect.Left, y = rect.Top, w = rect.Width, h = rect.Height
+            ' Jagged stone fractures, plus a pulsing edge only where a cave-in is about to close.
+            g.DrawLine(_collapseCuePen, x + w * 0.2F, y + h * 0.08F, x + w * 0.48F, y + h * 0.38F)
+            g.DrawLine(_collapseCuePen, x + w * 0.48F, y + h * 0.38F, x + w * 0.35F, y + h * 0.65F)
+            g.DrawLine(_collapseCuePen, x + w * 0.35F, y + h * 0.65F, x + w * 0.65F, y + h * 0.93F)
+            If caveIn Then g.DrawRectangle(_collapseCuePen, x + w * 0.08F, y + h * 0.08F, w * 0.84F, h * 0.84F)
         End Sub
 
         ' A translucent overlay on a floor tile is composed once into a 16x16 bitmap; per-frame alpha draws
