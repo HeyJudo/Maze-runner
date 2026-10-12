@@ -28,6 +28,9 @@ Namespace UI.Screens
         TimeUp
         OutOfHearts
         Victory
+        DungeonBriefing
+        DungeonRules
+        DungeonReveal
     End Enum
 
     ' The game loop and screen flow: menus, level intro, play, pause, results, victory.
@@ -133,6 +136,8 @@ Namespace UI.Screens
                 Case ShellScreen.LevelSelect : Return _levelMenu
                 Case ShellScreen.Records, ShellScreen.HowToPlay : Return _backMenu
                 Case ShellScreen.NameEntry : Return _nameMenu
+                Case ShellScreen.DungeonBriefing : Return _dungeonMenu
+                Case ShellScreen.DungeonRules : Return _dungeonRulesMenu
                 Case ShellScreen.Paused : Return _pauseMenu
                 Case ShellScreen.LevelComplete : Return _completeMenu
                 Case ShellScreen.TimeUp : Return _timeUpMenu
@@ -151,7 +156,7 @@ Namespace UI.Screens
         ' ── Loop ────────────────────────────────────────────────────────────
         Public Sub Tick()
             _screenMs += TickMs
-            _heartLostAgoMs += TickMs
+            If _screen <> ShellScreen.Paused AndAlso _screen <> ShellScreen.DungeonReveal Then _heartLostAgoMs += TickMs
             Dim tx As Single = _input.TiltX
             Dim ty As Single = _input.TiltY
             If _screen = ShellScreen.Playing AndAlso _completedAtMs < 0 Then _canvas.UpdateBoardTilt(tx, ty, TickMs)
@@ -185,6 +190,13 @@ Namespace UI.Screens
                         Case MenuAction.Confirm : ConfirmName()
                         Case MenuAction.Back : Back()
                     End Select
+                Case ShellScreen.DungeonBriefing
+                    If Nav(_dungeonMenu, tx, ty) = MenuAction.Confirm Then DungeonBriefingChoice(_dungeonMenu.Selected)
+                Case ShellScreen.DungeonRules
+                    Dim action = Nav(_dungeonRulesMenu, tx, ty)
+                    If action = MenuAction.Confirm OrElse action = MenuAction.Back Then ReturnFromDungeonRules()
+                Case ShellScreen.DungeonReveal
+                    TickDungeonReveal()
                 Case ShellScreen.Intro
                     TickIntro()
                 Case ShellScreen.Playing
@@ -217,7 +229,7 @@ Namespace UI.Screens
                 _canvas.DungeonState = _engine.Dungeon
                 _canvas.PickupTaken = AddressOf _engine.IsPickupTaken
                 _canvas.BallBlink = _engine.IsInvulnerable AndAlso _screen = ShellScreen.Playing
-                If _screen <> ShellScreen.Paused Then
+                If _screen <> ShellScreen.Paused AndAlso _screen <> ShellScreen.DungeonReveal Then
                     _canvas.UpdateBallPosition(_engine.BallX, _engine.BallY)
                     _canvas.UpdateBallMotion(If(_screen = ShellScreen.Playing, _engine.VelocityX, 0.0F),
                                              If(_screen = ShellScreen.Playing, _engine.VelocityY, 0.0F), TileUnder(_engine))
@@ -246,7 +258,14 @@ Namespace UI.Screens
         End Function
 
         Private Function IsGameScreen() As Boolean
-            Return _engine IsNot Nothing AndAlso _screen >= ShellScreen.Intro
+            If _engine Is Nothing Then Return False
+            Select Case _screen
+                Case ShellScreen.Intro, ShellScreen.Playing, ShellScreen.GoalTransition, ShellScreen.Paused,
+                     ShellScreen.LevelComplete, ShellScreen.TimeUp, ShellScreen.OutOfHearts,
+                     ShellScreen.DungeonBriefing, ShellScreen.DungeonRules, ShellScreen.DungeonReveal
+                    Return True
+            End Select
+            Return False
         End Function
 
         Private Function TileUnder(e As GameEngine) As Char
@@ -259,12 +278,15 @@ Namespace UI.Screens
         ' Menus put the board on the right (menu on the left); game screens leave room for the HUD.
         Private Sub UpdateInsets()
             _canvas.CameraEnabled = IsGameScreen()
+            _canvas.PresentationOverview = DungeonOverviewActive()
             Dim w As Integer = _canvas.ClientSize.Width
             Dim h As Integer = _canvas.ClientSize.Height
             Dim s As Single = UiScale()
             Dim wanted As Padding
-            If IsGameScreen() Then
-                wanted = New Padding(CInt(24 * s), CInt(118 * s), CInt(24 * s), CInt(56 * s))
+            If DungeonOverviewActive() Then
+                wanted = New Padding(CInt(w * 0.36F), CInt(100 * s), CInt(60 * s), CInt(100 * s))
+            ElseIf IsGameScreen() Then
+                wanted = New Padding(CInt(24 * s), CInt(If(_engine.Dungeon Is Nothing, 118, 280) * s), CInt(24 * s), CInt(56 * s))
             Else
                 wanted = New Padding(CInt(w * 0.42F), CInt(40 * s), CInt(40 * s), CInt(40 * s))
             End If
@@ -284,6 +306,8 @@ Namespace UI.Screens
                 Case ShellScreen.LevelSelect : _levelMenu.Reset(_levelMenu.Selected)
                 Case ShellScreen.Records, ShellScreen.HowToPlay : _backMenu.Reset()
                 Case ShellScreen.NameEntry : _nameMenu.Reset()
+                Case ShellScreen.DungeonBriefing : _dungeonMenu.Reset(_dungeonMenu.Selected)
+                Case ShellScreen.DungeonRules : _dungeonRulesMenu.Reset()
                 Case ShellScreen.Paused : _pauseMenu.Reset()
                 Case ShellScreen.TimeUp : _timeUpMenu.Reset()
                 Case ShellScreen.OutOfHearts : _heartsMenu.Reset()
@@ -333,6 +357,7 @@ Namespace UI.Screens
         End Sub
 
         Private Sub ToMainMenu()
+            RestoreDungeonPreferences()
             _engine = Nothing
             _campaign = False
             ShowAttractMaze()
@@ -354,6 +379,7 @@ Namespace UI.Screens
                 _campaignTime = 0
                 _campaignStars = 0
             End If
+            RestoreDungeonPreferences()
             _campaign = campaign
             _levelIndex = index
             Dim cfg As LevelConfig = _levels(index)
@@ -368,7 +394,14 @@ Namespace UI.Screens
             _canvas.DungeonState = _engine.Dungeon
             _skipCard = False
             BeginRun()
-            If readyToPlay Then GoTo_(ShellScreen.Playing)
+            If _engine.Dungeon IsNot Nothing Then
+                CaptureDungeonPreferences()
+                _dungeonMenu.Reset()
+                RefreshCameraLabels()
+                GoTo_(ShellScreen.DungeonBriefing)
+            ElseIf readyToPlay Then
+                GoTo_(ShellScreen.Playing)
+            End If
         End Sub
 
         Private Sub DetachEngine(e As GameEngine)
@@ -387,6 +420,7 @@ Namespace UI.Screens
             _spawnSoundInMs = -1
             _heartLostAgoMs = 99999.0F
             _canvas.ClearEffects()
+            ResetDungeonPresentation()
             GoTo_(ShellScreen.Intro)
         End Sub
 
@@ -412,8 +446,11 @@ Namespace UI.Screens
         End Sub
 
         Private Sub TickPlaying(tx As Single, ty As Single)
+            If TryBeginDungeonReveal() Then Return
+            TickDungeonMessages()
             If _completedAtMs < 0 Then
                 _engine.Update(tx, ty)
+                If TryBeginDungeonReveal() Then Return
             End If
 
             ' Terrain sounds
@@ -539,6 +576,8 @@ Namespace UI.Screens
         End Sub
 
         Private Sub EnterVictory()
+            RestoreDungeonPreferences()
+            ShowAttractMaze()
             _scores.AddRecord(New ScoreRecord With {
                 .PlayerName = _scores.PlayerName, .LevelNumber = 0, .CampaignLevels = _levels.Count, .TimeSeconds = _campaignTime,
                 .Attempts = 1, .Stars = _campaignStars, .Score = 0, .Date = DateTime.Now})
@@ -555,6 +594,7 @@ Namespace UI.Screens
                 Case 2 : ToMainMenu()
                 Case 3 : ToggleTiltView()
                 Case 4 : CycleCameraZoom()
+                Case 5 : OpenDungeonRules(ShellScreen.Paused)
             End Select
         End Sub
 
@@ -598,6 +638,7 @@ Namespace UI.Screens
                 Case "crumble"
                     _sound.Play("dungeon_warning", 0.3F)
                 Case "checkpoint"
+                    ShowDungeonCheckpoint()
                     _sound.Play("dungeon_seal", 0.4F)
                 Case "warning"
                     _sound.Play("dungeon_warning", 0.45F)
@@ -674,7 +715,13 @@ Namespace UI.Screens
                 Return True
             End If
             Select Case _screen
-                Case ShellScreen.Intro, ShellScreen.Playing, ShellScreen.GoalTransition
+                Case ShellScreen.DungeonBriefing
+                    If IsEnter(key) Then DungeonBriefingChoice(_dungeonMenu.Selected) : Return True
+                    If key = Keys.Escape OrElse key = Keys.P Then Pause() : Return True
+                Case ShellScreen.DungeonRules
+                    If IsEnter(key) OrElse key = Keys.Escape Then ReturnFromDungeonRules() : Return True
+                    If key = Keys.P Then Pause() : Return True
+                Case ShellScreen.Intro, ShellScreen.Playing, ShellScreen.GoalTransition, ShellScreen.DungeonReveal
                     If key = Keys.Escape OrElse key = Keys.P Then Pause() : Return True
                     If key = Keys.R AndAlso _completedAtMs < 0 Then Retry() : Return True
                 Case ShellScreen.Paused
@@ -723,13 +770,14 @@ Namespace UI.Screens
             If key = Keys.F9 Then _cameraKeyHeld = False
             If key = Keys.Tab Then
                 _canvas.CameraOverviewHeld = False
+                If _screen = ShellScreen.Paused AndAlso _pausedScreen = ShellScreen.DungeonReveal Then ApplyDungeonRevealFrame()
                 _canvas.Invalidate()
             End If
         End Sub
 
         Private Sub CycleCameraZoom()
             _canvas.CycleCameraZoom()
-            _pauseMenu.Items(4) = "CAMERA: " & _canvas.CameraLabel
+            RefreshCameraLabels()
             _sound.Play("menu_move", 0.6F)
         End Sub
 
@@ -757,7 +805,8 @@ Namespace UI.Screens
         Public Sub OnDeactivated()
             _cameraKeyHeld = False
             _canvas.CameraOverviewHeld = False
-            If _screen = ShellScreen.Playing OrElse _screen = ShellScreen.Intro OrElse _screen = ShellScreen.GoalTransition Then Pause()
+            If _screen = ShellScreen.Playing OrElse _screen = ShellScreen.Intro OrElse _screen = ShellScreen.GoalTransition OrElse
+               _screen = ShellScreen.DungeonBriefing OrElse _screen = ShellScreen.DungeonRules OrElse _screen = ShellScreen.DungeonReveal Then Pause()
         End Sub
 
         Private Function CurrentPalette() As ThemePalette

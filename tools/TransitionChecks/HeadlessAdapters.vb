@@ -75,6 +75,38 @@ Namespace UI
         Private ReadOnly Camera As New BoardCamera()
         Public Property CameraEnabled As Boolean
         Public Property CameraOverviewHeld As Boolean
+        Public Property PresentationOverview As Boolean
+        Private _maze As MazeDefinition
+        Private _ball As PointF
+        Private _presentation As Boolean
+        Public ReadOnly Property CameraPreferredZoom As Single
+            Get
+                Return Camera.PreferredZoom
+            End Get
+        End Property
+        Public ReadOnly Property CameraZoom As Single
+            Get
+                Return Camera.Zoom
+            End Get
+        End Property
+        Public ReadOnly Property CameraFocus As PointF
+            Get
+                Return Camera.Focus
+            End Get
+        End Property
+        Public Sub SetCameraPreferredZoom(value As Single)
+            Camera.SetPreferredZoom(value)
+        End Sub
+        Public Sub SetCameraPresentation(x As Single, y As Single, zoom As Single)
+            _presentation = True
+            Camera.SetPresentation(x / _maze.ColumnCount, y / _maze.RowCount, zoom)
+        End Sub
+        Public Sub FreezeBallPosition(x As Single, y As Single)
+            _ball = New PointF(x, y)
+        End Sub
+        Public Sub ReleaseCameraPresentation()
+            _presentation = False
+        End Sub
         Public ReadOnly Property CameraLabel As String
             Get
                 Return Camera.Label
@@ -84,6 +116,13 @@ Namespace UI
             Camera.CycleZoom()
         End Sub
         Public Sub UpdateCamera(elapsedMs As Single)
+            If _maze Is Nothing Then Return
+            If PresentationOverview OrElse (_presentation AndAlso CameraOverviewHeld) Then
+                Camera.SetPresentation(0.5F, 0.5F, 1)
+                Return
+            End If
+            If _presentation Then Return
+            Camera.Advance(_ball.X / _maze.ColumnCount, _ball.Y / _maze.RowCount, elapsedMs, CameraEnabled, CameraOverviewHeld OrElse PresentationOverview)
         End Sub
         Public Property TiltViewEnabled As Boolean = True
         Public Property Transition As GoalDropTransition
@@ -93,10 +132,15 @@ Namespace UI
             Invalidations += 1
         End Sub
         Public Sub ShowMaze(maze As MazeDefinition, theme As String)
+            ReleaseCameraPresentation()
+            _maze = maze
+            _ball = New PointF(maze.StartColumn + 0.5F, maze.StartRow + 0.5F)
             ClearEffects()
+            Camera.Recenter(_ball.X / maze.ColumnCount, _ball.Y / maze.RowCount)
         End Sub
         Public Sub ClearEffects()
             EndGoalDrop()
+            Camera.ResetTracking()
         End Sub
         Public Sub BeginGoalDrop(clock As GoalDropTransition, maze As MazeDefinition, theme As String)
             Transition = clock : Incoming = maze
@@ -107,6 +151,7 @@ Namespace UI
         Public Sub UpdateBoardTilt(x As Single, y As Single, ms As Single)
         End Sub
         Public Sub UpdateBallPosition(x As Single, y As Single)
+            _ball = New PointF(x, y)
         End Sub
         Public Sub UpdateBallMotion(x As Single, y As Single, tile As Char)
         End Sub
