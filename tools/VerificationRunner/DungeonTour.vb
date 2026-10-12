@@ -98,6 +98,7 @@ Namespace VerificationRunner
         Friend Function CreateState(maze As MazeDefinition, state As Integer, Optional run As DungeonRun = Nothing) As DungeonRun
             If run Is Nothing Then run = New DungeonRun(maze)
             Dim ball As New PointF(maze.StartColumn + 0.5F, maze.StartRow + 0.5F)
+            If state = 0 Then ball = CryptFloorCenter(maze, run)
             If state >= 1 Then
                 CollectSeal(maze, run, "K"c)
                 CollectSeal(maze, run, "Q"c)
@@ -143,7 +144,13 @@ Namespace VerificationRunner
             Select Case state
                 Case 0
                     Check(run.KeyMask = 0 AndAlso run.Collapse Is Nothing, "explore must have zero keys and no collapse")
-                    Check(ball = New PointF(maze.StartColumn + 0.5F, maze.StartRow + 0.5F), "explore marble must be in Crypt")
+                    Dim crypt = TileCenter(maze, "K"c)
+                    Check(ball.X < maze.ColumnCount / 3.0F AndAlso
+                          Math.Abs(ball.X - crypt.X) + Math.Abs(ball.Y - crypt.Y) = 1,
+                          "explore marble must be beside the Crypt key in the western wing")
+                    Dim row = CInt(Math.Floor(ball.Y)), column = CInt(Math.Floor(ball.X))
+                    Check(maze.GetTile(row, column) = "0"c AndAlso Not run.Solid(row, column) AndAlso Not run.Pit(row, column),
+                          "explore marble must be on safe normal Crypt floor")
                 Case 1
                     Check(run.KeyMask = 3 AndAlso run.Collapse Is Nothing AndAlso run.GateOpen("c"c), "vault must have K/Q and an open inbound gate")
                     Check(maze.GetTile(CInt(Math.Floor(ball.Y)), CInt(Math.Floor(ball.X))) = "c"c, "vault marble must be at c gate")
@@ -174,6 +181,19 @@ Namespace VerificationRunner
             Dim p = TileCenter(maze, symbol)
             run.Collect(p.X, p.Y)
         End Sub
+
+        Private Function CryptFloorCenter(maze As MazeDefinition, run As DungeonRun) As PointF
+            Dim key = TileCenter(maze, "K"c)
+            For Each offset In {New Point(1, 0), New Point(0, 1), New Point(-1, 0), New Point(0, -1)}
+                Dim row = CInt(Math.Floor(key.Y)) + offset.Y
+                Dim column = CInt(Math.Floor(key.X)) + offset.X
+                If row < 0 OrElse row >= maze.RowCount OrElse column < 0 OrElse column >= maze.ColumnCount Then Continue For
+                If maze.GetTile(row, column) = "0"c AndAlso Not run.Solid(row, column) AndAlso Not run.Pit(row, column) Then
+                    Return New PointF(column + 0.5F, row + 0.5F)
+                End If
+            Next
+            Throw New Exception("Crypt key must have adjacent safe normal floor for the explore fixture")
+        End Function
 
         Private Function TileCenter(maze As MazeDefinition, symbol As Char) As PointF
             For row As Integer = 0 To maze.RowCount - 1
