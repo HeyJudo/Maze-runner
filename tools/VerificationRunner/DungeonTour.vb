@@ -43,6 +43,14 @@ Namespace VerificationRunner
         End Sub
 
         Private Sub VerifyFullFrameHud()
+            For Each state In {2, 3, 4}
+                Using fixture As New DungeonFrameFixture(state, New Size(1600, 900), False)
+                    ' Construction verifies particles, shake and any checkpoint message lifetimes.
+                    Dim shake = GetType(GameCanvas).GetField("_shakeMs", System.Reflection.BindingFlags.Instance Or System.Reflection.BindingFlags.NonPublic).GetValue(fixture.Canvas)
+                    Console.WriteLine($"Full-frame fixture: {StateNames(state)}, remaining shake={shake} ms")
+                End Using
+            Next
+            Console.WriteLine("PASS: full-frame fixture ages canvas effects and checks available shell message timers")
             Using fixture As New DungeonFrameFixture(4, New Size(1600, 900), False)
                 Dim canvas = fixture.Canvas
                 Dim painter = canvas.OverlayPainter
@@ -95,7 +103,8 @@ Namespace VerificationRunner
             For tick As Integer = 1 To 120 : canvas.UpdateCamera(16) : Next
         End Sub
 
-        Friend Function CreateState(maze As MazeDefinition, state As Integer, Optional run As DungeonRun = Nothing) As DungeonRun
+        Friend Function CreateState(maze As MazeDefinition, state As Integer, Optional run As DungeonRun = Nothing,
+                                    Optional afterAdvance As Action(Of DungeonRun) = Nothing) As DungeonRun
             If run Is Nothing Then run = New DungeonRun(maze)
             Dim ball As New PointF(maze.StartColumn + 0.5F, maze.StartRow + 0.5F)
             If state = 0 Then ball = CryptFloorCenter(maze, run)
@@ -110,22 +119,22 @@ Namespace VerificationRunner
             End If
             Select Case state
                 Case 0, 1
-                    AdvanceTo(run, 16, ball)
+                    AdvanceTo(run, 16, ball, afterAdvance)
                 Case 2
-                    AdvanceTo(run, 2000, ball)
+                    AdvanceTo(run, 2000, ball, afterAdvance)
                 Case 3
                     ' Occupancy keeps the first cave-in warning open using the engine's real deferred-close rule.
                     ' No state is injected: at ~12 s this remains a warning only while the marble is on its tile.
                     Dim first = maze.Dungeon.Collapse.CaveIns(0).Tiles(0)
                     ball = New PointF(first.Column + 0.5F, first.Row + 0.5F)
-                    AdvanceTo(run, 12000, ball)
+                    AdvanceTo(run, 12000, ball, afterAdvance)
                 Case 4
                     Dim cp = maze.Dungeon.Checkpoints.Where(Function(p) p.Escape).
                         OrderByDescending(Function(p) run.Collapse.Distance(p.Row, p.Column)).First()
                     ball = New PointF(cp.Column + 0.5F, cp.Row + 0.5F)
                     Dim lastReach = maze.Dungeon.Collapse.CaveIns.Max(Function(c) c.AtReach)
                     Dim closedAt = maze.Dungeon.Collapse.RumbleMs + CInt(Math.Ceiling(lastReach / maze.Dungeon.Collapse.Speed * 1000)) + Collapse.CaveWarningMs + 32
-                    AdvanceTo(run, closedAt, ball)
+                    AdvanceTo(run, closedAt, ball, afterAdvance)
                 Case Else
                     Throw New ArgumentOutOfRangeException(NameOf(state))
             End Select
@@ -133,9 +142,10 @@ Namespace VerificationRunner
             Return run
         End Function
 
-        Private Sub AdvanceTo(run As DungeonRun, ms As Integer, ball As PointF)
+        Private Sub AdvanceTo(run As DungeonRun, ms As Integer, ball As PointF, afterAdvance As Action(Of DungeonRun))
             While run.ElapsedMs < ms
                 run.Advance(run.MarbleX, run.MarbleY, ball.X, ball.Y)
+                If afterAdvance IsNot Nothing Then afterAdvance(run)
             End While
         End Sub
 
