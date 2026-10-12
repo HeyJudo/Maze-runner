@@ -43,7 +43,7 @@ Module Program
         Public ReadOnly Sound As New SoundManager()
         Public ReadOnly Scores As ScoreManager
         Public ReadOnly Shell As GameShell
-        Public Sub New(Optional includeDungeon As Boolean = False)
+        Public Sub New(Optional includeDungeon As Boolean = False, Optional includeExtraLevel As Boolean = False)
             Directory.CreateDirectory(Dir)
             Dim levels As New List(Of LevelConfig)()
             For i As Integer = 1 To 3
@@ -51,7 +51,8 @@ Module Program
                 IO.File.WriteAllLines(file, {"111111", "1S00G1", "111111"})
                 levels.Add(New LevelConfig(i, {"Wooden Workshop", "Frozen Labyrinth", "Neon Velocity"}(i - 1), file, If(i = 3, 57, 0), 5))
             Next
-            If includeDungeon Then levels.Add(New LevelConfig(4, "Forgotten Keep", Path.Combine(AppContext.BaseDirectory, "Mazes", "Level4.txt"), 0, 60))
+            If includeDungeon Then levels.Add(New LevelConfig(4, "Forgotten Keep", Path.Combine(AppContext.BaseDirectory, "Mazes", "Level4.txt"), 0, 180))
+            If includeExtraLevel Then levels.Add(New LevelConfig(5, "Wooden Workshop", Path.Combine(Dir, "level1.txt"), 0, 5))
             Scores = New ScoreManager(Path.Combine(Dir, "records.xml")) With {.PlayerName = "TEST"}
             Shell = New GameShell(Canvas, New InputManager(Tilt), Sound, Scores, levels)
         End Sub
@@ -69,18 +70,40 @@ Module Program
             Shell.HandleKey(Keys.Enter)
             WaitFor(ShellScreen.Playing)
         End Sub
-        Public Sub Goal()
+        Public Sub Goal(Optional pauseEscape As Boolean = False)
+            Dim escapedPause As Boolean = False
             Dim pilot As New AttractPilot(Shell.Engine.Maze)
             For i As Integer = 1 To If(Shell.Engine.Dungeon Is Nothing, 500, 10000)
                 If Shell.Screen = ShellScreen.GoalTransition Then
                     Tilt.X = 0 : Tilt.Y = 0
                     Return
                 End If
+                If pauseEscape AndAlso Not escapedPause AndAlso Shell.Engine.Dungeon IsNot Nothing AndAlso Shell.Engine.Dungeon.Collapse IsNot Nothing Then
+                    escapedPause = True
+                    Dim collapseClock = Shell.Engine.Dungeon.Collapse.ElapsedMs
+                    Dim trapClock = Shell.Engine.Dungeon.ElapsedMs
+                    Shell.HandleKey(Keys.Escape) : Ticks(200)
+                    Check(Shell.Engine.Dungeon.Collapse.ElapsedMs = collapseClock AndAlso Shell.Engine.Dungeon.ElapsedMs = trapClock, "Mid-escape pause must freeze collapse and trap clocks for 200 ticks")
+                    Shell.HandleKey(Keys.Escape)
+                End If
                 Dim input = pilot.NextTilt(Shell.Engine)
                 Tilt.X = input.X : Tilt.Y = input.Y
                 Shell.Tick()
             Next
             Check(False, "Pilot did not reach the transition")
+        End Sub
+        Public Sub Fall()
+            For row As Integer = 0 To Shell.Engine.Maze.RowCount - 1
+                For col As Integer = 0 To Shell.Engine.Maze.ColumnCount - 1
+                    If Shell.Engine.Maze.GetTile(row, col) <> "W"c Then Continue For
+                    Dim flags = Reflection.BindingFlags.Instance Or Reflection.BindingFlags.NonPublic
+                    GetType(GameEngine).GetField("_ballX", flags).SetValue(Shell.Engine, col + 0.5F)
+                    GetType(GameEngine).GetField("_ballY", flags).SetValue(Shell.Engine, row + 0.5F)
+                    Shell.Tick()
+                    Return
+                Next
+            Next
+            Throw New Exception("Fixture has no lava pit")
         End Sub
         Public Sub Menu(index As Integer)
             For guard As Integer = 1 To 12
@@ -96,6 +119,13 @@ Module Program
     End Class
 
     Sub Main()
+        TestDungeonBriefing()
+        TestDungeonObjectives()
+        TestDungeonCheckpoints()
+        TestDungeonReveal()
+        TestDungeonRevealFocusLossOverview()
+        TestDungeonPreferences()
+        TestDungeonOtherLevelExit()
         TestCameraPreferences()
         TestClock()
         TestCampaign()
@@ -105,6 +135,235 @@ Module Program
         TestCancel()
         TestIntroPause()
         Console.WriteLine($"PASS: {_checks} transition and real-shell flow checks (headless presentation adapters)")
+    End Sub
+
+    Private Sub EnterDungeon(f As Fixture)
+        f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+        f.Menu(3) : f.Shell.HandleKey(Keys.Enter)
+        Check(f.Shell.Screen = ShellScreen.DungeonBriefing, "Level select must enter dungeon briefing")
+    End Sub
+
+    Private Sub CollectKey(f As Fixture, key As Char)
+        For row As Integer = 0 To f.Shell.Engine.Maze.RowCount - 1
+            For col As Integer = 0 To f.Shell.Engine.Maze.ColumnCount - 1
+                If f.Shell.Engine.Maze.GetTile(row, col) <> key Then Continue For
+                f.Shell.Engine.Dungeon.Collect(col + 0.5F, row + 0.5F)
+                Return
+            Next
+        Next
+        Throw New Exception("Missing fixture key " & key)
+    End Sub
+
+    Private Sub LightCheckpoint(f As Fixture, escape As Boolean, ordinal As Integer)
+        Dim cp = f.Shell.Engine.Dungeon.Definition.Checkpoints.Where(Function(p) p.Escape = escape).ElementAt(ordinal)
+        f.Shell.Engine.Dungeon.Advance(cp.Column + 0.5F, cp.Row + 0.5F, cp.Column + 0.5F, cp.Row + 0.5F)
+    End Sub
+
+    Private Sub TestDungeonBriefing()
+        Using f As New Fixture(True)
+            EnterDungeon(f)
+            f.Tilt.X = 1 : f.Ticks(1000)
+            Check(f.Shell.Screen = ShellScreen.DungeonBriefing, "Held tilt on entry must not arm READY or timeout")
+            Check(f.Shell.Engine.ElapsedSeconds = 0 AndAlso f.Shell.Engine.Dungeon.ElapsedMs = 0, "Briefing freezes the real engine indefinitely")
+            Check(Not f.Canvas.TiltViewEnabled AndAlso f.Canvas.CameraPreferredZoom = 1.5F AndAlso f.Canvas.CameraZoom = 1, "Fresh dungeon defaults to flat overview and a saved 1.5x play preference")
+            f.Tilt.X = 0 : f.Ticks(2)
+            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Canvas.CameraPreferredZoom = 2 AndAlso f.Shell.SelectedIndex = 1, "Briefing CAMERA cycles and retains selection")
+            f.Menu(2) : f.Shell.HandleKey(Keys.Space)
+            Check(f.Shell.Screen = ShellScreen.DungeonRules, "Briefing opens rules")
+            f.Shell.OnDeactivated() : f.Ticks(200) : f.Shell.HandleKey(Keys.P)
+            Check(f.Shell.Screen = ShellScreen.DungeonRules, "Focus loss returns to the same rules screen")
+            f.Shell.HandleKey(Keys.Escape)
+            Check(f.Shell.Screen = ShellScreen.DungeonBriefing AndAlso f.Shell.SelectedIndex = 2 AndAlso f.Canvas.CameraPreferredZoom = 2, "Rules BACK retains briefing selection and camera")
+            f.Shell.OnDeactivated() : f.Ticks(200) : f.Shell.HandleKey(Keys.P)
+            Check(f.Shell.Screen = ShellScreen.DungeonBriefing AndAlso f.Shell.SelectedIndex = 2, "Focus loss resumes briefing selection")
+            f.Menu(0) : f.Tilt.X = 1 : f.Ticks(57)
+            Check(f.Shell.Screen = ShellScreen.Intro, "Neutral-armed hold right confirms READY")
+            f.Tilt.X = 0 : f.Ticks(10)
+            Check(Not f.Canvas.PresentationOverview AndAlso f.Canvas.CameraZoom > 1 AndAlso f.Canvas.CameraZoom < 2, "READY releases overview for a smooth preferred entrance zoom")
+            f.Shell.OnDeactivated() : f.Ticks(200) : f.Shell.HandleKey(Keys.P)
+            f.Ticks(40)
+            Check(f.Shell.Screen = ShellScreen.Intro AndAlso f.Shell.Engine.ElapsedSeconds = 0 AndAlso f.Shell.Engine.Dungeon.ElapsedMs = 0, "Countdown pause resumes at its frozen point")
+            f.WaitFor(ShellScreen.Playing)
+            Check(f.Shell.Engine.ElapsedSeconds = 0, "READY uses only the countdown and freezes physics through GO")
+        End Using
+        For Each key In {Keys.Enter, Keys.Space}
+            Using f As New Fixture(True)
+                EnterDungeon(f) : f.Shell.HandleKey(key)
+                Check(f.Shell.Screen = ShellScreen.Intro, "Keyboard READY enters countdown")
+                f.Ticks(122)
+                Check(f.Shell.Screen = ShellScreen.Playing AndAlso f.Shell.Engine.ElapsedSeconds = 0, "No second 1.6 second card after READY")
+            End Using
+        Next
+        Using f As New Fixture(True)
+            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
+            f.WaitFor(ShellScreen.Playing) : f.Goal() : f.WaitFor(ShellScreen.LevelComplete)
+            f.Ticks(90) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.DungeonBriefing, "NEXT LEVEL menu freshly enters dungeon briefing")
+        End Using
+    End Sub
+
+    Private Sub TestDungeonObjectives()
+        Check(DungeonPresentation.Objective(3, False).Contains(ChrW(&H2014)), "Exact objective retains its em dash")
+        Check(DungeonPresentation.Objective(0, False) = "Find the Crypt and Armory keys.", "Initial key objective")
+        Check(DungeonPresentation.Objective(1, False) = "Find the Armory key in the east wing.", "Crypt-first objective")
+        Check(DungeonPresentation.Objective(2, False) = "Find the Crypt key in the west wing.", "Armory-first objective")
+        Check(DungeonPresentation.Objective(3, False) = "Vault unlocked — head north and take the vault key.", "Both keys unlock north vault objective")
+        Check(DungeonPresentation.Objective(7, True) = "Escape through the new passage and return to the entrance.", "Escape objective")
+        Check(DungeonPresentation.VaultWarning(3, False) = "Taking the vault key starts the collapse. Escape through the new passage and return to the entrance.", "Pre-vault collapse warning")
+        For Each mask In {0, 1, 2, 7}
+            Check(DungeonPresentation.VaultWarning(mask, False) = "", "No premature or collected-vault warning")
+        Next
+        Check(DungeonPresentation.VaultWarning(3, True) = "", "No pre-vault warning during escape")
+    End Sub
+
+    Private Sub TestDungeonCheckpoints()
+        Using f As New Fixture(True)
+            EnterDungeon(f) : f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
+            LightCheckpoint(f, False, 0)
+            Check(f.Shell.DungeonCheckpointMessage = "Checkpoint lit — falls return you here; collected keys stay." AndAlso f.Shell.DungeonCheckpointRemainingMs = 4000, "First exploration checkpoint teaches for 4 seconds")
+            f.Shell.HandleKey(Keys.Escape) : f.Ticks(200)
+            Check(f.Shell.DungeonCheckpointRemainingMs = 4000, "Checkpoint cue clock freezes while paused")
+            f.Menu(5) : f.Shell.HandleKey(Keys.Enter)
+            f.Shell.OnDeactivated() : f.Ticks(200) : f.Shell.HandleKey(Keys.P) : f.Shell.HandleKey(Keys.Escape)
+            Check(f.Shell.Screen = ShellScreen.Paused, "Rules entered from pause return to pause after focus loss")
+            f.Shell.HandleKey(Keys.Escape)
+            Check(f.Shell.Screen = ShellScreen.Playing, "Nested rules pause retains original play resume state")
+            f.Ticks(249)
+            Check(f.Shell.DungeonCheckpointRemainingMs = 16, "First checkpoint has its full 4000 ms duration")
+            f.Ticks(1) : Check(f.Shell.DungeonCheckpointMessage = "", "Checkpoint teaching expires exactly at 4000 ms")
+            LightCheckpoint(f, False, 1)
+            Check(f.Shell.DungeonCheckpointMessage = "Checkpoint lit" AndAlso f.Shell.DungeonCheckpointRemainingMs = 2000, "Later exploration checkpoint uses 2 second cue")
+            f.Ticks(124) : Check(f.Shell.DungeonCheckpointRemainingMs = 16, "Later checkpoint cue retains final tick")
+            f.Ticks(1) : Check(f.Shell.DungeonCheckpointMessage = "", "Later checkpoint expires at 2000 ms")
+            CollectKey(f, "K"c) : CollectKey(f, "Q"c) : f.Shell.Tick() : f.WaitFor(ShellScreen.Playing)
+            CollectKey(f, "V"c)
+            LightCheckpoint(f, True, 0)
+            Check(f.Shell.DungeonCheckpointRemainingMs = 4000 AndAlso f.Shell.DungeonCheckpointMessage.Contains("collected keys stay"), "First escape checkpoint teaches independently of exploration")
+            LightCheckpoint(f, True, 1)
+            Check(f.Shell.DungeonCheckpointRemainingMs = 2000 AndAlso f.Shell.DungeonCheckpointMessage = "Checkpoint lit", "Later escape checkpoint uses short cue")
+            f.Shell.HandleKey(Keys.R)
+            Check(f.Shell.DungeonCheckpointMessage = "" AndAlso f.Shell.DungeonCheckpointRemainingMs = 0, "Restart clears checkpoint messages")
+            f.WaitFor(ShellScreen.Playing) : LightCheckpoint(f, False, 0)
+            Check(f.Shell.DungeonCheckpointRemainingMs = 4000, "Restart rearms exploration teaching")
+            CollectKey(f, "K"c) : CollectKey(f, "Q"c) : f.Shell.Tick() : f.WaitFor(ShellScreen.Playing) : CollectKey(f, "V"c) : LightCheckpoint(f, True, 0)
+            Check(f.Shell.DungeonCheckpointRemainingMs = 4000, "Restart rearms escape teaching")
+        End Using
+    End Sub
+
+    Private Sub TestDungeonReveal()
+        For Each order In {"KQ", "QK"}
+            Using f As New Fixture(True)
+                EnterDungeon(f) : f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing) : f.Ticks(50)
+                CollectKey(f, order(0)) : f.Shell.Tick()
+                Check(f.Shell.Screen = ShellScreen.Playing, "First key does not force camera")
+                LightCheckpoint(f, False, 0)
+                CollectKey(f, order(1))
+                Dim time = f.Shell.Engine.ElapsedSeconds, trapTime = f.Shell.Engine.Dungeon.ElapsedMs
+                Dim ball = New System.Drawing.PointF(f.Shell.Engine.BallX, f.Shell.Engine.BallY)
+                f.Shell.Tick()
+                Check(f.Shell.Screen = ShellScreen.DungeonReveal AndAlso f.Shell.DungeonRevealElapsedMs = 0, "Either second-key order starts vault reveal")
+                f.Ticks(40)
+                Dim revealTime = f.Shell.DungeonRevealElapsedMs, focus = f.Canvas.CameraFocus, zoom = f.Canvas.CameraZoom
+                f.Shell.OnDeactivated() : f.Ticks(200)
+                Check(f.Shell.DungeonRevealElapsedMs = revealTime AndAlso f.Canvas.CameraFocus = focus AndAlso f.Canvas.CameraZoom = zoom, "Pause freezes the same reveal frame")
+                f.Shell.HandleKey(Keys.Tab) : f.Ticks(1)
+                Check(f.Canvas.CameraZoom = 1 AndAlso f.Shell.DungeonRevealElapsedMs = revealTime, "Tab overview remains available during a frozen reveal")
+                f.Shell.HandleKeyUp(Keys.Tab)
+                Check(f.Canvas.CameraZoom = zoom AndAlso f.Canvas.CameraFocus = focus, "Releasing Tab restores the same paused reveal frame")
+                f.Menu(5) : f.Shell.HandleKey(Keys.Enter) : f.Ticks(20)
+                Check(f.Shell.Screen = ShellScreen.DungeonRules AndAlso f.Canvas.CameraZoom = 1, "Rules force full overview even from a paused reveal")
+                f.Shell.HandleKey(Keys.Escape)
+                Check(f.Shell.Screen = ShellScreen.Paused AndAlso f.Canvas.CameraZoom = zoom, "Rules restore the paused reveal's camera frame")
+                f.Shell.HandleKey(Keys.P) : f.Ticks(40)
+                Check(f.Canvas.CameraZoom = 2 AndAlso f.Canvas.CameraPreferredZoom = 1.5F, "Reveal holds temporary 2x without changing preferred zoom")
+                Dim gateX As Single = 0, gateY As Single = 0, count As Integer = 0
+                For r As Integer = 0 To f.Shell.Engine.Maze.RowCount - 1
+                    For c As Integer = 0 To f.Shell.Engine.Maze.ColumnCount - 1
+                        If f.Shell.Engine.Maze.GetTile(r, c) = "c"c Then gateX += c + 0.5F : gateY += r + 0.5F : count += 1
+                    Next
+                Next
+                Check(Math.Abs(f.Canvas.CameraFocus.X - gateX / count / f.Shell.Engine.Maze.ColumnCount) < 0.0001 AndAlso Math.Abs(f.Canvas.CameraFocus.Y - gateY / count / f.Shell.Engine.Maze.RowCount) < 0.0001, "Reveal centers the opened inbound vault gate")
+                f.Ticks(44)
+                Check(f.Shell.Screen = ShellScreen.DungeonReveal AndAlso f.Shell.DungeonRevealElapsedMs = 1984 AndAlso f.Canvas.CameraZoom < 2, "Return happens before the reveal's final tick")
+                f.Ticks(1)
+                Check(f.Shell.Screen = ShellScreen.Playing AndAlso f.Shell.DungeonRevealElapsedMs = 2000, "Reveal resumes after exactly 2000 ms")
+                Check(f.Shell.Engine.ElapsedSeconds = time AndAlso f.Shell.Engine.Dungeon.ElapsedMs = trapTime AndAlso f.Shell.DungeonCheckpointRemainingMs = 4000, "Reveal freezes engine, traps, and checkpoint cue clocks")
+                Check(f.Shell.Engine.BallX = ball.X AndAlso f.Shell.Engine.BallY = ball.Y, "Reveal never teleports the ball")
+                Check(f.Canvas.CameraZoom = 1.5F AndAlso Math.Abs(f.Canvas.CameraFocus.X - ball.X / f.Shell.Engine.Maze.ColumnCount) < 0.0001 AndAlso Math.Abs(f.Canvas.CameraFocus.Y - ball.Y / f.Shell.Engine.Maze.RowCount) < 0.0001, "Reveal returns to marble and player's preferred zoom before play resumes")
+                Dim attempts = f.Shell.Engine.Attempts
+                Dim hearts = f.Shell.Engine.Hearts
+                f.Fall() : f.Ticks(1)
+                Check(f.Shell.Engine.Hearts = hearts - 1, "Real lava fall costs exactly one heart")
+                Check(f.Shell.Engine.Attempts = attempts, "Real lava fall leaves attempts unchanged")
+                Check(f.Shell.Engine.Dungeon.KeyMask = 3 AndAlso f.Shell.Screen = ShellScreen.Playing, "Real lava fall retains keys and does not replay second-key reveal")
+                CollectKey(f, "V"c) : f.Ticks(1)
+                Check(f.Shell.Screen = ShellScreen.Playing, "Third key never forces another camera reveal")
+                f.Shell.HandleKey(Keys.R) : f.WaitFor(ShellScreen.Playing)
+                CollectKey(f, order(0)) : CollectKey(f, order(1)) : f.Shell.Tick()
+                Check(f.Shell.Screen = ShellScreen.DungeonReveal, "Restart rearms vault door reveal")
+            End Using
+        Next
+    End Sub
+
+    Private Sub TestDungeonRevealFocusLossOverview()
+        For Each alreadyPaused In {False, True}
+            Using f As New Fixture(True)
+                EnterDungeon(f) : f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
+                CollectKey(f, "K"c) : CollectKey(f, "Q"c) : f.Shell.Tick() : f.Ticks(40)
+                If alreadyPaused Then f.Shell.HandleKey(Keys.P)
+                f.Shell.HandleKey(Keys.Tab) : f.Ticks(1)
+                Check(f.Canvas.CameraZoom = 1, "Held Tab shows overview before focus loss during reveal")
+                Dim revealTime = f.Shell.DungeonRevealElapsedMs
+                Dim engineTime = f.Shell.Engine.ElapsedSeconds, trapTime = f.Shell.Engine.Dungeon.ElapsedMs
+                f.Shell.OnDeactivated()
+                Dim focus = f.Canvas.CameraFocus
+                Check(f.Shell.Screen = ShellScreen.Paused AndAlso Not f.Canvas.CameraOverviewHeld AndAlso f.Canvas.CameraZoom = 2, "Focus loss restores the reveal frame after clearing held Tab, including an already paused reveal")
+                f.Ticks(200)
+                Check(f.Shell.DungeonRevealElapsedMs = revealTime AndAlso f.Canvas.CameraFocus = focus AndAlso f.Canvas.CameraZoom = 2, "Held-Tab focus loss freezes reveal time and camera frame")
+                Check(f.Shell.Engine.ElapsedSeconds = engineTime AndAlso f.Shell.Engine.Dungeon.ElapsedMs = trapTime, "Held-Tab focus loss freezes engine and trap clocks")
+                f.Shell.HandleKey(Keys.P) : f.Ticks(1)
+                Check(f.Shell.Screen = ShellScreen.DungeonReveal AndAlso f.Shell.DungeonRevealElapsedMs = revealTime + 16, "Focus return resumes the same reveal sequence")
+            End Using
+        Next
+    End Sub
+
+    Private Sub TestDungeonPreferences()
+        Using f As New Fixture(True)
+            f.Shell.HandleKey(Keys.F8)
+            f.Shell.HandleKey(Keys.F9) : f.Shell.HandleKeyUp(Keys.F9)
+            f.Shell.HandleKey(Keys.F9) : f.Shell.HandleKeyUp(Keys.F9)
+            EnterDungeon(f)
+            f.Shell.HandleKey(Keys.F8)
+            f.Shell.HandleKey(Keys.F9) : f.Shell.HandleKeyUp(Keys.F9)
+            f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
+            f.Fall() : f.Ticks(40)
+            f.Shell.HandleKey(Keys.Escape) : f.Ticks(50) : f.Shell.HandleKey(Keys.Escape)
+            Check(f.Canvas.TiltViewEnabled AndAlso f.Canvas.CameraPreferredZoom = 2, "Dungeon manual preferences survive fall effects and pause")
+            f.Shell.HandleKey(Keys.R)
+            Check(f.Shell.Screen = ShellScreen.Intro AndAlso f.Canvas.TiltViewEnabled AndAlso f.Canvas.CameraPreferredZoom = 2, "Restart skips briefing and preserves chosen view")
+            f.WaitFor(ShellScreen.Playing)
+            CollectKey(f, "K"c) : CollectKey(f, "Q"c) : f.Shell.Tick() : f.WaitFor(ShellScreen.Playing) : CollectKey(f, "V"c)
+            Check(f.Canvas.TiltViewEnabled AndAlso f.Canvas.CameraPreferredZoom = 2, "Collapse preserves manual view and zoom")
+            f.Shell.HandleKey(Keys.Escape) : f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Title AndAlso Not f.Canvas.TiltViewEnabled AndAlso f.Canvas.CameraPreferredZoom = 2, "Menu exit restores captured pre-dungeon preferences")
+            EnterDungeon(f)
+            Check(Not f.Canvas.TiltViewEnabled AndAlso f.Canvas.CameraPreferredZoom = 1.5F, "Another fresh entry defaults again")
+        End Using
+    End Sub
+
+    Private Sub TestDungeonOtherLevelExit()
+        Using f As New Fixture(True, True)
+            f.Shell.HandleKey(Keys.F8)
+            EnterDungeon(f)
+            f.Shell.HandleKey(Keys.F8)
+            f.Shell.HandleKey(Keys.F9) : f.Shell.HandleKeyUp(Keys.F9)
+            f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
+            f.Goal() : f.WaitFor(ShellScreen.LevelComplete)
+            f.Ticks(90) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Intro AndAlso f.Shell.Engine.Dungeon Is Nothing AndAlso Not f.Canvas.TiltViewEnabled AndAlso f.Canvas.CameraPreferredZoom = 1, "Leaving the dungeon for another level restores captured preferences")
+        End Using
     End Sub
 
     Private Sub TestCameraPreferences()
@@ -222,6 +481,11 @@ Module Program
             For level As Integer = 1 To 3
                 f.Goal()
                 Check(f.Canvas.Transition.HasNextLevel, "Level three must lead to the dungeon in a four-level campaign")
+                If level = 3 Then
+                    f.WaitFor(ShellScreen.DungeonBriefing)
+                    Check(f.Shell.Engine.ElapsedSeconds = 0 AndAlso f.Shell.Engine.Dungeon.ElapsedMs = 0, "Campaign landing enters frozen dungeon briefing")
+                    f.Shell.HandleKey(Keys.Enter)
+                End If
                 f.WaitFor(ShellScreen.Playing)
             Next
             Check(f.Shell.Engine.Maze.Dungeon IsNot Nothing AndAlso Object.ReferenceEquals(f.Canvas.DungeonState, f.Shell.Engine.Dungeon), "Fourth level must attach its own dungeon runtime")
@@ -233,12 +497,13 @@ Module Program
             f.Ticks(200)
             Check(f.Shell.Screen = ShellScreen.Paused AndAlso f.Shell.Engine.Dungeon.ElapsedMs = clock AndAlso f.Shell.Engine.ElapsedSeconds = time, "Pause and camera changes must freeze traps and physics together")
             f.Shell.HandleKey(Keys.Escape)
-            f.Goal()
+            f.Goal(pauseEscape:=True)
             Check(f.Shell.Engine.Hearts > 0 AndAlso f.Shell.Engine.Dungeon.KeyCount = 3, "The real shell must complete the dungeon with both seals and health enabled")
             Check(Not f.Canvas.Transition.HasNextLevel, "Dungeon is the final floor")
             f.WaitFor(ShellScreen.Victory)
             Check(f.Scores.TopRecords(4, 10).Count = 1, "Dungeon completion records its own level time")
             Check(f.Scores.TopRecords(0, 10, 4).Count = 1 AndAlso f.Scores.TopRecords(0, 10, 3).Count = 0, "Victory records a four-level campaign")
+            Check(f.Canvas.TiltViewEnabled AndAlso f.Canvas.CameraPreferredZoom = 1, "Victory restores captured pre-dungeon view and zoom")
             Check(f.Sound.Played.Contains("dungeon_seal"), "Seal pickup must play its cue through the real shell")
         End Using
     End Sub

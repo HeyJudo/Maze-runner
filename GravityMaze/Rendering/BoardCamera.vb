@@ -36,6 +36,18 @@ Namespace Rendering
             End Get
         End Property
 
+        ' Preferences are independent of temporary shell camera ownership.
+        Public Sub SetPreferredZoom(value As Single)
+            If value <> 1.0F AndAlso value <> 1.5F AndAlso value <> 2.0F Then Throw New ArgumentOutOfRangeException(NameOf(value))
+            _zoomIndex = If(value = 1, 0, If(value = 1.5F, 1, 2))
+        End Sub
+
+        Public Sub SetPresentation(x As Single, y As Single, zoom As Single)
+            If Not Single.IsFinite(zoom) OrElse zoom < 1 OrElse zoom > 2 Then Throw New ArgumentOutOfRangeException(NameOf(zoom))
+            Recenter(x, y)
+            _zoom = zoom
+        End Sub
+
         Public Sub CycleZoom()
             _zoomIndex = (_zoomIndex + 1) Mod 3
         End Sub
