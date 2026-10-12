@@ -91,9 +91,7 @@ Namespace VerificationRunner
                     Shot(canvas, outDir, size, "09_checkpoint_guidance")
                     Collect(shell, "V"c)
                     Tick(shell, 1)
-                    For frame As Integer = 1 To 124
-                        shell.Engine.Dungeon.Advance(shell.Engine.BallX, shell.Engine.BallY, shell.Engine.BallX, shell.Engine.BallY)
-                    Next
+                    Tick(shell, 124)
                     Shot(canvas, outDir, size, "10_rumble_head_left")
                     shell.HandleKey(Keys.Escape) : Tick(shell, 20)
                     Shot(canvas, outDir, size, "11_paused_escape_guidance")
