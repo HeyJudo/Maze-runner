@@ -18,13 +18,13 @@ Namespace VerificationRunner
         Public Sub Run()
             Dim maze = DungeonTour.LoadMaze()
             Dim size As New Size(1600, 900)
-            Console.WriteLine($"Dungeon timing trace: {WarmupFrames} warmup / {SampleFrames} samples; frozen runtime states, 2x zoom, {size.Width}x{size.Height}.")
+            Console.WriteLine($"Dungeon rendering timing trace: {WarmupFrames} warmup / {SampleFrames} samples; frozen runtime states, 2x zoom, {size.Width}x{size.Height}; real GameShell HUD and insets.")
             Console.WriteLine("Full-frame target <16 ms; live-layer planning target <6 ms. Live timing alone cannot establish full-frame performance.")
-            For Each state In {0, 2, 3, 4}
-                Dim run = DungeonTour.CreateState(maze, state)
-                MeasureLive(maze, run, size, DungeonTour.StateNames(state))
+            For Each state In {0, 1, 2, 3, 4}
                 For Each tilted In {False, True}
-                    Using canvas = DungeonTour.CreateCanvas(maze, run, size, tilted), image As New Bitmap(size.Width, size.Height)
+                    Using fixture As New DungeonFrameFixture(state, size, tilted), image As New Bitmap(size.Width, size.Height)
+                        Dim canvas = fixture.Canvas
+                        If Not tilted Then MeasureLive(maze, canvas.DungeonState, size, DungeonTour.StateNames(state), canvas.BoardInsets)
                         For zoom As Integer = 0 To 1
                             DungeonTour.SettleCamera(canvas)
                             canvas.CycleCameraZoom()
@@ -37,9 +37,8 @@ Namespace VerificationRunner
             Next
         End Sub
 
-        Private Sub MeasureLive(maze As MazeDefinition, run As DungeonRun, size As Size, stateName As String)
-            Dim area As New Rectangle(DungeonTour.Insets.Left, DungeonTour.Insets.Top,
-                                      size.Width - DungeonTour.Insets.Horizontal, size.Height - DungeonTour.Insets.Vertical)
+        Private Sub MeasureLive(maze As MazeDefinition, run As DungeonRun, size As Size, stateName As String, insets As System.Windows.Forms.Padding)
+            Dim area As New Rectangle(insets.Left, insets.Top, size.Width - insets.Horizontal, size.Height - insets.Vertical)
             ' Reproduce GameCanvas's real flat-view camera progression and MazeRenderer layout. The bitmap
             ' is window-sized, with viewport clipping applied BEFORE the actual 2x graphics transform.
             Dim camera As New BoardCamera()

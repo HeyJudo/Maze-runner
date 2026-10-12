@@ -17,6 +17,7 @@ Namespace VerificationRunner
         Friend ReadOnly Insets As New System.Windows.Forms.Padding(24, 120, 24, 60)
 
         Public Sub Run(outDir As String)
+            VerifyFullFrameHud()
             Directory.CreateDirectory(outDir)
             Dim maze = LoadMaze()
             For Each size In {New Size(960, 600), New Size(1600, 900)}
@@ -39,6 +40,36 @@ Namespace VerificationRunner
                 Next
             Next
             Console.WriteLine("PASS: five asserted dungeon states, three zooms, two sizes, and flat/tilt views; 60 snapshots saved")
+        End Sub
+
+        Private Sub VerifyFullFrameHud()
+            Using fixture As New DungeonFrameFixture(4, New Size(1600, 900), False)
+                Dim canvas = fixture.Canvas
+                Dim painter = canvas.OverlayPainter
+                Check(painter IsNot Nothing AndAlso TypeOf painter.Target Is GravityMaze.UI.Screens.GameShell,
+                      "Full-frame performance fixture must include the real GameShell HUD")
+                Using withHud As New Bitmap(1600, 900), boardOnly As New Bitmap(1600, 900)
+                    canvas.DrawToBitmap(withHud, New Rectangle(0, 0, 1600, 900))
+                    canvas.OverlayPainter = Nothing
+                    Try
+                        canvas.DrawToBitmap(boardOnly, New Rectangle(0, 0, 1600, 900))
+                    Finally
+                        canvas.OverlayPainter = painter
+                    End Try
+                    Dim changed As Boolean = False
+                    For y As Integer = 0 To 79
+                        For x As Integer = 0 To 1599
+                            If withHud.GetPixel(x, y).ToArgb() <> boardOnly.GetPixel(x, y).ToArgb() Then
+                                changed = True
+                                Exit For
+                            End If
+                        Next
+                        If changed Then Exit For
+                    Next
+                    Check(changed, "Real GameShell HUD must actually paint the fixed header during a full-frame draw")
+                End Using
+            End Using
+            Console.WriteLine("PASS: full-frame performance fixture includes the real GameShell HUD")
         End Sub
 
         Friend Function LoadMaze() As MazeDefinition
@@ -64,8 +95,8 @@ Namespace VerificationRunner
             For tick As Integer = 1 To 120 : canvas.UpdateCamera(16) : Next
         End Sub
 
-        Friend Function CreateState(maze As MazeDefinition, state As Integer) As DungeonRun
-            Dim run As New DungeonRun(maze)
+        Friend Function CreateState(maze As MazeDefinition, state As Integer, Optional run As DungeonRun = Nothing) As DungeonRun
+            If run Is Nothing Then run = New DungeonRun(maze)
             Dim ball As New PointF(maze.StartColumn + 0.5F, maze.StartRow + 0.5F)
             If state >= 1 Then
                 CollectSeal(maze, run, "K"c)
