@@ -43,6 +43,46 @@ Namespace UI
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
         Public Property CameraOverviewHeld As Boolean
 
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property PresentationOverview As Boolean
+        Private presentationCamera As Boolean
+
+        Public ReadOnly Property CameraPreferredZoom As Single
+            Get
+                Return camera.PreferredZoom
+            End Get
+        End Property
+        Public ReadOnly Property CameraZoom As Single
+            Get
+                Return camera.Zoom
+            End Get
+        End Property
+        Public ReadOnly Property CameraFocus As PointF
+            Get
+                Return camera.Focus
+            End Get
+        End Property
+        Public Sub SetCameraPreferredZoom(value As Single)
+            camera.SetPreferredZoom(value)
+            Invalidate()
+        End Sub
+        ' Tile-space scripted frame; does not change the player's zoom preference.
+        Public Sub SetCameraPresentation(x As Single, y As Single, zoom As Single)
+            If currentMaze Is Nothing Then Return
+            presentationCamera = True
+            camera.SetPresentation(x / currentMaze.ColumnCount, y / currentMaze.RowCount, zoom)
+            Invalidate()
+        End Sub
+        ' Synchronize the last engine frame without advancing any visual-effect timers.
+        Public Sub FreezeBallPosition(x As Single, y As Single)
+            _ballX = x : _ballY = y
+            marble.Rebase(x, y)
+            Invalidate()
+        End Sub
+        Public Sub ReleaseCameraPresentation()
+            presentationCamera = False
+        End Sub
+
         Public ReadOnly Property CameraLabel As String
             Get
                 Return camera.Label
@@ -57,6 +97,11 @@ Namespace UI
         ' Called even while paused, so changing zoom settles without advancing the engine.
         Public Sub UpdateCamera(elapsedMs As Single)
             If currentMaze Is Nothing Then Return
+            If PresentationOverview OrElse (presentationCamera AndAlso CameraOverviewHeld) Then
+                camera.SetPresentation(0.5F, 0.5F, 1)
+                Return
+            End If
+            If presentationCamera Then Return
             If cameraAfterFall AndAlso Not fx.FallActive Then
                 camera.Recenter(_ballX / currentMaze.ColumnCount, _ballY / currentMaze.RowCount)
                 cameraAfterFall = False
@@ -65,7 +110,7 @@ Namespace UI
             Dim x = If(fx.FallActive, fx.HoleX, _ballX)
             Dim y = If(fx.FallActive, fx.HoleY, _ballY)
             camera.Advance(x / currentMaze.ColumnCount, y / currentMaze.RowCount,
-                           elapsedMs, CameraEnabled, CameraOverviewHeld)
+                           elapsedMs, CameraEnabled, CameraOverviewHeld OrElse PresentationOverview)
         End Sub
 
         Public Sub BeginGoalDrop(transition As GoalDropTransition, nextMaze As MazeDefinition, nextTheme As String)
@@ -182,6 +227,7 @@ Namespace UI
 
         ' Called once when a level is loaded. Resets the ball and effects.
         Public Sub ShowMaze(maze As MazeDefinition, Optional themeName As String = "Wooden Workshop")
+            ReleaseCameraPresentation()
             DungeonState = Nothing
             currentMaze = maze
             currentTheme = themeName
@@ -283,7 +329,7 @@ Namespace UI
                 e.Graphics.SetClip(boardArea, Drawing2D.CombineMode.Intersect)
                 If CameraEnabled AndAlso Not CameraOverviewHeld AndAlso goalDrop Is Nothing Then
                     Dim projection As BoardProjection = Nothing
-                    If TiltViewEnabled AndAlso boardArea.Width >= 32 AndAlso boardArea.Height >= 32 Then
+                    If TiltViewEnabled AndAlso Not PresentationOverview AndAlso boardArea.Width >= 32 AndAlso boardArea.Height >= 32 Then
                         projection = New BoardProjection(boardArea.Width, boardArea.Height, tilt.X, tilt.Y)
                     End If
                     Dim frame = camera.Frame(boardArea, currentMaze.ColumnCount, currentMaze.RowCount, projection)
@@ -292,7 +338,7 @@ Namespace UI
                 End If
                 If goalDrop IsNot Nothing Then
                     DrawGoalDrop(e.Graphics, boardArea)
-                ElseIf TiltViewEnabled Then
+                ElseIf TiltViewEnabled AndAlso Not PresentationOverview Then
                     perspective.Draw(e.Graphics, boardArea, tilt,
                         Sub(g As Graphics, area As Rectangle)
                             renderer.Draw(g, area, currentMaze, _ballX, _ballY,
