@@ -49,7 +49,7 @@ Module Program
             For i As Integer = 1 To 3
                 Dim file As String = Path.Combine(Dir, $"level{i}.txt")
                 IO.File.WriteAllLines(file, {"111111", "1S00G1", "111111"})
-                levels.Add(New LevelConfig(i, {"Wooden Workshop", "Frozen Labyrinth", "Neon Velocity"}(i - 1), file, If(i = 3, 57, 0), 5))
+                levels.Add(New LevelConfig(i, {"Wooden Workshop", "Frozen Labyrinth", "Neon Velocity"}(i - 1), file, 0, 5))
             Next
             If includeDungeon Then levels.Add(New LevelConfig(4, "Forgotten Keep", Path.Combine(AppContext.BaseDirectory, "Mazes", "Level4.txt"), 0, 180))
             If includeExtraLevel Then levels.Add(New LevelConfig(5, "Wooden Workshop", Path.Combine(Dir, "level1.txt"), 0, 5))
@@ -459,7 +459,6 @@ Module Program
                     Check(Not Object.ReferenceEquals(oldEngine, f.Shell.Engine), "next engine loaded automatically")
                     Check(f.Shell.Engine.ElapsedSeconds = 0 AndAlso f.Shell.Engine.Hearts = 3, "next level starts fresh after landing")
                     Check(f.Shell.Engine.BallX = 1.5F, "marble begins at next start")
-                    If level = 2 Then Check(f.Shell.Engine.TimeRemainingSeconds = 57, "timed level keeps its full countdown during landing")
                 Else
                     f.WaitFor(ShellScreen.Victory)
                 End If

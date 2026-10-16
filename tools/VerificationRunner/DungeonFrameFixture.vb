@@ -44,7 +44,7 @@ Namespace VerificationRunner
             Dim levels As New List(Of LevelConfig) From {
                 New LevelConfig(1, "Wooden Workshop", "Mazes/Level1.txt", 0, 7.3F),
                 New LevelConfig(2, "Frozen Labyrinth", "Mazes/Level2.txt", 0, 36.9F),
-                New LevelConfig(3, "Neon Velocity", "Mazes/Level3.txt", 57, 40.2F),
+                New LevelConfig(3, "Neon Velocity", "Mazes/Level3.txt", 0, 37.4F),
                 New LevelConfig(4, "Forgotten Keep", "Mazes/Level4.txt", 0, 180.0F)}
             ' Never read or write the player's records. The shell constructor installs its real Paint
             ' delegate, so hearts, timer, keys, objective, warnings and cue messages use production code.

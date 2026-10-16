@@ -40,11 +40,11 @@ Public Class Form1
         sound = New SoundManager(Path.Combine(AppContext.BaseDirectory, "Sounds"))
 
         ' First three pars use keyboard-bot times; dungeon par allows deliberate trap timing.
-        ' Level 3 limit = 1.4x its par; the finale has no forced countdown.
+        ' No level has a forced countdown; Level 3's twist is its Overdrive barriers.
         Dim levels As New List(Of LevelConfig) From {
             New LevelConfig(1, "Wooden Workshop", "Mazes\Level1.txt", 0, 7.3F),
             New LevelConfig(2, "Frozen Labyrinth", "Mazes\Level2.txt", 0, 36.9F),
-            New LevelConfig(3, "Neon Velocity", "Mazes\Level3.txt", 57, 40.2F),
+            New LevelConfig(3, "Neon Velocity", "Mazes\Level3.txt", 0, 37.4F),
             New LevelConfig(4, "Forgotten Keep", "Mazes\Level4.txt", 0, 180.0F)
         }
 

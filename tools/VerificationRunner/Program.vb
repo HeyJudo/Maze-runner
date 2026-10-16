@@ -3,6 +3,7 @@ Option Explicit On
 
 Imports System
 Imports System.IO
+Imports System.Linq
 Imports System.Drawing
 Imports System.Drawing.Drawing2D
 Imports System.Drawing.Imaging
@@ -12,6 +13,7 @@ Imports GravityMaze.Engine
 Imports GravityMaze.Levels
 Imports GravityMaze.Rendering
 Imports GravityMaze.UI
+Imports GravityMaze.UI.Screens
 Imports GravityMaze.Data
 
 Namespace VerificationRunner
@@ -52,6 +54,7 @@ Namespace VerificationRunner
             End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--barrier-only") >= 0 Then
                 BarrierChecks.Run()
+                TestLevel3(MazeManager.LoadFromFile(Path.Combine(ProjectRoot, "GravityMaze\Mazes\Level3.txt")))
                 Return
             End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--hearts-only") >= 0 Then
@@ -362,44 +365,23 @@ Namespace VerificationRunner
             Return vis
         End Function
 
-        ' Keyboard-only bot: each axis is -1, 0 or +1, like a player holding/releasing keys.
-        ' It steers toward a target velocity and brakes early on ice.
+        ' Keyboard-only bot = the attract-mode pilot (-1/0/+1 per axis), so the demo and this proof share one controller.
         Private Function KeyboardBotRun(maze As MazeDefinition) As Integer
-            Dim path As List(Of Point) = FindShortestPath(maze)
             Dim engine As New GameEngine(maze, 0) With {.HeartsEnabled = False}
+            Dim pilot As New AttractPilot(maze)
             Dim falls As Integer = 0
             AddHandler engine.BallFell, Sub(s As Object, e As BallFellEventArgs) falls += 1
-            Dim waypointIndex As Integer = 1
             Dim ticks As Integer = 0
-
             While ticks < 20000 AndAlso engine.State = GameState.Playing AndAlso falls = 0
-                Dim target As Point = path(Math.Min(waypointIndex, path.Count - 1))
-                Dim dx As Single = target.X + 0.5F - engine.BallX
-                Dim dy As Single = target.Y + 0.5F - engine.BallY
-                If Math.Abs(dx) < 0.25F AndAlso Math.Abs(dy) < 0.25F AndAlso waypointIndex < path.Count - 1 Then
-                    waypointIndex += 1
-                    Continue While
-                End If
-                Dim tile As Char = maze.GetTile(CInt(Math.Floor(engine.BallY)), CInt(Math.Floor(engine.BallX)))
-                Dim cap As Single = If(tile = "I"c, 0.05F, If(tile = "F"c, 0.14F, 0.09F))
-                engine.Update(Key(dx, engine.VelocityX, cap), Key(dy, engine.VelocityY, cap))
+                Dim t As PointF = pilot.NextTilt(engine)
+                engine.Update(t.X, t.Y)
                 ticks += 1
             End While
-
-            If falls > 0 Then
-                Throw New Exception($"Keyboard bot fell into a hole near waypoint {waypointIndex}/{path.Count} ({path(waypointIndex)}).")
-            End If
+            If falls > 0 Then Throw New Exception($"Keyboard bot fell into a hole at ({engine.BallX:F1}, {engine.BallY:F1}) after {ticks} ticks.")
             If engine.State <> GameState.LevelComplete Then
-                Throw New Exception($"Keyboard bot stalled at waypoint {waypointIndex}/{path.Count} ({path(waypointIndex)}) after {ticks} ticks.")
+                Throw New Exception($"Keyboard bot stalled at ({engine.BallX:F1}, {engine.BallY:F1}) after {ticks} ticks.")
             End If
             Return ticks
-        End Function
-
-        Private Function Key(distance As Single, velocity As Single, cap As Single) As Single
-            Dim desired As Single = Math.Max(-cap, Math.Min(cap, distance * 0.2F))
-            If velocity < desired - 0.004F Then Return 1.0F
-            If velocity > desired + 0.004F Then Return -1.0F
-            Return 0.0F
         End Function
 
         Private Sub TestFullTraversalSimulation(maze As MazeDefinition)
@@ -489,9 +471,38 @@ Namespace VerificationRunner
             If reach <> open Then Throw New Exception($"Unreachable tiles (holes treated as blocked): open={open}, reachable={reach}")
             Console.WriteLine($"  -> 37x37, {holes} holes, {fast} fast tiles, all {open} floor tiles reachable without crossing a hole.")
 
+            ' Overdrive barriers: required (no way round), and each has a straight 3+ tile boost run-up.
+            Check(New GameEngine(maze, 0).BarriersTotal = 4, "Level 3 must have 4 Overdrive barriers")
+            Check(Not Flood(maze, Function(t) t <> "1"c AndAlso t <> "H"c AndAlso t <> "B"c).Contains(New Point(maze.GoalColumn, maze.GoalRow)),
+                  "barriers must block every route to the goal")
+            Dim dirs As Point() = {New Point(1, 0), New Point(-1, 0), New Point(0, 1), New Point(0, -1)}
+            Dim seenB As New HashSet(Of Point)()
+            For r As Integer = 0 To maze.RowCount - 1
+                For c As Integer = 0 To maze.ColumnCount - 1
+                    If maze.GetTile(r, c) <> "B"c OrElse seenB.Contains(New Point(c, r)) Then Continue For
+                    Dim group As New List(Of Point) From {New Point(c, r)}
+                    seenB.Add(group(0))
+                    Dim gi As Integer = 0
+                    While gi < group.Count
+                        For Each d As Point In dirs
+                            Dim n As New Point(group(gi).X + d.X, group(gi).Y + d.Y)
+                            If n.X >= 0 AndAlso n.Y >= 0 AndAlso n.X < maze.ColumnCount AndAlso n.Y < maze.RowCount AndAlso
+                               maze.GetTile(n.Y, n.X) = "B"c AndAlso seenB.Add(n) Then group.Add(n)
+                        Next
+                        gi += 1
+                    End While
+                    Dim guarded As Boolean = group.Any(Function(p) dirs.Any(Function(d) Enumerable.Range(1, 3).All(Function(k)
+                        Dim fx As Integer = p.X - k * d.X, fy As Integer = p.Y - k * d.Y
+                        Return fx >= 0 AndAlso fy >= 0 AndAlso fx < maze.ColumnCount AndAlso fy < maze.RowCount AndAlso maze.GetTile(fy, fx) = "F"c
+                    End Function)))
+                    Check(guarded, $"barrier at ({c},{r}) has no straight 3-tile boost run-up")
+                Next
+            Next
+            Console.WriteLine("  -> 4 barriers, all required, each with a boost run-up.")
+
             Dim ticks As Integer = KeyboardBotRun(maze)
             Dim secs As Single = ticks * 0.016F
-            Console.WriteLine($"  -> Keyboard bot cleared Level 3 in {ticks} ticks (~{secs:F1}s) without falling; suggested limit {Math.Ceiling(secs * 1.4F / 5.0F) * 5.0F}s.")
+            Console.WriteLine($"  -> Keyboard bot cleared Level 3 in {ticks} ticks (~{secs:F1}s) without falling; par = {secs:F1}s.")
         End Sub
 
         Private Sub TestIceFrictionReductionAndRestoration(maze As MazeDefinition)

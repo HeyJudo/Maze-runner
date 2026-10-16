@@ -48,7 +48,7 @@ Namespace VerificationRunner
             Dim levels As New List(Of LevelConfig) From {
                 New LevelConfig(1, "Wooden Workshop", Path.Combine(gameDir, "Mazes\Level1.txt"), 0, 7.3F),
                 New LevelConfig(2, "Frozen Labyrinth", Path.Combine(gameDir, "Mazes\Level2.txt"), 0, 36.9F),
-                New LevelConfig(3, "Neon Velocity", Path.Combine(gameDir, "Mazes\Level3.txt"), 57, 40.2F),
+                New LevelConfig(3, "Neon Velocity", Path.Combine(gameDir, "Mazes\Level3.txt"), 0, 37.4F),
                 New LevelConfig(4, "Forgotten Keep", Path.Combine(gameDir, "Mazes\Level4.txt"), 0, 180.0F)}
             Dim scoresPath As String = Path.Combine(Path.GetTempPath(), $"gm_tour_{Guid.NewGuid():N}.xml")
 
@@ -175,15 +175,16 @@ Namespace VerificationRunner
             Key(Keys.Escape) : Ticks(10)
             Expect(ShellScreen.Title)
 
-            ' Time up on Level 3: idle until the clock runs out.
+            ' Level 3 HUD: barriers counter instead of a countdown.
             MoveTo(1) : Key(Keys.Enter) : Ticks(10)
             MoveTo(2) : Key(Keys.Enter)
             Ticks(CInt((1600 + 2000) / 16) + 10)
             Expect(ShellScreen.Playing)
+            If _shell.Engine.BarriersTotal <> 4 Then Throw New Exception("Level 3 must show its 4 barriers")
             Shot("ui_12_hud_level3")
-            Ticks(CInt(57000 / 16) + 60)   ' Level 3 limit (57 s)
-            Expect(ShellScreen.TimeUp)
-            Shot("ui_13_time_up")
+            Key(Keys.Escape) : Ticks(10)
+            MoveTo(2) : Key(Keys.Enter) : Ticks(10)   ' pause → MAIN MENU
+            Expect(ShellScreen.Title)
 
             ' Out of hearts on Level 1: twelve quarter-heart wall hits, with time to recover.
             Key(Keys.Escape) : Ticks(10)
@@ -207,7 +208,7 @@ Namespace VerificationRunner
             Try : File.Delete(scoresPath) : Catch : End Try
             _canvas.Dispose()
             DungeonUiTour.Run(projectRoot, Path.Combine(outDir, "level4"))
-            Console.WriteLine("  -> Menus, intro, countdown, play, pause, results, victory, records, time-up all reached.")
+            Console.WriteLine("  -> Menus, intro, countdown, play, pause, results, victory, records, level 3 HUD all reached.")
             Console.WriteLine("PASS: UI tour and Level 4 onboarding captures")
         End Sub
 
