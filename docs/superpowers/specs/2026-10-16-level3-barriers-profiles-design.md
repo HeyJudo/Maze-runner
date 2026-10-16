@@ -133,6 +133,24 @@ Assert-based self-checks in the existing style:
 - Simulated disconnect pauses and does not auto-resume.
 - Real-app screenshot pass for every new screen and Level 3, as the project does.
 
+## Plan-time corrections (2026-10-16, from reading the code)
+
+- Level 3 is **37×37 in game**: a 25×25 source in `tools/maze_src/` widened by `tools/widen_maze.py`.
+- Break speed (0.16) sits above normal top speed (0.12), so **every barrier needs a boost run-up**.
+  The "long straight" variant is dropped. There are **4 barriers**, one at the end of each boost strip on the route.
+- The optional countdown code stays **dormant** (no level uses it) rather than being deleted. Removing it would touch
+  around 300 test call sites for no player-visible gain.
+- `R` instant restart **already existed**; the new work is journaling the abandoned run.
+- Title menu keeps **PLAY** (always a new campaign) and adds a separate **CONTINUE · LEVEL N** item, disabled
+  when there is nothing to continue.
+- Ghost toggle lives on the **Profile screen and the `G` key** during play, not the pause menu (keeps the pause
+  menu's indices stable for the dungeon RULES item).
+- Name entry already upper-cases what is typed, so new names display in capitals; case-insensitive matching
+  matters mainly for names saved by older versions.
+- The profile key is **derived from the name**, not stored as its own XML attribute.
+- Calibration values **cycle on confirm** instead of using sliders, because left/right are hold-back/hold-confirm
+  on the board. The test ball sits behind a **TEST TILT** item that freezes the menu while you tilt.
+
 ## Implementation roles
 
 Opus 5.5 orchestrates; Sonnet 5.5 implements code; Haiku 5.5 explores code.
