@@ -50,6 +50,10 @@ Namespace VerificationRunner
                 GoalTransitionTour.Run(Path.Combine(AppContext.BaseDirectory, "transition-checks"))
                 Return
             End If
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--barrier-only") >= 0 Then
+                BarrierChecks.Run()
+                Return
+            End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--hearts-only") >= 0 Then
                 GravityMaze.Verification.HealthScenarios.Run()
                 HeartTour.Run(Path.Combine(AppContext.BaseDirectory, "heart-checks"))
@@ -92,6 +96,7 @@ Namespace VerificationRunner
             ' --- TEST 5: Collision Detection and Impact Suppression ---
             TestCollisionAndImpact(New MazeDefinition({"11111", "1S001", "10001", "100G1", "11111"}))
             GravityMaze.Verification.HealthScenarios.Run()
+            BarrierChecks.Run()
 
             ' --- TEST 6: Goal Completion Single-Trigger & Timer Stop ---
             TestGoalCompletion(maze2)
