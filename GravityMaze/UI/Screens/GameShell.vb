@@ -20,6 +20,8 @@ Namespace UI.Screens
         Records
         HowToPlay
         NameEntry
+        PlayerSelect
+        Profile
         Intro          ' level card + 3-2-1-GO; engine frozen
         Playing
         GoalTransition
@@ -146,7 +148,10 @@ Namespace UI.Screens
             Select Case _screen
                 Case ShellScreen.Title : Return _titleMenu
                 Case ShellScreen.LevelSelect : Return _levelMenu
-                Case ShellScreen.Records, ShellScreen.HowToPlay : Return _backMenu
+                Case ShellScreen.Records : Return _recordsMenu
+                Case ShellScreen.HowToPlay : Return _backMenu
+                Case ShellScreen.PlayerSelect : Return _playerMenu
+                Case ShellScreen.Profile : Return _profileMenu
                 Case ShellScreen.NameEntry : Return _nameMenu
                 Case ShellScreen.DungeonBriefing : Return _dungeonMenu
                 Case ShellScreen.DungeonRules : Return _dungeonRulesMenu
@@ -196,10 +201,28 @@ Namespace UI.Screens
                             End If
                         Case MenuAction.Back : Back()
                     End Select
-                Case ShellScreen.Records, ShellScreen.HowToPlay
+                Case ShellScreen.Records
+                    TickAttract()
+                    Select Case Nav(_recordsMenu, tx, ty)
+                        Case MenuAction.Confirm : RecordsChoice(_recordsMenu.Selected)
+                        Case MenuAction.Back : Back()
+                    End Select
+                Case ShellScreen.HowToPlay
                     TickAttract()
                     Dim a As MenuAction = Nav(_backMenu, tx, ty)
                     If a = MenuAction.Confirm OrElse a = MenuAction.Back Then Back()
+                Case ShellScreen.PlayerSelect
+                    TickAttract()
+                    Select Case Nav(_playerMenu, tx, ty)
+                        Case MenuAction.Confirm : PlayerChoice(_playerMenu.Selected)
+                        Case MenuAction.Back : _afterPlayerChosen = Nothing : GoTo_(ShellScreen.Title)
+                    End Select
+                Case ShellScreen.Profile
+                    TickAttract()
+                    Select Case Nav(_profileMenu, tx, ty)
+                        Case MenuAction.Confirm : ProfileChoice(_profileMenu.Selected)
+                        Case MenuAction.Back : GoTo_(ShellScreen.Title)
+                    End Select
                 Case ShellScreen.NameEntry
                     TickAttract()
                     Select Case Nav(_nameMenu, tx, ty)
@@ -329,8 +352,10 @@ Namespace UI.Screens
                     _titleMenu.Reset(If(TitleItemEnabled(_titleMenu.Selected), _titleMenu.Selected, 0))
                 Case ShellScreen.LevelSelect
                     _levelMenu.Reset(If(_levelMenu.Enabled(_levelMenu.Selected), _levelMenu.Selected, 0))
-                Case ShellScreen.Records, ShellScreen.HowToPlay : _backMenu.Reset()
-                Case ShellScreen.NameEntry : _nameMenu.Reset()
+                Case ShellScreen.Records : _recordsMenu.Reset()
+                Case ShellScreen.HowToPlay : _backMenu.Reset()
+                Case ShellScreen.Profile : _profileMenu.Reset()
+                Case ShellScreen.NameEntry : _nameMenu.Reset() : ClearNameNotice()
                 Case ShellScreen.DungeonBriefing : _dungeonMenu.Reset(_dungeonMenu.Selected)
                 Case ShellScreen.DungeonRules : _dungeonRulesMenu.Reset()
                 Case ShellScreen.Paused : _pauseMenu.Reset()
@@ -360,9 +385,9 @@ Namespace UI.Screens
                 Case 2 : WithPlayer(Sub() GoTo_(ShellScreen.LevelSelect))
                 Case 3 : GoTo_(ShellScreen.Records)
                 Case 4 : GoTo_(ShellScreen.HowToPlay)
-                Case 5 : WithPlayer(Sub() GoTo_(ShellScreen.Title))   ' Task 6: profile screen
+                Case 5 : WithPlayer(AddressOf OpenProfile)
                 Case 6 : GoTo_(ShellScreen.Title)                      ' Task 8: calibration screen
-                Case 7 : _afterPlayerChosen = Nothing : OpenNameEntry() ' Task 6: player list
+                Case 7 : OpenPlayerSelect(Nothing)
                 Case 8 : RaiseEvent QuitRequested(Me, EventArgs.Empty)
             End Select
         End Sub
@@ -382,6 +407,7 @@ Namespace UI.Screens
         Private Sub ConfirmName()
             Dim name As String = _nameBuffer.Trim()
             If name.Length = 0 Then Return
+            If Not ConfirmNewName(name) Then Return
             _scores.PlayerName = name
             ContinueAfterPlayer()
         End Sub
@@ -395,8 +421,7 @@ Namespace UI.Screens
         ' Runs action now if a player is chosen, otherwise after the player picks or types one.
         Private Sub WithPlayer(action As Action)
             If _scores.PlayerName.Length > 0 Then action() : Return
-            _afterPlayerChosen = action
-            OpenNameEntry()   ' Task 6 swaps this for the Who's Playing? list
+            OpenPlayerSelect(action)
         End Sub
 
         Private Sub Back()
@@ -406,7 +431,7 @@ Namespace UI.Screens
                 Case ShellScreen.NameEntry
                     _afterPlayerChosen = Nothing
                     GoTo_(ShellScreen.Title)
-                Case ShellScreen.LevelSelect, ShellScreen.HowToPlay
+                Case ShellScreen.LevelSelect, ShellScreen.HowToPlay, ShellScreen.Profile, ShellScreen.PlayerSelect
                     GoTo_(ShellScreen.Title)
             End Select
         End Sub
@@ -839,13 +864,23 @@ Namespace UI.Screens
                         Return True
                     End If
                     If key = Keys.Escape Then _sound.Play("menu_back") : Back() : Return True
-                Case ShellScreen.Records, ShellScreen.HowToPlay
+                Case ShellScreen.Records
+                    If IsEnter(key) Then _sound.Play("menu_confirm") : RecordsChoice(_recordsMenu.Selected) : Return True
+                    If key = Keys.Escape Then _sound.Play("menu_back") : Back() : Return True
+                Case ShellScreen.HowToPlay
                     If IsEnter(key) OrElse key = Keys.Escape Then _sound.Play("menu_back") : Back() : Return True
+                Case ShellScreen.PlayerSelect
+                    If IsEnter(key) Then _sound.Play("menu_confirm") : PlayerChoice(_playerMenu.Selected) : Return True
+                    If key = Keys.Escape Then _sound.Play("menu_back") : _afterPlayerChosen = Nothing : GoTo_(ShellScreen.Title) : Return True
+                Case ShellScreen.Profile
+                    If IsEnter(key) Then _sound.Play("menu_confirm") : ProfileChoice(_profileMenu.Selected) : Return True
+                    If key = Keys.Escape Then _sound.Play("menu_back") : GoTo_(ShellScreen.Title) : Return True
                 Case ShellScreen.NameEntry
                     If key = Keys.Enter Then _sound.Play("menu_confirm") : ConfirmName() : Return True
                     If key = Keys.Escape Then _sound.Play("menu_back") : Back() : Return True
                     If key = Keys.Back AndAlso _nameBuffer.Length > 0 Then
                         _nameBuffer = _nameBuffer.Substring(0, _nameBuffer.Length - 1)
+                        ClearNameNotice()
                         _sound.Play("menu_move", 0.5F)
                         Return True
                     End If
@@ -894,6 +929,7 @@ Namespace UI.Screens
             If (Char.IsLetterOrDigit(up) AndAlso up < ChrW(128)) OrElse (up = " "c AndAlso _nameBuffer.Length > 0) Then
                 If _nameBuffer.Length < 12 Then
                     _nameBuffer &= up
+                    ClearNameNotice()
                     _sound.Play("menu_move", 0.5F)
                 End If
             End If

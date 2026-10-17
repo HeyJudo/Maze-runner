@@ -138,6 +138,7 @@ Module Program
         TestContinueCampaign()
         TestLevelLocks()
         TestBarrierFeedback()
+        TestPlayers()
         Console.WriteLine($"PASS: {_checks} transition and real-shell flow checks (headless presentation adapters)")
     End Sub
 
@@ -611,6 +612,31 @@ Module Program
             Check(f.Scores.TopRecords(1, 10).Count = 1 AndAlso f.Scores.TopRecords(2, 10).Count = 1 AndAlso f.Scores.TopRecords(3, 10).Count = 1,
                   "continued run saves each level it played")
             Check(f.Scores.TopRecords(0, 10).Count = 0, "a continued campaign posts no campaign record")
+        End Using
+    End Sub
+
+    Private Sub TestPlayers()
+        Using f As New Fixture()   ' current player: TEST
+            f.Menu(7) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.PlayerSelect AndAlso f.Shell.SelectedIndex = 0, "switch player lists the current player first")
+            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.NameEntry, "+ NEW PLAYER opens name entry")
+            For Each ch As Char In "test" : f.Shell.HandleChar(ch) : Next
+            f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.NameEntry AndAlso f.Shell.NameNotice.Length > 0, "an existing name asks to continue")
+            f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Title AndAlso f.Scores.Players.Count = 1, "typing test again reuses TEST")
+            f.Menu(7) : f.Shell.HandleKey(Keys.Enter) : f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            For Each ch As Char In "ana" : f.Shell.HandleChar(ch) : Next
+            f.Shell.HandleKey(Keys.Enter)
+            Check(f.Scores.Players.Count = 2 AndAlso f.Scores.PlayerName = "ANA", "a new name creates a profile")
+            f.Menu(5) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Profile, "profile screen opens")
+            f.Shell.HandleKey(Keys.Enter)   ' GHOST toggle
+            Check(Not f.Scores.GhostEnabled, "profile toggles the ghost")
+            f.Shell.HandleKey(Keys.Escape)
+            f.Menu(3) : f.Shell.HandleKey(Keys.Enter) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Records AndAlso f.Shell.RecordsMineOnly, "records filter toggles to just me")
         End Using
     End Sub
 
