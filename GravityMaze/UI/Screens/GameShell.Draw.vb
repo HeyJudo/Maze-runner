@@ -182,7 +182,7 @@ Namespace UI.Screens
             Dim x As Single = b.Width * 0.065F
             Dim intro As Single = UiDraw.EaseOut(_screenMs / 600.0F)
             DrawLogo(g, x - (1 - intro) * 40 * s, b.Height * 0.12F, s, pal)
-            DrawMenu(g, _titleMenu, x + 8 * s, b.Height * 0.52F, s, pal)
+            DrawMenu(g, _titleMenu, x + 8 * s, b.Height * 0.46F, s, pal, spacing:=44)
             DrawFooter(g, b, s, pal, {("UP/DOWN", "Navigate"), ("ENTER", "Select")}, _titleMenu)
         End Sub
 
