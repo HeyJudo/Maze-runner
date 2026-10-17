@@ -327,9 +327,10 @@ Namespace UI.Screens
                 ("heart", "Walls cost 1/4 heart; pits cost one"),
                 ("star", "Stars: beat the par time for up to three"),
                 ("seal", "Dungeon: 3 keys. The last one wakes the keep. Run!"),
-                ("trap", "Traps cost one heart. Watch amber warnings")}
+                ("trap", "Traps cost one heart. Watch amber warnings"),
+                ("barrier", "Neon barriers: hit them on a boost strip to smash through.")}
             For i As Integer = 0 To items.Length - 1
-                Dim iy As Single = right.Y + 96 * s + i * 52 * s
+                Dim iy As Single = right.Y + 96 * s + i * 46 * s
                 DrawLegendIcon(g, items(i).Item1, right.X + 50 * s, iy + 14 * s, 20 * s, pal)
                 UiDraw.Text(g, items(i).Item2, body, pal.Text, right.X + 92 * s, iy)
             Next
@@ -364,6 +365,11 @@ Namespace UI.Screens
                     If DungeonAtlas.Draw(g, "key", New RectangleF(cx - r, cy - r, r * 2, r * 2)) Then Return
                     Using brush As New SolidBrush(Color.FromArgb(183, 137, 255))
                         g.FillPolygon(brush, {New PointF(cx, cy - r), New PointF(cx + r * 0.7F, cy), New PointF(cx, cy + r), New PointF(cx - r * 0.7F, cy)})
+                    End Using
+                Case "barrier"
+                    Using br As New SolidBrush(Color.FromArgb(200, 255, 60, 200)), p As New Pen(Color.FromArgb(120, 240, 255), r * 0.16F)
+                        g.FillRectangle(br, cx - r, cy - r, r * 2, r * 2)
+                        g.DrawRectangle(p, cx - r, cy - r, r * 2, r * 2)
                     End Using
                 Case "trap"
                     Using brush As New SolidBrush(Color.FromArgb(255, 174, 77))
@@ -456,6 +462,15 @@ Namespace UI.Screens
                     g.FillRectangle(bg, cx - barW / 2, 116 * s, barW, 4 * s)
                     g.FillRectangle(fg, cx - barW / 2, 116 * s, barW * frac, 4 * s)
                 End Using
+            End If
+            If _engine.BarriersTotal > 0 Then
+                UiDraw.Text(g, $"BARRIERS  {_engine.BarriersBroken}/{_engine.BarriersTotal}", GameFonts.Body(18 * s, GameFonts.FontWeight.Bold),
+                            If(_engine.BarriersBroken = _engine.BarriersTotal, pal.Accent, pal.TextDim), cx, 122 * s, 0.5F, 4 * s)
+            End If
+            If _tooSlowMs >= 0 Then
+                Dim a As Single = 1.0F - _tooSlowMs / 900.0F
+                UiDraw.GlowText(g, "TOO SLOW  ·  HIT IT ON A BOOST", GameFonts.Display(56 * s), UiDraw.WithAlpha(Danger, a),
+                                UiDraw.WithAlpha(pal.AccentSoft, a), cx, b.Height * 0.22F, 0.5F, 2 * s, 4 * s)
             End If
 
             ' Right: best + attempt
@@ -623,6 +638,10 @@ Namespace UI.Screens
                 If cfg.TimeLimitSecs > 0 Then
                     UiDraw.Text(g, $"BEAT THE CLOCK  ·  {cfg.TimeLimitSecs} SECONDS", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold),
                                 UiDraw.WithAlpha(Danger, a), cx, y + 300 * s, 0.5F, 5 * s)
+                End If
+                If _engine.BarriersTotal > 0 Then
+                    UiDraw.Text(g, "BREAK THE BARRIERS  ·  HIT THEM AT FULL BOOST", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold),
+                                UiDraw.WithAlpha(pal.Accent, a), cx, y + 300 * s, 0.5F, 5 * s)
                 End If
                 Return
             End If

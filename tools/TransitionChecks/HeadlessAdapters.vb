@@ -72,6 +72,8 @@ Namespace UI
         Public Property DungeonState As DungeonRun
         Public Property PickupTaken As Func(Of Integer, Integer, Boolean)
         Public Property BallBlink As Boolean
+        Public Property BarrierStanding As Func(Of Integer, Integer, Boolean)
+        Public Property BarrierCharge As Single
         Private ReadOnly Camera As New BoardCamera()
         Public Property CameraEnabled As Boolean
         Public Property CameraOverviewHeld As Boolean

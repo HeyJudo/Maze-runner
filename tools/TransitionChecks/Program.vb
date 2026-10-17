@@ -43,12 +43,12 @@ Module Program
         Public ReadOnly Sound As New SoundManager()
         Public ReadOnly Scores As ScoreManager
         Public ReadOnly Shell As GameShell
-        Public Sub New(Optional includeDungeon As Boolean = False, Optional includeExtraLevel As Boolean = False)
+        Public Sub New(Optional includeDungeon As Boolean = False, Optional includeExtraLevel As Boolean = False, Optional barrierLevel As Boolean = False)
             Directory.CreateDirectory(Dir)
             Dim levels As New List(Of LevelConfig)()
             For i As Integer = 1 To 3
                 Dim file As String = Path.Combine(Dir, $"level{i}.txt")
-                IO.File.WriteAllLines(file, {"111111", "1S00G1", "111111"})
+                IO.File.WriteAllLines(file, If(barrierLevel AndAlso i = 1, {"1111111", "1S00BG1", "1111111"}, {"111111", "1S00G1", "111111"}))
                 levels.Add(New LevelConfig(i, {"Wooden Workshop", "Frozen Labyrinth", "Neon Velocity"}(i - 1), file, 0, 5))
             Next
             If includeDungeon Then levels.Add(New LevelConfig(4, "Forgotten Keep", Path.Combine(AppContext.BaseDirectory, "Mazes", "Level4.txt"), 0, 180))
@@ -134,6 +134,7 @@ Module Program
         TestRetry()
         TestCancel()
         TestIntroPause()
+        TestBarrierFeedback()
         Console.WriteLine($"PASS: {_checks} transition and real-shell flow checks (headless presentation adapters)")
     End Sub
 
@@ -546,6 +547,22 @@ Module Program
             f.Ticks(200)
             Check(f.Shell.Screen = ShellScreen.Title AndAlso f.Canvas.Transition Is Nothing, "main menu cancels pending advancement")
             Check(f.Scores.TopRecords(0, 10).Count = 0, "abandoned campaign is not recorded")
+        End Using
+    End Sub
+
+    Private Sub TestBarrierFeedback()
+        Using f As New Fixture(barrierLevel:=True)
+            f.Campaign()
+            Check(f.Canvas.BarrierStanding IsNot Nothing AndAlso f.Canvas.BarrierStanding(1, 4), "canvas draws the engine's standing barriers")
+            f.Tilt.X = 1
+            For i As Integer = 1 To 120
+                If f.Sound.Played.Contains("barrier_slow") Then Exit For
+                f.Ticks(1)
+            Next
+            Check(f.Sound.Played.Contains("barrier_slow"), "a slow hit plays the too-slow cue")
+            Check(f.Shell.TooSlowVisible, "a slow hit shows TOO SLOW")
+            f.Tilt.X = 0 : f.Ticks(60)
+            Check(Not f.Shell.TooSlowVisible, "TOO SLOW fades after 900 ms")
         End Using
     End Sub
 

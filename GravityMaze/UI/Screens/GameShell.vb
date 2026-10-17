@@ -70,6 +70,7 @@ Namespace UI.Screens
         Private _heartsBeforeDamage As Single           ' health before the most recent damage animation
         Private _lastWholeSecondLeft As Integer = -1
         Private _spawnSoundInMs As Single = -1
+        Private _tooSlowMs As Single = -1   ' time since a too-slow barrier hit (-1 = hidden)
 
         ' Result of the level just finished
         Private _resultTime As Single
@@ -116,6 +117,12 @@ Namespace UI.Screens
         End Sub
 
         ' Current level's engine (Nothing on menus). Read-only; used by the verification tour's bot.
+        Public ReadOnly Property TooSlowVisible As Boolean
+            Get
+                Return _tooSlowMs >= 0
+            End Get
+        End Property
+
         Public ReadOnly Property Engine As GameEngine
             Get
                 Return _engine
@@ -228,6 +235,9 @@ Namespace UI.Screens
             If IsGameScreen() Then
                 _canvas.DungeonState = _engine.Dungeon
                 _canvas.PickupTaken = AddressOf _engine.IsPickupTaken
+                _canvas.BarrierStanding = AddressOf _engine.IsBarrierStanding
+                Dim speed As Single = CSng(Math.Sqrt(_engine.VelocityX * _engine.VelocityX + _engine.VelocityY * _engine.VelocityY))
+                _canvas.BarrierCharge = If(_screen = ShellScreen.Playing, Math.Min(1.0F, speed / _engine.BarrierBreakSpeed), 0.0F)
                 _canvas.BallBlink = _engine.IsInvulnerable AndAlso _screen = ShellScreen.Playing
                 If _screen <> ShellScreen.Paused AndAlso _screen <> ShellScreen.DungeonReveal Then
                     _canvas.UpdateBallPosition(_engine.BallX, _engine.BallY)
@@ -239,6 +249,8 @@ Namespace UI.Screens
             Else
                 _canvas.DungeonState = _attractEngine.Dungeon
                 _canvas.PickupTaken = Nothing
+                _canvas.BarrierStanding = AddressOf _attractEngine.IsBarrierStanding
+                _canvas.BarrierCharge = 0.0F
                 _canvas.BallBlink = False
                 _canvas.UpdateBallPosition(_attractEngine.BallX, _attractEngine.BallY)
                 _canvas.UpdateBallMotion(_attractEngine.VelocityX, _attractEngine.VelocityY, TileUnder(_attractEngine))
@@ -390,6 +402,8 @@ Namespace UI.Screens
             AddHandler _engine.BallFell, AddressOf OnBallFell
             AddHandler _engine.HeartLost, AddressOf OnHeartLost
             AddHandler _engine.HeartGained, AddressOf OnHeartGained
+            AddHandler _engine.BarrierBroken, AddressOf OnBarrierBroken
+            AddHandler _engine.BarrierBounced, AddressOf OnBarrierBounced
             _canvas.ShowMaze(_engine.Maze, cfg.ThemeName)
             _canvas.DungeonState = _engine.Dungeon
             _skipCard = False
@@ -410,6 +424,8 @@ Namespace UI.Screens
             RemoveHandler e.BallFell, AddressOf OnBallFell
             RemoveHandler e.HeartLost, AddressOf OnHeartLost
             RemoveHandler e.HeartGained, AddressOf OnHeartGained
+            RemoveHandler e.BarrierBroken, AddressOf OnBarrierBroken
+            RemoveHandler e.BarrierBounced, AddressOf OnBarrierBounced
         End Sub
 
         Private Sub BeginRun()
@@ -418,6 +434,7 @@ Namespace UI.Screens
             _lastTile = "0"c
             _lastWholeSecondLeft = -1
             _spawnSoundInMs = -1
+            _tooSlowMs = -1
             _heartLostAgoMs = 99999.0F
             _canvas.ClearEffects()
             ResetDungeonPresentation()
@@ -467,6 +484,10 @@ Namespace UI.Screens
             If _spawnSoundInMs >= 0 Then
                 _spawnSoundInMs -= TickMs
                 If _spawnSoundInMs < 0 Then _sound.Play("spawn", 0.7F)
+            End If
+            If _tooSlowMs >= 0 Then
+                _tooSlowMs += TickMs
+                If _tooSlowMs > 900.0F Then _tooSlowMs = -1
             End If
 
             ' Timer warnings in the last five seconds
@@ -655,6 +676,17 @@ Namespace UI.Screens
         Private Sub OnHeartGained(sender As Object, e As HeartEventArgs)
             _canvas.AddHeartBurst(e.X, e.Y)
             _sound.Play("menu_confirm", 0.8F)
+        End Sub
+
+        Private Sub OnBarrierBroken(sender As Object, e As BarrierEventArgs)
+            _canvas.AddImpact(e.X, e.Y, -Math.Sign(_engine.VelocityX), -Math.Sign(_engine.VelocityY), 0.24F)
+            _canvas.Shake(220.0F, 4.0F)
+            _sound.Play("goal", 0.55F)
+        End Sub
+
+        Private Sub OnBarrierBounced(sender As Object, e As BarrierEventArgs)
+            _tooSlowMs = 0
+            _sound.Play("barrier_slow") ' ponytail: reuses menu_back.wav until a bespoke cue exists
         End Sub
 
         Private Sub OnAttractImpact(sender As Object, e As WallImpactEventArgs)

@@ -59,7 +59,9 @@ Namespace Rendering
                         Optional motion As MarbleMotion = Nothing,
                         Optional boardTilt As BoardTilt = Nothing,
                         Optional deferMarbles As Boolean = False,
-                        Optional dungeon As DungeonRun = Nothing)
+                        Optional dungeon As DungeonRun = Nothing,
+                        Optional barrierStanding As Func(Of Integer, Integer, Boolean) = Nothing,
+                        Optional barrierCharge As Single = 0.0F)
             _marbles.Clear()
             _deferMarbles = deferMarbles
             _orientation = If(motion Is Nothing, Quaternion.Identity, motion.Orientation)
@@ -103,6 +105,8 @@ Namespace Rendering
 
                 ' Heart pickups bob and pulse, so they are drawn per frame, not in the cached board.
                 DrawPickups(graphics, left, top, tileSize, maze, pickupTaken)
+                ' Barriers flicker and react to the marble's speed, so they are drawn per frame like pickups.
+                DrawBarriers(graphics, left, top, tileSize, maze, barrierStanding, barrierCharge)
 
                 ' 4. Expanding Goal Celebration Ring Effect (if active)
                 If goalEffect IsNot Nothing AndAlso goalEffect.IsActive Then
@@ -163,6 +167,31 @@ Namespace Rendering
                         graphics.FillEllipse(glow, cx - glowR, cy - glowR, glowR * 2.0F, glowR * 2.0F)
                     End Using
                     Sprites.DrawHeart(graphics, Sprites.Heart, New RectangleF(cx - size / 2.0F, cy - size / 2.0F, size, size))
+                Next
+            Next
+        End Sub
+
+        ' B tiles are floor in the static board; a standing barrier is a flickering force field that
+        ' blazes brighter as the marble approaches break speed (charge 0..1).
+        Private Shared Sub DrawBarriers(graphics As Graphics, left As Single, top As Single, tileSize As Single,
+                                        maze As MazeDefinition, standing As Func(Of Integer, Integer, Boolean), charge As Single)
+            Dim flicker As Single = CSng(0.5 + 0.5 * Math.Sin(Environment.TickCount64 * 2.0 * Math.PI / 260.0))
+            Dim fillAlpha As Integer = Math.Min(255, CInt(110 + 60 * flicker + 85 * charge))
+            Dim edgeAlpha As Integer = Math.Min(255, CInt(160 + 95 * charge))
+            For r As Integer = 0 To maze.RowCount - 1
+                For c As Integer = 0 To maze.ColumnCount - 1
+                    If maze.GetTile(r, c) <> "B"c Then Continue For
+                    If standing IsNot Nothing AndAlso Not standing(r, c) Then Continue For
+                    Dim rect As New RectangleF(left + c * tileSize, top + r * tileSize, tileSize, tileSize)
+                    Using fill As New SolidBrush(Color.FromArgb(fillAlpha, 255, 60, 200)),
+                          edge As New Pen(Color.FromArgb(edgeAlpha, 120, 240, 255), Math.Max(1.0F, tileSize * (0.06F + 0.06F * charge)))
+                        graphics.FillRectangle(fill, rect)
+                        For k As Integer = 1 To 3
+                            Dim y As Single = rect.Y + rect.Height * k / 4.0F
+                            graphics.DrawLine(edge, rect.X, y, rect.Right, y)
+                        Next
+                        graphics.DrawRectangle(edge, rect.X, rect.Y, rect.Width, rect.Height)
+                    End Using
                 Next
             Next
         End Sub
