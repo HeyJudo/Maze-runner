@@ -114,6 +114,7 @@ Public Class Form1
     End Sub
 
     Protected Overrides Sub OnFormClosed(e As FormClosedEventArgs)
+        shell?.OnClosing()
         gameLoopTimer?.Stop()
         gameLoopTimer?.Dispose()
         sound?.Dispose()

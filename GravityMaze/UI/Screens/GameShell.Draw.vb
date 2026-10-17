@@ -200,16 +200,22 @@ Namespace UI.Screens
                 Dim lv As LevelConfig = _levels(i)
                 Dim lp As ThemePalette = ThemePalette.ForTheme(lv.ThemeName)
                 Dim sel As Boolean = _levelMenu.Selected = i
+                Dim locked As Boolean = Not _levelMenu.Enabled(i)
                 Dim r As New RectangleF(x + If(sel, 16 * s, 0), y + i * (cardH + 18 * s), cardW, cardH)
-                UiDraw.Panel(g, r, Color.FromArgb(If(sel, 235, 190), lp.Backdrop), If(sel, lp.Accent, Color.FromArgb(70, lp.TextDim)), 12 * s)
+                UiDraw.Panel(g, r, Color.FromArgb(If(locked, 120, If(sel, 235, 190)), lp.Backdrop), If(sel, lp.Accent, Color.FromArgb(70, lp.TextDim)), 12 * s)
                 If sel Then
                     Using bar As New SolidBrush(lp.Accent)
                         g.FillRectangle(bar, r.X, r.Y + 14 * s, 4 * s, r.Height - 28 * s)
                     End Using
                 End If
                 UiDraw.Text(g, (i + 1).ToString("00"), GameFonts.Display(76 * s), If(sel, lp.Accent, UiDraw.WithAlpha(lp.Accent, 0.55F)), r.X + 26 * s, r.Y + 22 * s)
-                UiDraw.Text(g, lv.ThemeName.ToUpperInvariant(), GameFonts.Display(46 * s), lp.Text, r.X + 116 * s, r.Y + 20 * s, 0, 2 * s)
-                UiDraw.Text(g, lp.Tagline, GameFonts.Body(20 * s), lp.TextDim, r.X + 118 * s, r.Y + 72 * s)
+                UiDraw.Text(g, lv.ThemeName.ToUpperInvariant(), GameFonts.Display(46 * s), If(locked, UiDraw.WithAlpha(lp.Text, 0.45F), lp.Text), r.X + 116 * s, r.Y + 20 * s, 0, 2 * s)
+                UiDraw.Text(g, lp.Tagline, GameFonts.Body(20 * s), If(locked, UiDraw.WithAlpha(lp.TextDim, 0.45F), lp.TextDim), r.X + 118 * s, r.Y + 72 * s)
+                If locked Then
+                    UiDraw.Text(g, $"LOCKED  ·  CLEAR LEVEL {i}", GameFonts.Body(18 * s, GameFonts.FontWeight.Bold), lp.TextDim,
+                                r.Right - 24 * s, r.Y + 48 * s, 1, 3 * s)
+                    Continue For
+                End If
                 Dim best As ScoreRecord = _scores.BestRecordFor(_scores.PlayerName, lv.LevelNumber)
                 Dim starCount As Integer = BestStars(lv.LevelNumber)
                 For k As Integer = 1 To 3
@@ -799,6 +805,10 @@ Namespace UI.Screens
                 UiDraw.Text(g, stats(i).Item1, GameFonts.Body(18 * s, GameFonts.FontWeight.Bold), brand.TextDim, sx, y + 360 * s, 0.5F, 5 * s)
                 UiDraw.Text(g, stats(i).Item2, GameFonts.Display(64 * s), brand.Text, sx, y + 386 * s, 0.5F, 1 * s)
             Next
+            If Not _campaignFromStart Then
+                UiDraw.Text(g, "CONTINUED RUN  ·  START FROM LEVEL 1 TO POST A CAMPAIGN TIME", GameFonts.Body(18 * s, GameFonts.FontWeight.Bold),
+                            brand.TextDim, cx, y + 460 * s, 0.5F, 4 * s)
+            End If
             If _screenMs > 1500 Then DrawMenu(g, _victoryMenu, cx, y + 500 * s, s, brand, 0.5F, 34, 56)
         End Sub
 

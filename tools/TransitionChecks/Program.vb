@@ -134,12 +134,16 @@ Module Program
         TestRetry()
         TestCancel()
         TestIntroPause()
+        TestRunJournal()
+        TestContinueCampaign()
+        TestLevelLocks()
         TestBarrierFeedback()
         Console.WriteLine($"PASS: {_checks} transition and real-shell flow checks (headless presentation adapters)")
     End Sub
 
     Private Sub EnterDungeon(f As Fixture)
-        f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+        f.Scores.Unlock(4)
+        f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
         f.Menu(3) : f.Shell.HandleKey(Keys.Enter)
         Check(f.Shell.Screen = ShellScreen.DungeonBriefing, "Level select must enter dungeon briefing")
     End Sub
@@ -197,7 +201,8 @@ Module Program
             End Using
         Next
         Using f As New Fixture(True)
-            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            f.Scores.Unlock(3)
+            f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
             f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
             f.WaitFor(ShellScreen.Playing) : f.Goal() : f.WaitFor(ShellScreen.LevelComplete)
             f.Ticks(90) : f.Shell.HandleKey(Keys.Enter)
@@ -510,7 +515,7 @@ Module Program
 
     Private Sub TestPractice()
         Using f As New Fixture()
-            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
             f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
             f.Goal() : f.WaitFor(ShellScreen.LevelComplete)
             Dim engine = f.Shell.Engine
@@ -563,6 +568,58 @@ Module Program
             Check(f.Shell.TooSlowVisible, "a slow hit shows TOO SLOW")
             f.Tilt.X = 0 : f.Ticks(60)
             Check(Not f.Shell.TooSlowVisible, "TOO SLOW fades after 900 ms")
+        End Using
+    End Sub
+
+    Private Sub TestRunJournal()
+        Using f As New Fixture()
+            f.Campaign() : f.Tilt.X = 1 : f.Ticks(5) : f.Tilt.X = 0
+            f.Shell.HandleKey(Keys.R)                                   ' restart mid-run
+            f.WaitFor(ShellScreen.Playing) : f.Ticks(5)
+            f.Shell.HandleKey(Keys.Escape) : f.Menu(2) : f.Shell.HandleKey(Keys.Enter)   ' pause → MAIN MENU
+            Dim runs = f.Scores.RunsFor("TEST", 1)
+            Check(runs.Count = 2 AndAlso runs(0).Outcome = RunOutcome.Restart AndAlso runs(1).Outcome = RunOutcome.Quit, "restart and quit are journaled")
+            Check(f.Scores.TopRecords(1, 10).Count = 0, "unfinished runs are not records")
+            f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
+            f.Shell.HandleKey(Keys.R)                                   ' never moved: nothing journaled
+            Check(f.Scores.RunsFor("TEST", 1).Count = 2, "a run with no time is not journaled")
+
+            ' Out of hearts, then R: exactly one more run, and it is the out-of-hearts one.
+            f.WaitFor(ShellScreen.Playing)
+            For hit As Integer = 1 To 12
+                f.Tilt.X = -1 : f.Ticks(94)
+                If hit < 12 Then f.Tilt.X = 1 : f.Ticks(12)
+            Next
+            f.Tilt.X = 0 : f.WaitFor(ShellScreen.OutOfHearts)
+            f.Shell.HandleKey(Keys.R)
+            runs = f.Scores.RunsFor("TEST", 1)
+            Check(runs.Count = 3 AndAlso runs(2).Outcome = RunOutcome.OutOfHearts AndAlso runs(2).WallHits = 12 AndAlso runs(2).HeartsLost = 3,
+                  "out of hearts is journaled once with its counters")
+        End Using
+    End Sub
+
+    Private Sub TestContinueCampaign()
+        Using f As New Fixture()
+            Check(Not f.Shell.TitleItemEnabled(1), "CONTINUE is disabled before any clear")
+            f.Campaign() : f.Goal() : f.WaitFor(ShellScreen.Playing)
+            f.Shell.HandleKey(Keys.Escape) : f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Scores.UnlockedLevel = 2 AndAlso f.Shell.TitleItemEnabled(1), "clearing level 1 unlocks level 2 and CONTINUE")
+            f.Menu(1) : f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
+            For level As Integer = 2 To 3
+                f.Goal() : f.WaitFor(If(level = 3, ShellScreen.Victory, ShellScreen.Playing))
+            Next
+            Check(f.Scores.TopRecords(1, 10).Count = 1 AndAlso f.Scores.TopRecords(2, 10).Count = 1 AndAlso f.Scores.TopRecords(3, 10).Count = 1,
+                  "continued run saves each level it played")
+            Check(f.Scores.TopRecords(0, 10).Count = 0, "a continued campaign posts no campaign record")
+        End Using
+    End Sub
+
+    Private Sub TestLevelLocks()
+        Using f As New Fixture()
+            f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.LevelSelect AndAlso f.Shell.SelectedIndex = 0, "level select opens on level 1")
+            f.Tilt.Y = 0 : f.Ticks(3) : f.Tilt.Y = 1 : f.Ticks(1) : f.Tilt.Y = 0
+            Check(f.Shell.SelectedIndex = 3, "locked levels 2-3 are skipped straight to BACK")
         End Using
     End Sub
 

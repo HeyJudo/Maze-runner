@@ -66,20 +66,8 @@ Namespace VerificationRunner
             Shot("ui_01_title")
 
             ' Level select (menu index 1) – preview + cards
-            MoveTo(1) : Key(Keys.Enter) : Ticks(40)
-            Expect(ShellScreen.LevelSelect)
-            Shot("ui_02_level_select")
-            Key(Keys.Escape) : Ticks(10)
-            Expect(ShellScreen.Title)
-
-            MoveTo(3) : Key(Keys.Enter) : Ticks(30)
-            Expect(ShellScreen.HowToPlay)
-            Shot("ui_03_how_to_play")
-            Key(Keys.Escape) : Ticks(10)
-
-            ' Play with no name yet → name entry first
-            MoveTo(0) : Key(Keys.Enter) : Ticks(20)
-            Expect(ShellScreen.NameEntry)
+            MoveTo(2) : Key(Keys.Enter) : Ticks(20)
+            Expect(ShellScreen.NameEntry)   ' no player yet: ask for one first
             For i As Integer = 1 To 12 : Key(Keys.Back) : Next
             For Each ch As Char In "JUDE" : _shell.HandleChar(ch) : Next
             _shell.HandleChar("T"c)
@@ -87,7 +75,19 @@ Namespace VerificationRunner
             Key(Keys.Back)
             Ticks(10)
             Shot("ui_04_name_entry")
-            Key(Keys.Enter) : Ticks(20)
+            Key(Keys.Enter) : Ticks(40)
+            Expect(ShellScreen.LevelSelect)
+            Shot("ui_02_level_select")
+            Key(Keys.Escape) : Ticks(10)
+            Expect(ShellScreen.Title)
+
+            MoveTo(4) : Key(Keys.Enter) : Ticks(30)
+            Expect(ShellScreen.HowToPlay)
+            Shot("ui_03_how_to_play")
+            Key(Keys.Escape) : Ticks(10)
+
+            ' Play with the chosen player
+            MoveTo(0) : Key(Keys.Enter) : Ticks(20)
             Expect(ShellScreen.Intro)
             Shot("ui_05_intro_card")
             Ticks(CInt((1600 + 700) / 16))
@@ -176,7 +176,7 @@ Namespace VerificationRunner
             Expect(ShellScreen.Title)
 
             ' Level 3 HUD: barriers counter instead of a countdown.
-            MoveTo(1) : Key(Keys.Enter) : Ticks(10)
+            MoveTo(2) : Key(Keys.Enter) : Ticks(10)
             MoveTo(2) : Key(Keys.Enter)
             Ticks(CInt((1600 + 2000) / 16) + 10)
             Expect(ShellScreen.Playing)
@@ -189,7 +189,7 @@ Namespace VerificationRunner
             ' Out of hearts on Level 1: twelve quarter-heart wall hits, with time to recover.
             Key(Keys.Escape) : Ticks(10)
             Expect(ShellScreen.Title)
-            MoveTo(1) : Key(Keys.Enter) : Ticks(10)
+            MoveTo(2) : Key(Keys.Enter) : Ticks(10)
             MoveTo(0) : Key(Keys.Enter)
             Ticks(CInt((1600 + 2000) / 16) + 10)
             Expect(ShellScreen.Playing)
