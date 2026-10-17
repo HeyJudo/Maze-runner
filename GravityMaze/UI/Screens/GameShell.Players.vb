@@ -3,6 +3,7 @@ Option Explicit On
 
 Imports System
 Imports System.Collections.Generic
+Imports System.Linq
 Imports GravityMaze.Data
 
 Namespace UI.Screens
@@ -32,7 +33,7 @@ Namespace UI.Screens
         ' No profiles yet: straight to typing. Otherwise list players (current first), then + NEW PLAYER and BACK.
         Private Sub OpenPlayerSelect(after As Action)
             _afterPlayerChosen = after
-            _playerList = _scores.Players
+            _playerList = _scores.Players.Take(7).ToList()   ' ponytail: 7 most recent fit above the footer; upgrade to a scrolling list for more. Older players type their name and continue via the "already exists" prompt.
             If _playerList.Count = 0 Then OpenNameEntry() : Return
             _playerMenu.Items.Clear()
             For Each p As PlayerProfile In _playerList

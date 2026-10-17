@@ -343,7 +343,7 @@ Namespace UI.Screens
                     UiDraw.Text(g, UiDraw.FormatTime(rec.TimeSeconds), GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), rowColor, r.Right - 24 * s, ry + 3 * s, 1)
                 Next
             Next
-            DrawMenu(g, _recordsMenu, x + 8 * s, b.Height - 150 * s, s, pal, 0, 28, 46)
+            DrawMenu(g, _recordsMenu, x + 8 * s, b.Height - 170 * s, s, pal, 0, 28, 46)
             DrawFooter(g, b, s, pal, MenuHints, _recordsMenu)
         End Sub
 
