@@ -122,6 +122,12 @@ Namespace UI.Screens
             Return chip.Width + 8 + ls.Width + 26
         End Function
 
+        ' Width KeyHint would return, without drawing.
+        Public Shared Function KeyHintWidth(g As Graphics, key As String, label As String) As Single
+            Return Measure(g, key, GameFonts.Body(15, GameFonts.FontWeight.Bold)).Width + 14 + 8 +
+                   Measure(g, label, GameFonts.Body(17, GameFonts.FontWeight.Medium)).Width + 26
+        End Function
+
         ' Five-point star; fill 0..1 scales it in with a pop.
         Public Shared Sub Star(g As Graphics, cx As Single, cy As Single, radius As Single, filled As Boolean,
                                accent As Color, Optional scale As Single = 1.0F)

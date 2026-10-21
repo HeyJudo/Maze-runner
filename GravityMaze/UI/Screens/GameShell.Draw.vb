@@ -551,14 +551,18 @@ Namespace UI.Screens
             UiDraw.Text(g, If(best Is Nothing, "--:--.--", UiDraw.FormatTime(best.TimeSeconds)), big,
                         If(best Is Nothing, pal.TextDim, pal.Text), bx, 44 * s, 1, 1 * s)
 
-            ' Bottom hints
+            ' Bottom hints: fixed-size chips, so stop before the right-aligned status (measured) instead of overlapping it.
             Dim hy As Single = b.Bottom - 44 * s
             Dim x As Single = 40 * s
+            Dim status As String = _scores.PlayerName & "   ·   " & BoardStatus()
+            Dim statusFont As Font = GameFonts.Body(18 * s, GameFonts.FontWeight.Bold)
+            Dim limit As Single = b.Width - 40 * s - UiDraw.Measure(g, status, statusFont, 2 * s).Width - 24 * s
             For Each h In {("ESC", "Pause"), ("R", "Restart"), ("G", If(_scores.GhostEnabled, "Ghost on", "Ghost off")), ("M", If(_sound.Muted, "Sound off", "Sound on")), ("F9", "Camera"), ("TAB", "Overview")}
+                Dim w As Single = UiDraw.KeyHintWidth(g, h.Item1, h.Item2)
+                If x + w - 26 > limit Then Exit For   ' 26 = trailing gap inside the returned width
                 x += UiDraw.KeyHint(g, h.Item1, h.Item2, x, hy, pal.Accent, pal.TextDim)
             Next
-            UiDraw.Text(g, _scores.PlayerName & "   ·   " & BoardStatus(), GameFonts.Body(18 * s, GameFonts.FontWeight.Bold),
-                        If(BoardConnected(), pal.Accent, pal.TextDim), b.Width - 40 * s, hy + 2 * s, 1, 2 * s)
+            UiDraw.Text(g, status, statusFont, If(BoardConnected(), pal.Accent, pal.TextDim), b.Width - 40 * s, hy + 2 * s, 1, 2 * s)
         End Sub
 
         Private Sub DrawWrapped(g As Graphics, text As String, font As Font, color As Color, rect As RectangleF)
