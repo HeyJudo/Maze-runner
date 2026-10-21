@@ -43,7 +43,7 @@ Module Program
         Public ReadOnly Sound As New SoundManager()
         Public ReadOnly Scores As ScoreManager
         Public ReadOnly Shell As GameShell
-        Public Sub New(Optional includeDungeon As Boolean = False, Optional includeExtraLevel As Boolean = False, Optional barrierLevel As Boolean = False)
+        Public Sub New(Optional includeDungeon As Boolean = False, Optional includeExtraLevel As Boolean = False, Optional barrierLevel As Boolean = False, Optional board As ArduinoController = Nothing)
             Directory.CreateDirectory(Dir)
             Dim levels As New List(Of LevelConfig)()
             For i As Integer = 1 To 3
@@ -54,7 +54,7 @@ Module Program
             If includeDungeon Then levels.Add(New LevelConfig(4, "Forgotten Keep", Path.Combine(AppContext.BaseDirectory, "Mazes", "Level4.txt"), 0, 180))
             If includeExtraLevel Then levels.Add(New LevelConfig(5, "Wooden Workshop", Path.Combine(Dir, "level1.txt"), 0, 5))
             Scores = New ScoreManager(Path.Combine(Dir, "records.xml")) With {.PlayerName = "TEST"}
-            Shell = New GameShell(Canvas, New InputManager(Tilt), Sound, Scores, levels)
+            Shell = New GameShell(Canvas, New InputManager(Tilt, board), Sound, Scores, levels)
         End Sub
         Public Sub Ticks(count As Integer)
             For i As Integer = 1 To count : Shell.Tick() : Next
@@ -140,7 +140,23 @@ Module Program
         TestBarrierFeedback()
         TestPlayers()
         TestGhost()
+        TestCalibration()
         Console.WriteLine($"PASS: {_checks} transition and real-shell flow checks (headless presentation adapters)")
+    End Sub
+
+    Private Sub TestCalibration()
+        Dim board As New ArduinoController With {.IsConnected = True}
+        Using f As New Fixture(board:=board)
+            f.Menu(6) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Calibrate, "calibrate opens from the title")
+            f.Shell.HandleKey(Keys.Enter)                                            ' RECENTER
+            Check(board.Calibrations = 1, "recenter zeroes the board")
+            f.Menu(3) : f.Shell.HandleKey(Keys.Enter)                                ' INVERT X
+            Check(board.InvertX AndAlso f.Scores.Calibration.InvertX, "invert X applies to the board and is saved")
+            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)                                ' SENSITIVITY 20 -> 25
+            Check(board.FullTiltDegrees = 25 AndAlso New ScoreManager(Path.Combine(f.Dir, "records.xml")).Calibration.FullTiltDegrees = 25,
+                  "sensitivity steps and persists")
+        End Using
     End Sub
 
     Private Sub EnterDungeon(f As Fixture)

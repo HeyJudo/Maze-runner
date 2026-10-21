@@ -22,6 +22,7 @@ Namespace UI.Screens
         NameEntry
         PlayerSelect
         Profile
+        Calibrate
         Intro          ' level card + 3-2-1-GO; engine frozen
         Playing
         GoalTransition
@@ -122,6 +123,7 @@ Namespace UI.Screens
             _levelMenu.Enabled = Function(i) i >= _levels.Count OrElse i < _scores.UnlockedLevel
             _canvas.OverlayPainter = AddressOf Paint
             StartAttract()
+            ApplyCalibration()
             GoTo_(ShellScreen.Title)
         End Sub
 
@@ -154,6 +156,7 @@ Namespace UI.Screens
                 Case ShellScreen.HowToPlay : Return _backMenu
                 Case ShellScreen.PlayerSelect : Return _playerMenu
                 Case ShellScreen.Profile : Return _profileMenu
+                Case ShellScreen.Calibrate : Return _calibrateMenu
                 Case ShellScreen.NameEntry : Return _nameMenu
                 Case ShellScreen.DungeonBriefing : Return _dungeonMenu
                 Case ShellScreen.DungeonRules : Return _dungeonRulesMenu
@@ -225,6 +228,9 @@ Namespace UI.Screens
                         Case MenuAction.Confirm : ProfileChoice(_profileMenu.Selected)
                         Case MenuAction.Back : GoTo_(ShellScreen.Title)
                     End Select
+                Case ShellScreen.Calibrate
+                    TickAttract()
+                    TickCalibrate(tx, ty)
                 Case ShellScreen.NameEntry
                     TickAttract()
                     Select Case Nav(_nameMenu, tx, ty)
@@ -391,7 +397,7 @@ Namespace UI.Screens
                 Case 3 : GoTo_(ShellScreen.Records)
                 Case 4 : GoTo_(ShellScreen.HowToPlay)
                 Case 5 : WithPlayer(AddressOf OpenProfile)
-                Case 6 : GoTo_(ShellScreen.Title)                      ' Task 8: calibration screen
+                Case 6 : OpenCalibration()
                 Case 7 : OpenPlayerSelect(Nothing)
                 Case 8 : RaiseEvent QuitRequested(Me, EventArgs.Empty)
             End Select
@@ -436,7 +442,7 @@ Namespace UI.Screens
                 Case ShellScreen.NameEntry
                     _afterPlayerChosen = Nothing
                     GoTo_(ShellScreen.Title)
-                Case ShellScreen.LevelSelect, ShellScreen.HowToPlay, ShellScreen.Profile, ShellScreen.PlayerSelect
+                Case ShellScreen.LevelSelect, ShellScreen.HowToPlay, ShellScreen.Profile, ShellScreen.PlayerSelect, ShellScreen.Calibrate
                     GoTo_(ShellScreen.Title)
             End Select
         End Sub
@@ -893,6 +899,10 @@ Namespace UI.Screens
                     If key = Keys.Escape Then _sound.Play("menu_back") : _afterPlayerChosen = Nothing : GoTo_(ShellScreen.Title) : Return True
                 Case ShellScreen.Profile
                     If IsEnter(key) Then _sound.Play("menu_confirm") : ProfileChoice(_profileMenu.Selected) : Return True
+                    If key = Keys.Escape Then _sound.Play("menu_back") : GoTo_(ShellScreen.Title) : Return True
+                Case ShellScreen.Calibrate
+                    If _testingTilt AndAlso (IsEnter(key) OrElse key = Keys.Escape) Then _testingTilt = False : _calibrateMenu.Reset(6) : Return True
+                    If IsEnter(key) Then _sound.Play("menu_confirm") : CalibrationChoice(_calibrateMenu.Selected) : Return True
                     If key = Keys.Escape Then _sound.Play("menu_back") : GoTo_(ShellScreen.Title) : Return True
                 Case ShellScreen.NameEntry
                     If key = Keys.Enter Then _sound.Play("menu_confirm") : ConfirmName() : Return True

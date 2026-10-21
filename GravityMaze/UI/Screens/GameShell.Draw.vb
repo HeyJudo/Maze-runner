@@ -30,6 +30,7 @@ Namespace UI.Screens
                 Case ShellScreen.NameEntry : DrawNameEntry(g, b, s, pal)
                 Case ShellScreen.PlayerSelect : DrawPlayerSelect(g, b, s, pal)
                 Case ShellScreen.Profile : DrawProfile(g, b, s, pal)
+                Case ShellScreen.Calibrate : DrawCalibrate(g, b, s, pal)
                 Case ShellScreen.DungeonBriefing : DrawDungeonBriefing(g, b, s, pal)
                 Case ShellScreen.DungeonRules : DrawDungeonRules(g, b, s, pal)
                 Case ShellScreen.DungeonReveal : DrawHud(g, b, s, pal) : DrawDungeonReveal(g, b, s, pal)
@@ -265,6 +266,34 @@ Namespace UI.Screens
         End Sub
 
         ' ── Profile ─────────────────────────────────────────────────────────
+        ' ── Calibrate ───────────────────────────────────────────────────────
+        Private Sub DrawCalibrate(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim_(g, b, 238)
+            Dim x As Single = b.Width * 0.065F
+            UiDraw.Text(g, "CONTROLLER", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), pal.Accent, x, b.Height * 0.08F, 0, 6 * s)
+            UiDraw.GlowText(g, "CALIBRATE", GameFonts.Display(110 * s), pal.Text, pal.AccentSoft, x, b.Height * 0.08F + 34 * s, 0, 3 * s, 4 * s)
+            DrawMenu(g, _calibrateMenu, x + 8 * s, b.Height * 0.32F, s, pal, 0, 30, 52)
+            UiDraw.Text(g, BoardStatus(), GameFonts.Body(20 * s, GameFonts.FontWeight.Bold), If(BoardConnected(), pal.Accent, pal.TextDim),
+                        x, b.Height * 0.32F + 8 * 52 * s + 16 * s, 0, 2 * s)
+
+            ' Live tilt: outer ring = full tilt, dot = current input, ball = TEST TILT physics.
+            Dim radius As Single = Math.Min(b.Height * 0.28F, b.Width * 0.2F)
+            Dim c As New PointF(b.Width * 0.7F, b.Height * 0.55F)
+            Using ring As New Pen(Color.FromArgb(120, pal.Accent), 3 * s), dead As New Pen(Color.FromArgb(60, pal.TextDim), 1.5F * s),
+                  dot As New SolidBrush(pal.Accent), ball As New SolidBrush(pal.Text)
+                g.DrawEllipse(ring, c.X - radius, c.Y - radius, radius * 2, radius * 2)
+                Dim dz As Single = radius * _scores.Calibration.Deadzone
+                g.DrawEllipse(dead, c.X - dz, c.Y - dz, dz * 2, dz * 2)
+                Dim tx As Single = _input.TiltX, ty As Single = _input.TiltY
+                g.FillEllipse(dot, c.X + tx * radius - 8 * s, c.Y + ty * radius - 8 * s, 16 * s, 16 * s)
+                If _testingTilt Then g.FillEllipse(ball, c.X + _testBall.X * radius - 18 * s, c.Y + _testBall.Y * radius - 18 * s, 36 * s, 36 * s)
+            End Using
+            Dim hint As String = If(_testingTilt, "Tilt to roll the ball  ·  ENTER, ESC or hold left 2 s to finish",
+                                    "Hold the board level, then RECENTER  ·  the dot shows your tilt")
+            UiDraw.Text(g, hint, GameFonts.Body(20 * s), pal.TextDim, c.X, c.Y + radius + 24 * s, 0.5F)
+            DrawFooter(g, b, s, pal, MenuHints, _calibrateMenu)
+        End Sub
+
         Private Sub DrawProfile(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
             Dim_(g, b, 238)
             Dim x As Single = b.Width * 0.065F

@@ -3,8 +3,10 @@ Option Explicit On
 
 Imports System
 Imports System.Collections.Generic
+Imports System.Drawing
 Imports System.Linq
 Imports GravityMaze.Data
+Imports GravityMaze.Input
 
 Namespace UI.Screens
     ' Who's Playing?, name de-duplication, the Profile screen and the Records filter.
@@ -97,6 +99,93 @@ Namespace UI.Screens
             Else
                 Back()
             End If
+        End Sub
+
+        ' ── Calibration ─────────────────────────────────────────────────────
+        ' Cycling values (confirm = next step) keeps left/right free for hold-to-confirm/back on the board.
+        Private ReadOnly _calibrateMenu As New MenuList("RECENTER", "SENSITIVITY", "DEAD ZONE", "INVERT X", "INVERT Y", "SWAP AXES", "TEST TILT", "BACK")
+        Private Shared ReadOnly SensitivitySteps As Single() = {10, 15, 20, 25, 30}
+        Private Shared ReadOnly DeadzoneSteps As Single() = {0.04F, 0.08F, 0.12F, 0.16F}
+        Private _testingTilt As Boolean
+        Private _testBall As PointF
+        Private _testVelocity As PointF
+        Private _testExitMs As Single
+
+        Private Sub OpenCalibration()
+            _testingTilt = False
+            RefreshCalibrationLabels()
+            GoTo_(ShellScreen.Calibrate)
+        End Sub
+
+        Private Sub ApplyCalibration()
+            Dim board As ArduinoController = _input.Board
+            If board Is Nothing Then Return
+            Dim c As CalibrationSettings = _scores.Calibration
+            board.FullTiltDegrees = c.FullTiltDegrees
+            board.Deadzone = c.Deadzone
+            board.Smoothing = c.Smoothing
+            board.SwapAxes = c.SwapAxes
+            board.InvertX = c.InvertX
+            board.InvertY = c.InvertY
+        End Sub
+
+        Private Shared Function NextStep(steps As Single(), current As Single) As Single
+            For Each v As Single In steps
+                If v > current + 0.001F Then Return v
+            Next
+            Return steps(0)
+        End Function
+
+        Private Sub RefreshCalibrationLabels()
+            Dim c As CalibrationSettings = _scores.Calibration
+            _calibrateMenu.Items(1) = $"SENSITIVITY: FULL TILT AT {c.FullTiltDegrees:0}°"
+            _calibrateMenu.Items(2) = $"DEAD ZONE: {c.Deadzone:0.00}"
+            _calibrateMenu.Items(3) = "INVERT X: " & If(c.InvertX, "ON", "OFF")
+            _calibrateMenu.Items(4) = "INVERT Y: " & If(c.InvertY, "ON", "OFF")
+            _calibrateMenu.Items(5) = "SWAP AXES: " & If(c.SwapAxes, "ON", "OFF")
+        End Sub
+
+        Private Sub CalibrationChoice(index As Integer)
+            Dim c As CalibrationSettings = _scores.Calibration
+            Select Case index
+                Case 0 : _input.Board?.Calibrate() : Return
+                Case 1 : c.FullTiltDegrees = NextStep(SensitivitySteps, c.FullTiltDegrees)
+                Case 2 : c.Deadzone = NextStep(DeadzoneSteps, c.Deadzone)
+                Case 3 : c.InvertX = Not c.InvertX
+                Case 4 : c.InvertY = Not c.InvertY
+                Case 5 : c.SwapAxes = Not c.SwapAxes
+                Case 6
+                    _testingTilt = True
+                    _testBall = PointF.Empty
+                    _testVelocity = PointF.Empty
+                    _testExitMs = 0
+                    Return
+                Case Else : GoTo_(ShellScreen.Title) : Return
+            End Select
+            ApplyCalibration()
+            _scores.SaveSettings()
+            RefreshCalibrationLabels()
+        End Sub
+
+        ' TEST TILT: the menu freezes and a ball rolls in a circle with the board's tilt.
+        ' Leave with Enter/Esc, or by holding the board fully left for 2 seconds.
+        Private Sub TickCalibrate(tx As Single, ty As Single)
+            If Not _testingTilt Then
+                Select Case Nav(_calibrateMenu, tx, ty)
+                    Case MenuAction.Confirm : CalibrationChoice(_calibrateMenu.Selected)
+                    Case MenuAction.Back : GoTo_(ShellScreen.Title)
+                End Select
+                Return
+            End If
+            _testVelocity = New PointF((_testVelocity.X + tx * 0.01F) * 0.9F, (_testVelocity.Y + ty * 0.01F) * 0.9F)
+            _testBall = New PointF(_testBall.X + _testVelocity.X, _testBall.Y + _testVelocity.Y)
+            Dim d As Single = CSng(Math.Sqrt(_testBall.X * _testBall.X + _testBall.Y * _testBall.Y))
+            If d > 1.0F Then
+                _testBall = New PointF(_testBall.X / d, _testBall.Y / d)
+                _testVelocity = PointF.Empty
+            End If
+            _testExitMs = If(tx <= -0.9F, _testExitMs + TickMs, 0.0F)
+            If _testExitMs >= 2000.0F Then _testingTilt = False : _calibrateMenu.Reset(6)
         End Sub
     End Class
 End Namespace

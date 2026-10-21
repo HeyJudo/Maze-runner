@@ -45,6 +45,16 @@ Namespace Input
         Public Property IsConnected As Boolean
         Public Property IsCalibrating As Boolean
         Public Property ConnectedPort As String = "TEST"
+        Public Property FullTiltDegrees As Single = 20
+        Public Property Deadzone As Single = 0.08F
+        Public Property Smoothing As Single = 0.35F
+        Public Property SwapAxes As Boolean
+        Public Property InvertX As Boolean
+        Public Property InvertY As Boolean
+        Public Property Calibrations As Integer
+        Public Sub Calibrate()
+            Calibrations += 1
+        End Sub
     End Class
 End Namespace
 

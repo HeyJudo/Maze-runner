@@ -33,7 +33,7 @@ Public Class Form1
 
         keyboardController = New KeyboardController()
         ' Arduino tilt board: auto-detected on any COM port; keyboard keeps working alongside it.
-        ' If the ball rolls the wrong way on the real board, flip InvertX / InvertY / SwapAxes here.
+        ' Tuning lives in the in-game CALIBRATE screen (saved in records.xml); C re-centers any time.
         board = New ArduinoController()
         board.Start()
         inputManager = New InputManager(keyboardController, board)
