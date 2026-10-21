@@ -265,7 +265,6 @@ Namespace UI.Screens
             DrawFooter(g, b, s, pal, MenuHints, _playerMenu)
         End Sub
 
-        ' ── Profile ─────────────────────────────────────────────────────────
         ' ── Calibrate ───────────────────────────────────────────────────────
         Private Sub DrawCalibrate(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
             Dim_(g, b, 238)
@@ -289,11 +288,13 @@ Namespace UI.Screens
                 If _testingTilt Then g.FillEllipse(ball, c.X + _testBall.X * radius - 18 * s, c.Y + _testBall.Y * radius - 18 * s, 36 * s, 36 * s)
             End Using
             Dim hint As String = If(_testingTilt, "Tilt to roll the ball  ·  ENTER, ESC or hold left 2 s to finish",
-                                    "Hold the board level, then RECENTER  ·  the dot shows your tilt")
+                                    If(_recenterPending, "Hold the board level… recentering  ·  ENTER or ESC cancels",
+                                       "RECENTER after changing a setting  ·  the dot shows your tilt"))
             UiDraw.Text(g, hint, GameFonts.Body(20 * s), pal.TextDim, c.X, c.Y + radius + 24 * s, 0.5F)
             DrawFooter(g, b, s, pal, MenuHints, _calibrateMenu)
         End Sub
 
+        ' ── Profile ─────────────────────────────────────────────────────────
         Private Sub DrawProfile(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
             Dim_(g, b, 238)
             Dim x As Single = b.Width * 0.065F

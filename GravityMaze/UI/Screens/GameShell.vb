@@ -901,7 +901,8 @@ Namespace UI.Screens
                     If IsEnter(key) Then _sound.Play("menu_confirm") : ProfileChoice(_profileMenu.Selected) : Return True
                     If key = Keys.Escape Then _sound.Play("menu_back") : GoTo_(ShellScreen.Title) : Return True
                 Case ShellScreen.Calibrate
-                    If _testingTilt AndAlso (IsEnter(key) OrElse key = Keys.Escape) Then _testingTilt = False : _calibrateMenu.Reset(6) : Return True
+                    If _recenterPending AndAlso (IsEnter(key) OrElse key = Keys.Escape) Then _recenterPending = False : _sound.Play("menu_back") : Return True
+                    If _testingTilt AndAlso (IsEnter(key) OrElse key = Keys.Escape) Then _testingTilt = False : _calibrateMenu.Reset(6) : _sound.Play("menu_back") : Return True
                     If IsEnter(key) Then _sound.Play("menu_confirm") : CalibrationChoice(_calibrateMenu.Selected) : Return True
                     If key = Keys.Escape Then _sound.Play("menu_back") : GoTo_(ShellScreen.Title) : Return True
                 Case ShellScreen.NameEntry

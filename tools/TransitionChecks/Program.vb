@@ -141,6 +141,7 @@ Module Program
         TestPlayers()
         TestGhost()
         TestCalibration()
+        TestRecenterWaitsForLevel()
         Console.WriteLine($"PASS: {_checks} transition and real-shell flow checks (headless presentation adapters)")
     End Sub
 
@@ -156,6 +157,24 @@ Module Program
             f.Menu(1) : f.Shell.HandleKey(Keys.Enter)                                ' SENSITIVITY 20 -> 25
             Check(board.FullTiltDegrees = 25 AndAlso New ScoreManager(Path.Combine(f.Dir, "records.xml")).Calibration.FullTiltDegrees = 25,
                   "sensitivity steps and persists")
+        End Using
+    End Sub
+
+    Private Sub TestRecenterWaitsForLevel()
+        Dim board As New ArduinoController With {.IsConnected = True}
+        Using f As New Fixture(board:=board)
+            f.Menu(6) : f.Shell.HandleKey(Keys.Enter)
+            f.Menu(0)
+            f.Tilt.X = 1 : f.Ticks(70)                                               ' board-style hold right = confirm
+            Check(board.Calibrations = 0, "recenter must not zero a tipped board")
+            f.Ticks(100)
+            Check(board.Calibrations = 0, "recenter keeps waiting while the board stays tipped")
+            f.Tilt.X = 0 : f.Ticks(50)
+            Check(board.Calibrations = 0, "recenter needs a full second of level")
+            f.Ticks(20)
+            Check(board.Calibrations = 1, "recenter zeroes once the board has been level for a second")
+            f.Ticks(100)
+            Check(board.Calibrations = 1, "recenter fires only once")
         End Using
     End Sub
 

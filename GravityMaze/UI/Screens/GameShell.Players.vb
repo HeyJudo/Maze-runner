@@ -110,9 +110,12 @@ Namespace UI.Screens
         Private _testBall As PointF
         Private _testVelocity As PointF
         Private _testExitMs As Single
+        Private _recenterPending As Boolean   ' board confirm: wait for the board to be level before zeroing
+        Private _recenterLevelMs As Single
 
         Private Sub OpenCalibration()
             _testingTilt = False
+            _recenterPending = False
             RefreshCalibrationLabels()
             GoTo_(ShellScreen.Calibrate)
         End Sub
@@ -145,10 +148,18 @@ Namespace UI.Screens
             _calibrateMenu.Items(5) = "SWAP AXES: " & If(c.SwapAxes, "ON", "OFF")
         End Sub
 
-        Private Sub CalibrationChoice(index As Integer)
+        ' fromBoard: a hold-right confirm leaves the board tipped, so RECENTER waits until it is level again.
+        Private Sub CalibrationChoice(index As Integer, Optional fromBoard As Boolean = False)
             Dim c As CalibrationSettings = _scores.Calibration
             Select Case index
-                Case 0 : _input.Board?.Calibrate() : Return
+                Case 0
+                    If fromBoard Then
+                        _recenterPending = True
+                        _recenterLevelMs = 0
+                    Else
+                        _input.Board?.Calibrate()
+                    End If
+                    Return
                 Case 1 : c.FullTiltDegrees = NextStep(SensitivitySteps, c.FullTiltDegrees)
                 Case 2 : c.Deadzone = NextStep(DeadzoneSteps, c.Deadzone)
                 Case 3 : c.InvertX = Not c.InvertX
@@ -170,9 +181,17 @@ Namespace UI.Screens
         ' TEST TILT: the menu freezes and a ball rolls in a circle with the board's tilt.
         ' Leave with Enter/Esc, or by holding the board fully left for 2 seconds.
         Private Sub TickCalibrate(tx As Single, ty As Single)
+            If _recenterPending Then
+                _recenterLevelMs = If(Math.Abs(tx) < 0.3F AndAlso Math.Abs(ty) < 0.3F, _recenterLevelMs + TickMs, 0.0F)
+                If _recenterLevelMs >= 1000.0F Then
+                    _recenterPending = False
+                    _input.Board?.Calibrate()
+                End If
+                Return
+            End If
             If Not _testingTilt Then
                 Select Case Nav(_calibrateMenu, tx, ty)
-                    Case MenuAction.Confirm : CalibrationChoice(_calibrateMenu.Selected)
+                    Case MenuAction.Confirm : CalibrationChoice(_calibrateMenu.Selected, True)
                     Case MenuAction.Back : GoTo_(ShellScreen.Title)
                 End Select
                 Return
@@ -185,7 +204,7 @@ Namespace UI.Screens
                 _testVelocity = PointF.Empty
             End If
             _testExitMs = If(tx <= -0.9F, _testExitMs + TickMs, 0.0F)
-            If _testExitMs >= 2000.0F Then _testingTilt = False : _calibrateMenu.Reset(6)
+            If _testExitMs >= 2000.0F Then _testingTilt = False : _calibrateMenu.Reset(6) : _sound.Play("menu_back")
         End Sub
     End Class
 End Namespace
