@@ -13,6 +13,7 @@
     <Compile Include="../../GravityMaze/Input/InputManager.vb" Link="InputManager.vb" />
     <Compile Include="../../GravityMaze/UI/Screens/GameShell.vb" Link="GameShell.vb" />
     <Compile Include="../../GravityMaze/UI/Screens/GameShell.Dungeon.vb" Link="GameShell.Dungeon.vb" />
+    <Compile Include="../../GravityMaze/UI/Screens/GameShell.Players.vb" Link="GameShell.Players.vb" />
     <Compile Include="../../GravityMaze/UI/Screens/DungeonPresentation.vb" Link="DungeonPresentation.vb" />
     <Compile Include="../../GravityMaze/UI/Screens/MenuList.vb" Link="MenuList.vb" />
     <Compile Include="../../GravityMaze/UI/Screens/AttractPilot.vb" Link="AttractPilot.vb" />

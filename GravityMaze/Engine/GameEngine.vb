@@ -4,6 +4,7 @@ Option Explicit On
 Imports System
 Imports System.Drawing
 Imports System.Collections.Generic
+Imports System.Linq
 Imports GravityMaze.Levels
 
 Namespace Engine
@@ -57,6 +58,21 @@ Namespace Engine
 
         Public Event HeartLost As EventHandler(Of HeartEventArgs)
         Public Event HeartGained As EventHandler(Of HeartEventArgs)
+
+        ' Overdrive barriers (B): a marble at break speed smashes the whole connected barrier;
+        ' slower contact is an ordinary wall hit. Break speed sits above BaseMaxSpeed, so only a boost reaches it.
+        Public Property BarrierBreakSpeed As Single = 0.16F
+        Public Property BarrierSmashDamping As Single = 0.5F   ' velocity kept after smashing through
+        Public Event BarrierBroken As EventHandler(Of BarrierEventArgs)
+        Public Event BarrierBounced As EventHandler(Of BarrierEventArgs)
+        Private ReadOnly _barrierGroup As Integer()                   ' per tile: barrier id, -1 = none
+        Private ReadOnly _barrierCenters As New List(Of PointF)()
+        Private ReadOnly _brokenBarriers As New HashSet(Of Integer)()
+
+        ' Run counters for the journal; Reset clears them.
+        Private _wallHits As Integer
+        Private _falls As Integer
+        Private _quartersLost As Integer
 
         Private _heartQuarters As Integer = MaxHearts * QuartersPerHeart
         Private _invulnerableMs As Single
@@ -156,6 +172,31 @@ Namespace Engine
             _ballY = maze.StartRow + 0.5F
             _goalCenterX = maze.GoalColumn + 0.5F
             _goalCenterY = maze.GoalRow + 0.5F
+            _barrierGroup = Enumerable.Repeat(-1, maze.RowCount * maze.ColumnCount).ToArray()
+            For r As Integer = 0 To maze.RowCount - 1
+                For c As Integer = 0 To maze.ColumnCount - 1
+                    If maze.GetTile(r, c) <> "B"c OrElse _barrierGroup(r * maze.ColumnCount + c) >= 0 Then Continue For
+                    Dim id As Integer = _barrierCenters.Count
+                    Dim sumX As Single = 0, sumY As Single = 0
+                    Dim n As Integer = 0
+                    Dim todo As New Stack(Of Point)()
+                    _barrierGroup(r * maze.ColumnCount + c) = id
+                    todo.Push(New Point(c, r))
+                    While todo.Count > 0
+                        Dim p As Point = todo.Pop()
+                        sumX += p.X + 0.5F : sumY += p.Y + 0.5F : n += 1
+                        For Each d As Point In {New Point(1, 0), New Point(-1, 0), New Point(0, 1), New Point(0, -1)}
+                            Dim nx As Integer = p.X + d.X
+                            Dim ny As Integer = p.Y + d.Y
+                            If nx < 0 OrElse ny < 0 OrElse nx >= maze.ColumnCount OrElse ny >= maze.RowCount Then Continue For
+                            If maze.GetTile(ny, nx) <> "B"c OrElse _barrierGroup(ny * maze.ColumnCount + nx) >= 0 Then Continue For
+                            _barrierGroup(ny * maze.ColumnCount + nx) = id
+                            todo.Push(New Point(nx, ny))
+                        Next
+                    End While
+                    _barrierCenters.Add(New PointF(sumX / n, sumY / n))
+                Next
+            Next
         End Sub
 
         ' Resets the current level for another attempt.
@@ -176,6 +217,10 @@ Namespace Engine
             _heartQuarters = MaxHearts * QuartersPerHeart
             _invulnerableMs = 0.0F
             _takenPickups.Clear()
+            _brokenBarriers.Clear()
+            _wallHits = 0
+            _falls = 0
+            _quartersLost = 0
             Dungeon?.Reset()
         End Sub
 
@@ -195,12 +240,81 @@ Namespace Engine
             Return _takenPickups.Contains(row * _maze.ColumnCount + col)
         End Function
 
+        Public ReadOnly Property BarriersTotal As Integer
+            Get
+                Return _barrierCenters.Count
+            End Get
+        End Property
+
+        Public ReadOnly Property BarriersBroken As Integer
+            Get
+                Return _brokenBarriers.Count
+            End Get
+        End Property
+
+        Public Function IsBarrierStanding(row As Integer, col As Integer) As Boolean
+            Return BarrierAt(row, col) >= 0
+        End Function
+
+        Public ReadOnly Property WallHits As Integer
+            Get
+                Return _wallHits
+            End Get
+        End Property
+
+        Public ReadOnly Property Falls As Integer
+            Get
+                Return _falls
+            End Get
+        End Property
+
+        Public ReadOnly Property HeartsLost As Single
+            Get
+                Return CSng(_quartersLost) / QuartersPerHeart
+            End Get
+        End Property
+
+        ' Standing barrier id at a tile, or -1.
+        Private Function BarrierAt(row As Integer, col As Integer) As Integer
+            If row < 0 OrElse row >= _maze.RowCount OrElse col < 0 OrElse col >= _maze.ColumnCount Then Return -1
+            Dim id As Integer = _barrierGroup(row * _maze.ColumnCount + col)
+            Return If(id < 0 OrElse _brokenBarriers.Contains(id), -1, id)
+        End Function
+
+        ' Barriers on the ball's leading edge: at break speed every touched barrier opens and the ball keeps
+        ' (damped) momentum; slower contact leaves them standing and reports one bounce per contact.
+        Private Function SmashBarriers(lead As Integer, fromIndex As Integer, toIndex As Integer, horizontal As Boolean,
+                                       speed As Single, touching As Boolean) As Boolean
+            Dim hit As New HashSet(Of Integer)()
+            Dim hx As Single, hy As Single
+            For i As Integer = fromIndex To toIndex
+                Dim r As Integer = If(horizontal, i, lead)
+                Dim c As Integer = If(horizontal, lead, i)
+                Dim id As Integer = BarrierAt(r, c)
+                If id >= 0 AndAlso hit.Add(id) Then hx = c + 0.5F : hy = r + 0.5F
+            Next
+            If hit.Count = 0 Then Return False
+            If speed < BarrierBreakSpeed Then
+                If Not touching Then RaiseEvent BarrierBounced(Me, New BarrierEventArgs(hx, hy))
+                Return False
+            End If
+            For Each id As Integer In hit
+                _brokenBarriers.Add(id)
+                RaiseEvent BarrierBroken(Me, New BarrierEventArgs(_barrierCenters(id).X, _barrierCenters(id).Y))
+            Next
+            _velocityX *= BarrierSmashDamping
+            _velocityY *= BarrierSmashDamping
+            Return True
+        End Function
+
         ' Wall contacts respect the grace period; pits always apply their full damage.
         Private Sub TakeHit(x As Single, y As Single, damageQuarters As Integer, ignoreInvulnerable As Boolean)
             If Not HeartsEnabled OrElse _state <> GameState.Playing Then Return
             If Not ignoreInvulnerable AndAlso _invulnerableMs > 0.0F Then Return
             Dim previousHearts As Single = Hearts
+            Dim before As Integer = _heartQuarters
             _heartQuarters = Math.Max(0, _heartQuarters - damageQuarters)
+            _quartersLost += before - _heartQuarters
             _invulnerableMs = InvulnerableMs
             RaiseEvent HeartLost(Me, New HeartEventArgs(x, y, Hearts, previousHearts))
             If _heartQuarters = 0 Then
@@ -253,7 +367,14 @@ Namespace Engine
             ' 4. X movement with leading-edge wall check.
             If _velocityX <> 0.0F Then
                 Dim newX As Single = _ballX + _velocityX
-                If WallBlocksX(newX) Then
+                Dim blockedX As Boolean = WallBlocksX(newX)
+                If blockedX Then
+                    Dim leadCol As Integer = If(_velocityX > 0.0F, CInt(Math.Floor(newX + BallRadius)), CInt(Math.Floor(newX - BallRadius)))
+                    If SmashBarriers(leadCol, Math.Max(0, CInt(Math.Floor(_ballY - BallRadius + Eps))),
+                                     Math.Min(_maze.RowCount - 1, CInt(Math.Floor(_ballY + BallRadius - Eps))), True,
+                                     Math.Abs(_velocityX), If(_velocityX > 0.0F, _inContactRight, _inContactLeft)) Then blockedX = WallBlocksX(newX)
+                End If
+                If blockedX Then
                     Dim impactSpeed As Single = Math.Abs(_velocityX)
                     Dim contactX As Single
                     If _velocityX > 0.0F Then
@@ -262,7 +383,7 @@ Namespace Engine
                         If Not _inContactRight AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(contactX, _ballY, -1.0F, 0.0F, impactSpeed))
                         End If
-                        If Not _inContactRight Then TakeHit(contactX, _ballY, WallDamageQuarters, False)
+                        If Not _inContactRight Then _wallHits += 1 : TakeHit(contactX, _ballY, WallDamageQuarters, False)
                         _inContactRight = True
                     Else
                         contactX = CSng(Math.Ceiling(newX - BallRadius))
@@ -270,7 +391,7 @@ Namespace Engine
                         If Not _inContactLeft AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(contactX, _ballY, 1.0F, 0.0F, impactSpeed))
                         End If
-                        If Not _inContactLeft Then TakeHit(contactX, _ballY, WallDamageQuarters, False)
+                        If Not _inContactLeft Then _wallHits += 1 : TakeHit(contactX, _ballY, WallDamageQuarters, False)
                         _inContactLeft = True
                     End If
                     _velocityX = 0.0F
@@ -287,7 +408,14 @@ Namespace Engine
             ' 5. Y movement with leading-edge wall check.
             If _velocityY <> 0.0F Then
                 Dim newY As Single = _ballY + _velocityY
-                If WallBlocksY(newY) Then
+                Dim blockedY As Boolean = WallBlocksY(newY)
+                If blockedY Then
+                    Dim leadRow As Integer = If(_velocityY > 0.0F, CInt(Math.Floor(newY + BallRadius)), CInt(Math.Floor(newY - BallRadius)))
+                    If SmashBarriers(leadRow, Math.Max(0, CInt(Math.Floor(_ballX - BallRadius + Eps))),
+                                     Math.Min(_maze.ColumnCount - 1, CInt(Math.Floor(_ballX + BallRadius - Eps))), False,
+                                     Math.Abs(_velocityY), If(_velocityY > 0.0F, _inContactBottom, _inContactTop)) Then blockedY = WallBlocksY(newY)
+                End If
+                If blockedY Then
                     Dim impactSpeed As Single = Math.Abs(_velocityY)
                     Dim contactY As Single
                     If _velocityY > 0.0F Then
@@ -296,7 +424,7 @@ Namespace Engine
                         If Not _inContactBottom AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(_ballX, contactY, 0.0F, -1.0F, impactSpeed))
                         End If
-                        If Not _inContactBottom Then TakeHit(_ballX, contactY, WallDamageQuarters, False)
+                        If Not _inContactBottom Then _wallHits += 1 : TakeHit(_ballX, contactY, WallDamageQuarters, False)
                         _inContactBottom = True
                     Else
                         contactY = CSng(Math.Ceiling(newY - BallRadius))
@@ -304,7 +432,7 @@ Namespace Engine
                         If Not _inContactTop AndAlso impactSpeed >= MinImpactSpeed Then
                             RaiseEvent WallImpacted(Me, New WallImpactEventArgs(_ballX, contactY, 0.0F, 1.0F, impactSpeed))
                         End If
-                        If Not _inContactTop Then TakeHit(_ballX, contactY, WallDamageQuarters, False)
+                        If Not _inContactTop Then _wallHits += 1 : TakeHit(_ballX, contactY, WallDamageQuarters, False)
                         _inContactTop = True
                     End If
                     _velocityY = 0.0F
@@ -340,6 +468,7 @@ Namespace Engine
                     Dungeon.Advance(oldX, oldY, _ballX, _ballY)
                     Dungeon.OnFell()
                 End If
+                _falls += 1
                 RaiseEvent BallFell(Me, New BallFellEventArgs(hCol + 0.5F, hRow + 0.5F))
                 Dim spawn = If(Dungeon Is Nothing, New Point(_maze.StartColumn, _maze.StartRow), Dungeon.RespawnPoint)
                 _ballX = spawn.X + 0.5F
@@ -403,6 +532,7 @@ Namespace Engine
         End Function
 
         Private Function Solid(row As Integer, column As Integer) As Boolean
+            If BarrierAt(row, column) >= 0 Then Return True
             Return If(Dungeon Is Nothing, _maze.GetTile(row, column) = "1"c, Dungeon.Solid(row, column))
         End Function
 
@@ -488,6 +618,19 @@ Namespace Engine
             Me.NormalX = normalX
             Me.NormalY = normalY
             Me.Speed   = speed
+        End Sub
+    End Class
+
+    ' Barrier centre (tile-space) for smash and bounce feedback.
+    Public NotInheritable Class BarrierEventArgs
+        Inherits EventArgs
+
+        Public ReadOnly Property X As Single
+        Public ReadOnly Property Y As Single
+
+        Public Sub New(x As Single, y As Single)
+            Me.X = x
+            Me.Y = y
         End Sub
     End Class
 End Namespace

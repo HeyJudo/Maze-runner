@@ -104,39 +104,25 @@ void loop() {
    - Hold a **left** tilt for about 1 second to go back.
 4. **In a level:** tilt in each of the four directions and confirm the ball rolls the same way. Check the diagonals and small, gentle tilts as well. Level 1 is the easiest to test on. You have 3 hearts: each new wall contact costs **1/4 heart**, while a pit costs **one full heart** and respawns the ball. Wall damage grants 1 second of protection from another wall hit; pits still cost health during this protection. Holding against a wall does not drain health continuously. Floating hearts restore one full heart, capped at 3; the HUD shows partially filled hearts.
 5. **Keyboard override:** while the board is connected, hold an arrow key. The keyboard should take control. When you let go, the board takes over again.
-6. **Unplug test:** unplug the USB cable mid-game. The footer should go back to `NO BOARD` and the keyboard should still work. Plug it back in, and within a few seconds it reconnects and the footer shows `BOARD COMx` again.
+6. **Unplug test:** unplug the USB cable mid-game. The game pauses with a banner (it never resumes by itself; choose RESUME), the footer goes back to `NO BOARD` and the keyboard should still work. Plug it back in, and within a few seconds it reconnects and the footer shows `BOARD COMx` again.
 
 ## 5. Troubleshooting
 
-All tuning happens in **`GravityMaze/Form1.vb`**, on the line `board = New ArduinoController()`. Add the settings you need with `With { }`, for example:
+Tuning is done in the game: pick **CALIBRATE** on the title menu to recenter, change sensitivity and dead zone, invert X/Y, swap axes and run **TEST TILT**. Sensitivity, dead zone, invert and swap are saved to `%AppData%\GravityMaze\records.xml`; the zero point is not saved, so re-take it each session with RECENTER or **C**. Confirmed with the board, RECENTER waits until the board is held level for about a second; with the keyboard, Enter recenters at once. **C** still re-centers at any time.
 
-```vb
-board = New ArduinoController() With {.InvertX = True, .FullTiltDegrees = 25.0F}
-```
-
-Then press F5 again. These are the default values:
-
-| Setting | Default | Meaning |
-|---|---|---|
-| `InvertX` | `False` | Flips left and right |
-| `InvertY` | `False` | Flips up and down |
-| `SwapAxes` | `False` | Use when the sensor is mounted rotated 90° |
-| `FullTiltDegrees` | `20.0F` | How far you tilt the board (in degrees) to reach full speed |
-| `Deadzone` | `0.08F` | Small tilts near level that are ignored |
-| `Smoothing` | `0.35F` | 0 to 1; a lower value is smoother but responds later |
-| `PortName` | auto | Forces one port, e.g. `"COM5"` |
+**CALIBRATE and `records.xml` own the tuning.** At startup the game overwrites the board's `InvertX`, `InvertY`, `SwapAxes`, `FullTiltDegrees`, `Deadzone` and `Smoothing` with the saved values (defaults: all invert/swap off, 20 degrees, 0.08, 0.35), so setting them on `board = New ArduinoController()` in `GravityMaze/Form1.vb` has no effect. Only `PortName` set there still applies, for example `board = New ArduinoController() With {.PortName = "COM5"}` forces one port instead of auto-detecting.
 
 | Problem | Fix |
 |---|---|
-| Ball goes left when you tilt right | `.InvertX = True` |
-| Ball goes up when you tilt down | `.InvertY = True` |
-| Tilting forward moves the ball sideways | `.SwapAxes = True`, then re-check the two Invert settings |
-| Too twitchy | Increase `FullTiltDegrees` (try 25 to 30) |
-| Too sluggish, or you have to tilt a lot | Decrease `FullTiltDegrees` (try 12 to 15) |
-| Ball drifts when the board is at rest | Hold the board level and press **C**. If it still drifts, raise `Deadzone` (try 0.12 to 0.15) |
-| Feels laggy | Raise `Smoothing` (try 0.5 to 0.7) |
+| Ball goes left when you tilt right | CALIBRATE: turn **INVERT X** on |
+| Ball goes up when you tilt down | CALIBRATE: turn **INVERT Y** on |
+| Tilting forward moves the ball sideways | CALIBRATE: turn **SWAP AXES** on, then re-check INVERT X and INVERT Y |
+| Too twitchy | CALIBRATE: raise **SENSITIVITY** (full tilt at 25 to 30°) |
+| Too sluggish, or you have to tilt a lot | CALIBRATE: lower **SENSITIVITY** (full tilt at 12 to 15°) |
+| Ball drifts when the board is at rest | Hold the board level and press **C**. If it still drifts, raise **DEAD ZONE** in CALIBRATE (try 0.12 to 0.15) |
+| Feels laggy | Close the game, edit the `Smoothing` attribute in `<Settings>` of `%AppData%\GravityMaze\records.xml` (try 0.5 to 0.7), then start it again |
 | Footer stays at **NO BOARD** | 1) Close the Serial Monitor (and any other program using the port). 2) Check that the sketch uses `115200` baud. 3) Try a different USB cable, because charge-only cables carry no data. 4) Clone Unos with a **CH340** chip need the CH340 driver: if Device Manager doesn't list the board under **Ports (COM & LPT)**, install the driver. 5) Check that the line format matches section 3. |
-| Menus scroll by themselves | Press C while the board is level, and raise `Deadzone` if that doesn't fix it |
+| Menus scroll by themselves | Press C while the board is level, and raise **DEAD ZONE** in CALIBRATE if that doesn't fix it |
 
 > Pressing **C** on the name-entry screen types the letter C. Re-center from any other screen.
 

@@ -48,7 +48,7 @@ Namespace VerificationRunner
             Dim levels As New List(Of LevelConfig) From {
                 New LevelConfig(1, "Wooden Workshop", Path.Combine(gameDir, "Mazes\Level1.txt"), 0, 7.3F),
                 New LevelConfig(2, "Frozen Labyrinth", Path.Combine(gameDir, "Mazes\Level2.txt"), 0, 36.9F),
-                New LevelConfig(3, "Neon Velocity", Path.Combine(gameDir, "Mazes\Level3.txt"), 57, 40.2F),
+                New LevelConfig(3, "Neon Velocity", Path.Combine(gameDir, "Mazes\Level3.txt"), 0, 37.4F),
                 New LevelConfig(4, "Forgotten Keep", Path.Combine(gameDir, "Mazes\Level4.txt"), 0, 180.0F)}
             Dim scoresPath As String = Path.Combine(Path.GetTempPath(), $"gm_tour_{Guid.NewGuid():N}.xml")
 
@@ -65,21 +65,9 @@ Namespace VerificationRunner
             If Not _canvas.TiltViewEnabled Then Throw New Exception("F8 must re-enable tilt view")
             Shot("ui_01_title")
 
-            ' Level select (menu index 1) – preview + cards
-            MoveTo(1) : Key(Keys.Enter) : Ticks(40)
-            Expect(ShellScreen.LevelSelect)
-            Shot("ui_02_level_select")
-            Key(Keys.Escape) : Ticks(10)
-            Expect(ShellScreen.Title)
-
-            MoveTo(3) : Key(Keys.Enter) : Ticks(30)
-            Expect(ShellScreen.HowToPlay)
-            Shot("ui_03_how_to_play")
-            Key(Keys.Escape) : Ticks(10)
-
-            ' Play with no name yet → name entry first
-            MoveTo(0) : Key(Keys.Enter) : Ticks(20)
-            Expect(ShellScreen.NameEntry)
+            ' Level select (menu index 2) – preview + cards
+            MoveTo(2) : Key(Keys.Enter) : Ticks(20)
+            Expect(ShellScreen.NameEntry)   ' no player yet: ask for one first
             For i As Integer = 1 To 12 : Key(Keys.Back) : Next
             For Each ch As Char In "JUDE" : _shell.HandleChar(ch) : Next
             _shell.HandleChar("T"c)
@@ -87,7 +75,19 @@ Namespace VerificationRunner
             Key(Keys.Back)
             Ticks(10)
             Shot("ui_04_name_entry")
-            Key(Keys.Enter) : Ticks(20)
+            Key(Keys.Enter) : Ticks(40)
+            Expect(ShellScreen.LevelSelect)
+            Shot("ui_02_level_select")
+            Key(Keys.Escape) : Ticks(10)
+            Expect(ShellScreen.Title)
+
+            MoveTo(4) : Key(Keys.Enter) : Ticks(30)
+            Expect(ShellScreen.HowToPlay)
+            Shot("ui_03_how_to_play")
+            Key(Keys.Escape) : Ticks(10)
+
+            ' Play with the chosen player
+            MoveTo(0) : Key(Keys.Enter) : Ticks(20)
             Expect(ShellScreen.Intro)
             Shot("ui_05_intro_card")
             Ticks(CInt((1600 + 700) / 16))
@@ -174,21 +174,35 @@ Namespace VerificationRunner
             Shot("ui_11_records")
             Key(Keys.Escape) : Ticks(10)
             Expect(ShellScreen.Title)
+            MoveTo(5) : Key(Keys.Enter) : Ticks(30)
+            Expect(ShellScreen.Profile)
+            Shot("ui_16_profile")
+            Key(Keys.Escape) : Ticks(10)
+            MoveTo(7) : Key(Keys.Enter) : Ticks(30)
+            Expect(ShellScreen.PlayerSelect)
+            Shot("ui_17_player_select")
+            Key(Keys.Escape) : Ticks(10)
+            MoveTo(6) : Key(Keys.Enter) : Ticks(30)
+            Expect(ShellScreen.Calibrate)
+            Shot("ui_18_calibrate")
+            Key(Keys.Escape) : Ticks(10)
+            Expect(ShellScreen.Title)
 
-            ' Time up on Level 3: idle until the clock runs out.
-            MoveTo(1) : Key(Keys.Enter) : Ticks(10)
+            ' Level 3 HUD: barriers counter instead of a countdown.
+            MoveTo(2) : Key(Keys.Enter) : Ticks(10)
             MoveTo(2) : Key(Keys.Enter)
             Ticks(CInt((1600 + 2000) / 16) + 10)
             Expect(ShellScreen.Playing)
+            If _shell.Engine.BarriersTotal <> 4 Then Throw New Exception("Level 3 must show its 4 barriers")
             Shot("ui_12_hud_level3")
-            Ticks(CInt(57000 / 16) + 60)   ' Level 3 limit (57 s)
-            Expect(ShellScreen.TimeUp)
-            Shot("ui_13_time_up")
+            Key(Keys.Escape) : Ticks(10)
+            MoveTo(2) : Key(Keys.Enter) : Ticks(10)   ' pause → MAIN MENU
+            Expect(ShellScreen.Title)
 
             ' Out of hearts on Level 1: twelve quarter-heart wall hits, with time to recover.
             Key(Keys.Escape) : Ticks(10)
             Expect(ShellScreen.Title)
-            MoveTo(1) : Key(Keys.Enter) : Ticks(10)
+            MoveTo(2) : Key(Keys.Enter) : Ticks(10)
             MoveTo(0) : Key(Keys.Enter)
             Ticks(CInt((1600 + 2000) / 16) + 10)
             Expect(ShellScreen.Playing)
@@ -207,7 +221,7 @@ Namespace VerificationRunner
             Try : File.Delete(scoresPath) : Catch : End Try
             _canvas.Dispose()
             DungeonUiTour.Run(projectRoot, Path.Combine(outDir, "level4"))
-            Console.WriteLine("  -> Menus, intro, countdown, play, pause, results, victory, records, time-up all reached.")
+            Console.WriteLine("  -> Menus, intro, countdown, play, pause, results, victory, records, level 3 HUD all reached.")
             Console.WriteLine("PASS: UI tour and Level 4 onboarding captures")
         End Sub
 

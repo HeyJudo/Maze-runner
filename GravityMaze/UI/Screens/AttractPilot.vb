@@ -41,7 +41,27 @@ Namespace UI.Screens
             Dim c As Integer = Math.Max(0, Math.Min(_maze.ColumnCount - 1, CInt(Math.Floor(engine.BallX))))
             Dim tile As Char = _maze.GetTile(r, c)
             Dim cap As Single = If(tile = "I"c, 0.05F, If(tile = "F"c, 0.14F, 0.09F))
+            ' Boost strip that ends in a standing barrier: floor it along the strip, steer the other axis as usual.
+            Dim boost As Point = If(tile = "F"c, BarrierRunUp(engine), Point.Empty)
+            If boost <> Point.Empty Then
+                Return New PointF(If(boost.X <> 0, boost.X, Key(dx, engine.VelocityX, cap)),
+                                  If(boost.Y <> 0, boost.Y, Key(dy, engine.VelocityY, cap)))
+            End If
             Return New PointF(Key(dx, engine.VelocityX, cap), Key(dy, engine.VelocityY, cap))
+        End Function
+
+        ' Unit direction of a straight boost strip ahead that ends in a standing barrier, or Point.Empty.
+        Private Function BarrierRunUp(engine As GameEngine) As Point
+            For j As Integer = Math.Max(1, _waypoint) To Math.Min(_path.Count - 1, _waypoint + 10)
+                Dim p As Point = _path(j)
+                Dim t As Char = _maze.GetTile(p.Y, p.X)
+                If t = "B"c Then
+                    If Not engine.IsBarrierStanding(p.Y, p.X) Then Return Point.Empty
+                    Return New Point(Math.Sign(p.X - _path(j - 1).X), Math.Sign(p.Y - _path(j - 1).Y))
+                End If
+                If t <> "F"c Then Return Point.Empty
+            Next
+            Return Point.Empty
         End Function
 
         Private Shared Function Key(distance As Single, velocity As Single, cap As Single) As Single

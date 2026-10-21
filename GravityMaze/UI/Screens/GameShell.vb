@@ -20,6 +20,9 @@ Namespace UI.Screens
         Records
         HowToPlay
         NameEntry
+        PlayerSelect
+        Profile
+        Calibrate
         Intro          ' level card + 3-2-1-GO; engine frozen
         Playing
         GoalTransition
@@ -52,7 +55,6 @@ Namespace UI.Screens
 
         Private _screen As ShellScreen = ShellScreen.Title
         Private _screenMs As Single
-        Private _returnScreen As ShellScreen = ShellScreen.Title   ' where NameEntry goes after confirming
 
         ' Real game
         Private _engine As GameEngine
@@ -60,16 +62,22 @@ Namespace UI.Screens
         Private _campaign As Boolean
         Private _campaignTime As Single
         Private _campaignStars As Integer
+        Private _campaignFromStart As Boolean   ' only an unbroken Level 1 → end run posts a campaign record
+        Private _runLogged As Boolean           ' this attempt is already in the journal
+        Private _afterPlayerChosen As Action    ' what to do once a player is picked (Nothing = back to title)
         Private _skipCard As Boolean
         Private _completedAtMs As Single = -1
         Private _goalTransition As GoalDropTransition
         Private _pausedScreen As ShellScreen = ShellScreen.Playing
         Private _pausedScreenMs As Single
+        Private _boardWasConnected As Boolean
+        Private _disconnectPaused As Boolean
         Private _lastTile As Char = "0"c
         Private _heartLostAgoMs As Single = 99999.0F   ' time since the last heart loss (HUD drain animation)
         Private _heartsBeforeDamage As Single           ' health before the most recent damage animation
         Private _lastWholeSecondLeft As Integer = -1
         Private _spawnSoundInMs As Single = -1
+        Private _tooSlowMs As Single = -1   ' time since a too-slow barrier hit (-1 = hidden)
 
         ' Result of the level just finished
         Private _resultTime As Single
@@ -77,6 +85,8 @@ Namespace UI.Screens
         Private _resultStars As Integer
         Private _resultScore As Integer
         Private _resultNewBest As Boolean
+        Private ReadOnly _ghostTrail As New List(Of PointF)()
+        Private _ghost As GhostRun   ' best run being raced (Nothing = none or hidden)
         Private _resultPrevBest As ScoreRecord
         Private _victoryRank As Integer
 
@@ -87,7 +97,8 @@ Namespace UI.Screens
         Private _attractDoneMs As Single = -1
 
         ' Menus
-        Private ReadOnly _titleMenu As New MenuList("PLAY", "LEVEL SELECT", "RECORDS", "HOW TO PLAY", "CHANGE PLAYER", "QUIT")
+        Private ReadOnly _titleMenu As New MenuList("PLAY", "CONTINUE", "LEVEL SELECT", "RECORDS", "HOW TO PLAY",
+                                                     "PROFILE", "CALIBRATE", "SWITCH PLAYER", "QUIT")
         Private ReadOnly _levelMenu As New MenuList()
         Private _cameraKeyHeld As Boolean
         Private ReadOnly _pauseMenu As New MenuList("RESUME", "RESTART LEVEL", "MAIN MENU", "TILT VIEW: ON", "CAMERA: FULL MAZE")
@@ -110,8 +121,11 @@ Namespace UI.Screens
                 _levelMenu.Items.Add(lv.ThemeName.ToUpperInvariant())
             Next
             _levelMenu.Items.Add("BACK")
+            _titleMenu.Enabled = AddressOf TitleItemEnabled
+            _levelMenu.Enabled = Function(i) i >= _levels.Count OrElse i < _scores.UnlockedLevel
             _canvas.OverlayPainter = AddressOf Paint
             StartAttract()
+            ApplyCalibration()
             GoTo_(ShellScreen.Title)
         End Sub
 
@@ -119,6 +133,12 @@ Namespace UI.Screens
         Public ReadOnly Property Engine As GameEngine
             Get
                 Return _engine
+            End Get
+        End Property
+
+        Public ReadOnly Property TooSlowVisible As Boolean
+            Get
+                Return _tooSlowMs >= 0
             End Get
         End Property
 
@@ -134,7 +154,11 @@ Namespace UI.Screens
             Select Case _screen
                 Case ShellScreen.Title : Return _titleMenu
                 Case ShellScreen.LevelSelect : Return _levelMenu
-                Case ShellScreen.Records, ShellScreen.HowToPlay : Return _backMenu
+                Case ShellScreen.Records : Return _recordsMenu
+                Case ShellScreen.HowToPlay : Return _backMenu
+                Case ShellScreen.PlayerSelect : Return _playerMenu
+                Case ShellScreen.Profile : Return _profileMenu
+                Case ShellScreen.Calibrate : Return _calibrateMenu
                 Case ShellScreen.NameEntry : Return _nameMenu
                 Case ShellScreen.DungeonBriefing : Return _dungeonMenu
                 Case ShellScreen.DungeonRules : Return _dungeonRulesMenu
@@ -154,7 +178,35 @@ Namespace UI.Screens
         End Property
 
         ' ── Loop ────────────────────────────────────────────────────────────
+        Public ReadOnly Property DisconnectPaused As Boolean
+            Get
+                Return _disconnectPaused
+            End Get
+        End Property
+
+        ' Screens where the clock or hazards run, so losing focus or the board must pause them.
+        Private Function PausableScreen() As Boolean
+            Select Case _screen
+                Case ShellScreen.Playing, ShellScreen.Intro, ShellScreen.GoalTransition,
+                     ShellScreen.DungeonBriefing, ShellScreen.DungeonRules, ShellScreen.DungeonReveal
+                    Return True
+            End Select
+            Return False
+        End Function
+
+        ' An unplugged board pauses live play; it never resumes on its own.
+        Private Sub WatchBoard()
+            Dim connected As Boolean = _input.Board IsNot Nothing AndAlso _input.Board.IsConnected
+            If _boardWasConnected AndAlso Not connected AndAlso PausableScreen() Then
+                Pause()
+                _disconnectPaused = True
+                _sound.Play("menu_back")
+            End If
+            _boardWasConnected = connected
+        End Sub
+
         Public Sub Tick()
+            WatchBoard()
             _screenMs += TickMs
             If _screen <> ShellScreen.Paused AndAlso _screen <> ShellScreen.DungeonReveal Then _heartLostAgoMs += TickMs
             Dim tx As Single = _input.TiltX
@@ -177,13 +229,38 @@ Namespace UI.Screens
                     TickAttract()
                     Select Case Nav(_levelMenu, tx, ty)
                         Case MenuAction.Confirm
-                            If _levelMenu.Selected >= _levels.Count Then Back() Else StartLevel(_levelMenu.Selected, campaign:=False)
+                            If _levelMenu.Selected >= _levels.Count Then
+                                Back()
+                            ElseIf _levelMenu.Enabled(_levelMenu.Selected) Then
+                                StartLevel(_levelMenu.Selected, campaign:=False)
+                            End If
                         Case MenuAction.Back : Back()
                     End Select
-                Case ShellScreen.Records, ShellScreen.HowToPlay
+                Case ShellScreen.Records
+                    TickAttract()
+                    Select Case Nav(_recordsMenu, tx, ty)
+                        Case MenuAction.Confirm : RecordsChoice(_recordsMenu.Selected)
+                        Case MenuAction.Back : Back()
+                    End Select
+                Case ShellScreen.HowToPlay
                     TickAttract()
                     Dim a As MenuAction = Nav(_backMenu, tx, ty)
                     If a = MenuAction.Confirm OrElse a = MenuAction.Back Then Back()
+                Case ShellScreen.PlayerSelect
+                    TickAttract()
+                    Select Case Nav(_playerMenu, tx, ty)
+                        Case MenuAction.Confirm : PlayerChoice(_playerMenu.Selected)
+                        Case MenuAction.Back : _afterPlayerChosen = Nothing : GoTo_(ShellScreen.Title)
+                    End Select
+                Case ShellScreen.Profile
+                    TickAttract()
+                    Select Case Nav(_profileMenu, tx, ty)
+                        Case MenuAction.Confirm : ProfileChoice(_profileMenu.Selected)
+                        Case MenuAction.Back : GoTo_(ShellScreen.Title)
+                    End Select
+                Case ShellScreen.Calibrate
+                    TickAttract()
+                    TickCalibrate(tx, ty)
                 Case ShellScreen.NameEntry
                     TickAttract()
                     Select Case Nav(_nameMenu, tx, ty)
@@ -228,7 +305,12 @@ Namespace UI.Screens
             If IsGameScreen() Then
                 _canvas.DungeonState = _engine.Dungeon
                 _canvas.PickupTaken = AddressOf _engine.IsPickupTaken
+                _canvas.BarrierStanding = AddressOf _engine.IsBarrierStanding
+                Dim speed As Single = CSng(Math.Max(Math.Abs(_engine.VelocityX), Math.Abs(_engine.VelocityY)))
+                _canvas.BarrierCharge = If(_screen = ShellScreen.Playing, Math.Min(1.0F, speed / _engine.BarrierBreakSpeed), 0.0F)
                 _canvas.BallBlink = _engine.IsInvulnerable AndAlso _screen = ShellScreen.Playing
+                _canvas.GhostPosition = If(_ghost IsNot Nothing AndAlso (_screen = ShellScreen.Playing OrElse _screen = ShellScreen.Paused),
+                                           _ghost.PositionAt(_engine.ElapsedSeconds), CType(Nothing, PointF?))
                 If _screen <> ShellScreen.Paused AndAlso _screen <> ShellScreen.DungeonReveal Then
                     _canvas.UpdateBallPosition(_engine.BallX, _engine.BallY)
                     _canvas.UpdateBallMotion(If(_screen = ShellScreen.Playing, _engine.VelocityX, 0.0F),
@@ -239,6 +321,9 @@ Namespace UI.Screens
             Else
                 _canvas.DungeonState = _attractEngine.Dungeon
                 _canvas.PickupTaken = Nothing
+                _canvas.BarrierStanding = AddressOf _attractEngine.IsBarrierStanding
+                _canvas.BarrierCharge = 0.0F
+                _canvas.GhostPosition = Nothing
                 _canvas.BallBlink = False
                 _canvas.UpdateBallPosition(_attractEngine.BallX, _attractEngine.BallY)
                 _canvas.UpdateBallMotion(_attractEngine.VelocityX, _attractEngine.VelocityY, TileUnder(_attractEngine))
@@ -302,10 +387,16 @@ Namespace UI.Screens
             _screen = screen
             _screenMs = 0
             Select Case screen
-                Case ShellScreen.Title : _titleMenu.Reset(_titleMenu.Selected)
-                Case ShellScreen.LevelSelect : _levelMenu.Reset(_levelMenu.Selected)
-                Case ShellScreen.Records, ShellScreen.HowToPlay : _backMenu.Reset()
-                Case ShellScreen.NameEntry : _nameMenu.Reset()
+                Case ShellScreen.Title
+                    Dim ci As Integer = ContinueIndex()
+                    _titleMenu.Items(1) = If(ci >= 0, $"CONTINUE · LEVEL {ci + 1}", "CONTINUE")
+                    _titleMenu.Reset(If(TitleItemEnabled(_titleMenu.Selected), _titleMenu.Selected, 0))
+                Case ShellScreen.LevelSelect
+                    _levelMenu.Reset(If(_levelMenu.Enabled(_levelMenu.Selected), _levelMenu.Selected, 0))
+                Case ShellScreen.Records : _recordsMenu.Reset()
+                Case ShellScreen.HowToPlay : _backMenu.Reset()
+                Case ShellScreen.Profile : _profileMenu.Reset()
+                Case ShellScreen.NameEntry : _nameMenu.Reset() : ClearNameNotice()
                 Case ShellScreen.DungeonBriefing : _dungeonMenu.Reset(_dungeonMenu.Selected)
                 Case ShellScreen.DungeonRules : _dungeonRulesMenu.Reset()
                 Case ShellScreen.Paused : _pauseMenu.Reset()
@@ -318,45 +409,93 @@ Namespace UI.Screens
         End Sub
 
         ' ── Menus ───────────────────────────────────────────────────────────
+        ' Level index Continue resumes at, or -1 when there is nothing to continue.
+        Private Function ContinueIndex() As Integer
+            Dim u As Integer = _scores.UnlockedLevel
+            Return If(u > 1 AndAlso u <= _levels.Count, u - 1, -1)
+        End Function
+
+        Public Function TitleItemEnabled(index As Integer) As Boolean
+            Return index <> 1 OrElse ContinueIndex() >= 0
+        End Function
+
         Private Sub TitleChoice(index As Integer)
             Select Case index
-                Case 0
-                    If String.IsNullOrWhiteSpace(_scores.PlayerName) Then
-                        OpenNameEntry(ShellScreen.Intro)
-                    Else
-                        StartLevel(0, campaign:=True)
-                    End If
-                Case 1 : GoTo_(ShellScreen.LevelSelect)
-                Case 2 : GoTo_(ShellScreen.Records)
-                Case 3 : GoTo_(ShellScreen.HowToPlay)
-                Case 4 : OpenNameEntry(ShellScreen.Title)
-                Case 5 : RaiseEvent QuitRequested(Me, EventArgs.Empty)
+                Case 0 : WithPlayer(Sub() StartCampaign(0))
+                Case 1 : WithPlayer(Sub() StartCampaign(Math.Max(0, ContinueIndex())))
+                Case 2 : WithPlayer(Sub() GoTo_(ShellScreen.LevelSelect))
+                Case 3 : GoTo_(ShellScreen.Records)
+                Case 4 : GoTo_(ShellScreen.HowToPlay)
+                Case 5 : WithPlayer(AddressOf OpenProfile)
+                Case 6 : OpenCalibration()
+                Case 7 : OpenPlayerSelect(Nothing)
+                Case 8 : RaiseEvent QuitRequested(Me, EventArgs.Empty)
             End Select
         End Sub
 
-        Private Sub OpenNameEntry(returnTo As ShellScreen)
-            _returnScreen = returnTo
-            _nameBuffer = If(String.IsNullOrWhiteSpace(_scores.PlayerName), "PLAYER", _scores.PlayerName)
+        Private Sub StartCampaign(fromIndex As Integer)
+            _campaignTime = 0
+            _campaignStars = 0
+            _campaignFromStart = fromIndex = 0
+            StartLevel(fromIndex, campaign:=True)
+        End Sub
+
+        Private Sub OpenNameEntry()
+            _nameBuffer = ""
             GoTo_(ShellScreen.NameEntry)
         End Sub
 
         Private Sub ConfirmName()
             Dim name As String = _nameBuffer.Trim()
             If name.Length = 0 Then Return
+            If Not ConfirmNewName(name) Then Return
             _scores.PlayerName = name
-            If _returnScreen = ShellScreen.Intro Then StartLevel(0, campaign:=True) Else GoTo_(ShellScreen.Title)
+            ContinueAfterPlayer()
+        End Sub
+
+        Private Sub ContinueAfterPlayer()
+            Dim nextStep As Action = _afterPlayerChosen
+            _afterPlayerChosen = Nothing
+            If nextStep Is Nothing Then GoTo_(ShellScreen.Title) Else nextStep()
+        End Sub
+
+        ' Runs action now if a player is chosen, otherwise after the player picks or types one.
+        Private Sub WithPlayer(action As Action)
+            If _scores.PlayerName.Length > 0 Then action() : Return
+            OpenPlayerSelect(action)
         End Sub
 
         Private Sub Back()
             Select Case _screen
                 Case ShellScreen.Records
                     GoTo_(If(_engine IsNot Nothing AndAlso _campaignStars > 0 AndAlso _victoryRank > 0, ShellScreen.Title, ShellScreen.Title))
-                Case ShellScreen.LevelSelect, ShellScreen.HowToPlay, ShellScreen.NameEntry
+                Case ShellScreen.NameEntry
+                    _afterPlayerChosen = Nothing
+                    GoTo_(ShellScreen.Title)
+                Case ShellScreen.LevelSelect, ShellScreen.HowToPlay, ShellScreen.Profile, ShellScreen.PlayerSelect, ShellScreen.Calibrate
                     GoTo_(ShellScreen.Title)
             End Select
         End Sub
 
+        ' Every attempt that actually moved is journaled once; cleared runs go through RecordResult.
+        Private Sub LogUnfinishedRun(outcome As String)
+            If _engine Is Nothing OrElse _completedAtMs >= 0 OrElse _runLogged Then Return
+            _runLogged = True
+            _scores.AddRecord(New ScoreRecord With {
+                .PlayerName = _scores.PlayerName, .LevelNumber = _levels(_levelIndex).LevelNumber, .Outcome = outcome,
+                .TimeSeconds = _engine.ElapsedSeconds, .Attempts = _engine.Attempts, .WallHits = _engine.WallHits,
+                .Falls = _engine.Falls, .HeartsLost = _engine.HeartsLost, .BarriersBroken = _engine.BarriersBroken,
+                .Date = DateTime.Now})
+        End Sub
+
+        ' Window closing mid-run counts as a quit.
+        Public Sub OnClosing()
+            LogUnfinishedRun(RunOutcome.Quit)
+        End Sub
+
         Private Sub ToMainMenu()
+            LogUnfinishedRun(RunOutcome.Quit)
+            _disconnectPaused = False
             RestoreDungeonPreferences()
             _engine = Nothing
             _campaign = False
@@ -375,10 +514,6 @@ Namespace UI.Screens
         End Function
 
         Private Sub StartLevel(index As Integer, campaign As Boolean, Optional readyToPlay As Boolean = False)
-            If campaign AndAlso index = 0 Then
-                _campaignTime = 0
-                _campaignStars = 0
-            End If
             RestoreDungeonPreferences()
             _campaign = campaign
             _levelIndex = index
@@ -390,6 +525,8 @@ Namespace UI.Screens
             AddHandler _engine.BallFell, AddressOf OnBallFell
             AddHandler _engine.HeartLost, AddressOf OnHeartLost
             AddHandler _engine.HeartGained, AddressOf OnHeartGained
+            AddHandler _engine.BarrierBroken, AddressOf OnBarrierBroken
+            AddHandler _engine.BarrierBounced, AddressOf OnBarrierBounced
             _canvas.ShowMaze(_engine.Maze, cfg.ThemeName)
             _canvas.DungeonState = _engine.Dungeon
             _skipCard = False
@@ -410,21 +547,29 @@ Namespace UI.Screens
             RemoveHandler e.BallFell, AddressOf OnBallFell
             RemoveHandler e.HeartLost, AddressOf OnHeartLost
             RemoveHandler e.HeartGained, AddressOf OnHeartGained
+            RemoveHandler e.BarrierBroken, AddressOf OnBarrierBroken
+            RemoveHandler e.BarrierBounced, AddressOf OnBarrierBounced
         End Sub
 
         Private Sub BeginRun()
+            _runLogged = False
             _goalTransition = Nothing
             _completedAtMs = -1
             _lastTile = "0"c
             _lastWholeSecondLeft = -1
             _spawnSoundInMs = -1
+            _tooSlowMs = -1
             _heartLostAgoMs = 99999.0F
             _canvas.ClearEffects()
+            _ghostTrail.Clear()
+            _ghost = If(_scores.GhostEnabled, _scores.GhostFor(_levels(_levelIndex).LevelNumber), Nothing)
             ResetDungeonPresentation()
             GoTo_(ShellScreen.Intro)
         End Sub
 
         Private Sub Retry()
+            LogUnfinishedRun(RunOutcome.Restart)
+            _disconnectPaused = False
             If _campaign AndAlso _completedAtMs >= 0 Then
                 _campaignTime -= _resultTime
                 _campaignStars -= _resultStars
@@ -450,6 +595,9 @@ Namespace UI.Screens
             TickDungeonMessages()
             If _completedAtMs < 0 Then
                 _engine.Update(tx, ty)
+                While _ghostTrail.Count * GhostRun.DefaultStepMs <= _engine.ElapsedSeconds * 1000.0F
+                    _ghostTrail.Add(New PointF(_engine.BallX, _engine.BallY))
+                End While
                 If TryBeginDungeonReveal() Then Return
             End If
 
@@ -468,6 +616,10 @@ Namespace UI.Screens
                 _spawnSoundInMs -= TickMs
                 If _spawnSoundInMs < 0 Then _sound.Play("spawn", 0.7F)
             End If
+            If _tooSlowMs >= 0 Then
+                _tooSlowMs += TickMs
+                If _tooSlowMs > 900.0F Then _tooSlowMs = -1
+            End If
 
             ' Timer warnings in the last five seconds
             Dim cfg As LevelConfig = _levels(_levelIndex)
@@ -479,9 +631,11 @@ Namespace UI.Screens
 
             If _engine.State = GameState.TimeUp Then
                 _sound.Play("time_up")
+                LogUnfinishedRun(RunOutcome.TimeUp)
                 GoTo_(ShellScreen.TimeUp)
             ElseIf _engine.State = GameState.OutOfHearts Then
                 _sound.Play("time_up")
+                LogUnfinishedRun(RunOutcome.OutOfHearts)
                 GoTo_(ShellScreen.OutOfHearts)
             ElseIf _engine.State = GameState.LevelComplete Then
                 If _completedAtMs < 0 Then
@@ -527,7 +681,11 @@ Namespace UI.Screens
             _resultPrevBest = _scores.BestRecordFor(_scores.PlayerName, cfg.LevelNumber)
             _resultNewBest = _scores.AddRecord(New ScoreRecord With {
                 .PlayerName = _scores.PlayerName, .LevelNumber = cfg.LevelNumber, .TimeSeconds = _resultTime,
-                .Attempts = _resultAttempts, .Stars = _resultStars, .Score = _resultScore, .Date = DateTime.Now})
+                .Attempts = _resultAttempts, .Stars = _resultStars, .Score = _resultScore, .Date = DateTime.Now,
+                .WallHits = _engine.WallHits, .Falls = _engine.Falls, .HeartsLost = _engine.HeartsLost, .BarriersBroken = _engine.BarriersBroken})
+            _ghostTrail.Add(New PointF(_engine.BallX, _engine.BallY))
+            If _resultNewBest Then _scores.SaveGhost(cfg.LevelNumber, New GhostRun(_resultTime, GhostRun.DefaultStepMs, _ghostTrail))
+            _runLogged = True
             If _campaign Then
                 _campaignTime += _resultTime
                 _campaignStars += _resultStars
@@ -578,11 +736,15 @@ Namespace UI.Screens
         Private Sub EnterVictory()
             RestoreDungeonPreferences()
             ShowAttractMaze()
-            _scores.AddRecord(New ScoreRecord With {
-                .PlayerName = _scores.PlayerName, .LevelNumber = 0, .CampaignLevels = _levels.Count, .TimeSeconds = _campaignTime,
-                .Attempts = 1, .Stars = _campaignStars, .Score = 0, .Date = DateTime.Now})
-            _victoryRank = _scores.TopRecords(0, 1000, _levels.Count).FindIndex(
-                Function(r) r.PlayerName = _scores.PlayerName AndAlso Math.Abs(r.TimeSeconds - _campaignTime) < 0.001F) + 1
+            _victoryRank = 0
+            If _campaignFromStart Then
+                _scores.AddRecord(New ScoreRecord With {
+                    .PlayerName = _scores.PlayerName, .LevelNumber = 0, .CampaignLevels = _levels.Count, .TimeSeconds = _campaignTime,
+                    .Attempts = 1, .Stars = _campaignStars, .Score = 0, .Date = DateTime.Now})
+                Dim mine As String = ScoreManager.KeyOf(_scores.PlayerName)
+                _victoryRank = _scores.TopRecords(0, 1000, _levels.Count).FindIndex(
+                    Function(r) ScoreManager.KeyOf(r.PlayerName) = mine AndAlso Math.Abs(r.TimeSeconds - _campaignTime) < 0.001F) + 1
+            End If
             _sound.Play("victory")
             GoTo_(ShellScreen.Victory)
         End Sub
@@ -605,6 +767,7 @@ Namespace UI.Screens
         End Sub
 
         Private Sub ResumeGame()
+            _disconnectPaused = False
             _screen = _pausedScreen
             _screenMs = _pausedScreenMs
         End Sub
@@ -655,6 +818,17 @@ Namespace UI.Screens
         Private Sub OnHeartGained(sender As Object, e As HeartEventArgs)
             _canvas.AddHeartBurst(e.X, e.Y)
             _sound.Play("menu_confirm", 0.8F)
+        End Sub
+
+        Private Sub OnBarrierBroken(sender As Object, e As BarrierEventArgs)
+            _canvas.AddImpact(e.X, e.Y, -Math.Sign(_engine.VelocityX), -Math.Sign(_engine.VelocityY), 0.24F)
+            _canvas.Shake(220.0F, 4.0F)
+            _sound.Play("goal", 0.55F)
+        End Sub
+
+        Private Sub OnBarrierBounced(sender As Object, e As BarrierEventArgs)
+            _tooSlowMs = 0
+            _sound.Play("barrier_slow") ' ponytail: reuses menu_back.wav until a bespoke cue exists
         End Sub
 
         Private Sub OnAttractImpact(sender As Object, e As WallImpactEventArgs)
@@ -714,6 +888,13 @@ Namespace UI.Screens
                 _sound.Muted = Not _sound.Muted
                 Return True
             End If
+            If key = Keys.G AndAlso (_screen = ShellScreen.Playing OrElse _screen = ShellScreen.Paused OrElse _screen = ShellScreen.Intro) Then
+                _scores.GhostEnabled = Not _scores.GhostEnabled
+                _ghost = If(_scores.GhostEnabled, _scores.GhostFor(_levels(_levelIndex).LevelNumber), Nothing)
+                RefreshProfileLabels()
+                _sound.Play("menu_move", 0.6F)
+                Return True
+            End If
             Select Case _screen
                 Case ShellScreen.DungeonBriefing
                     If IsEnter(key) Then DungeonBriefingChoice(_dungeonMenu.Selected) : Return True
@@ -729,21 +910,40 @@ Namespace UI.Screens
                     If key = Keys.R Then Retry() : Return True
                     If IsEnter(key) Then _sound.Play("menu_confirm") : PauseChoice(_pauseMenu.Selected) : Return True
                 Case ShellScreen.Title
-                    If IsEnter(key) Then _sound.Play("menu_confirm") : TitleChoice(_titleMenu.Selected) : Return True
+                    If IsEnter(key) AndAlso TitleItemEnabled(_titleMenu.Selected) Then _sound.Play("menu_confirm") : TitleChoice(_titleMenu.Selected) : Return True
                 Case ShellScreen.LevelSelect
                     If IsEnter(key) Then
                         _sound.Play("menu_confirm")
-                        If _levelMenu.Selected >= _levels.Count Then Back() Else StartLevel(_levelMenu.Selected, campaign:=False)
+                        If _levelMenu.Selected >= _levels.Count Then
+                            Back()
+                        ElseIf _levelMenu.Enabled(_levelMenu.Selected) Then
+                            StartLevel(_levelMenu.Selected, campaign:=False)
+                        End If
                         Return True
                     End If
                     If key = Keys.Escape Then _sound.Play("menu_back") : Back() : Return True
-                Case ShellScreen.Records, ShellScreen.HowToPlay
+                Case ShellScreen.Records
+                    If IsEnter(key) Then _sound.Play("menu_confirm") : RecordsChoice(_recordsMenu.Selected) : Return True
+                    If key = Keys.Escape Then _sound.Play("menu_back") : Back() : Return True
+                Case ShellScreen.HowToPlay
                     If IsEnter(key) OrElse key = Keys.Escape Then _sound.Play("menu_back") : Back() : Return True
+                Case ShellScreen.PlayerSelect
+                    If IsEnter(key) Then _sound.Play("menu_confirm") : PlayerChoice(_playerMenu.Selected) : Return True
+                    If key = Keys.Escape Then _sound.Play("menu_back") : _afterPlayerChosen = Nothing : GoTo_(ShellScreen.Title) : Return True
+                Case ShellScreen.Profile
+                    If IsEnter(key) Then _sound.Play("menu_confirm") : ProfileChoice(_profileMenu.Selected) : Return True
+                    If key = Keys.Escape Then _sound.Play("menu_back") : GoTo_(ShellScreen.Title) : Return True
+                Case ShellScreen.Calibrate
+                    If _recenterPending AndAlso (IsEnter(key) OrElse key = Keys.Escape) Then _recenterPending = False : _sound.Play("menu_back") : Return True
+                    If _testingTilt AndAlso (IsEnter(key) OrElse key = Keys.Escape) Then _testingTilt = False : _calibrateMenu.Reset(6) : _sound.Play("menu_back") : Return True
+                    If IsEnter(key) Then _sound.Play("menu_confirm") : CalibrationChoice(_calibrateMenu.Selected) : Return True
+                    If key = Keys.Escape Then _sound.Play("menu_back") : GoTo_(ShellScreen.Title) : Return True
                 Case ShellScreen.NameEntry
                     If key = Keys.Enter Then _sound.Play("menu_confirm") : ConfirmName() : Return True
                     If key = Keys.Escape Then _sound.Play("menu_back") : Back() : Return True
                     If key = Keys.Back AndAlso _nameBuffer.Length > 0 Then
                         _nameBuffer = _nameBuffer.Substring(0, _nameBuffer.Length - 1)
+                        ClearNameNotice()
                         _sound.Play("menu_move", 0.5F)
                         Return True
                     End If
@@ -792,6 +992,7 @@ Namespace UI.Screens
             If (Char.IsLetterOrDigit(up) AndAlso up < ChrW(128)) OrElse (up = " "c AndAlso _nameBuffer.Length > 0) Then
                 If _nameBuffer.Length < 12 Then
                     _nameBuffer &= up
+                    ClearNameNotice()
                     _sound.Play("menu_move", 0.5F)
                 End If
             End If
@@ -807,8 +1008,7 @@ Namespace UI.Screens
             _canvas.CameraOverviewHeld = False
             If _screen = ShellScreen.DungeonReveal OrElse
                (_screen = ShellScreen.Paused AndAlso _pausedScreen = ShellScreen.DungeonReveal) Then ApplyDungeonRevealFrame()
-            If _screen = ShellScreen.Playing OrElse _screen = ShellScreen.Intro OrElse _screen = ShellScreen.GoalTransition OrElse
-               _screen = ShellScreen.DungeonBriefing OrElse _screen = ShellScreen.DungeonRules OrElse _screen = ShellScreen.DungeonReveal Then Pause()
+            If PausableScreen() Then Pause()
         End Sub
 
         Private Function CurrentPalette() As ThemePalette

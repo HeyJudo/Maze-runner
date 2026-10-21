@@ -50,11 +50,12 @@ Namespace VerificationRunner
                     Dim levels As New List(Of LevelConfig) From {
                         New LevelConfig(1, "Wooden Workshop", Path.Combine(projectRoot, "GravityMaze", "Mazes", "Level1.txt"), 0, 7.3F),
                         New LevelConfig(2, "Frozen Labyrinth", Path.Combine(projectRoot, "GravityMaze", "Mazes", "Level2.txt"), 0, 36.9F),
-                        New LevelConfig(3, "Neon Velocity", Path.Combine(projectRoot, "GravityMaze", "Mazes", "Level3.txt"), 57, 40.2F),
+                        New LevelConfig(3, "Neon Velocity", Path.Combine(projectRoot, "GravityMaze", "Mazes", "Level3.txt"), 0, 37.4F),
                         New LevelConfig(4, "Forgotten Keep", Path.Combine(projectRoot, "GravityMaze", "Mazes", "Level4.txt"), 0, 180)}
-                    Dim shell As New GameShell(canvas, New InputManager(tilt), sound, New ScoreManager(scoresPath), levels)
+                    Dim scores As New ScoreManager(scoresPath) With {.PlayerName = "TEST"} : scores.Unlock(4)
+                    Dim shell As New GameShell(canvas, New InputManager(tilt), sound, scores, levels)
                     Tick(shell, 20)
-                    SelectMenu(shell, tilt, 1) : shell.HandleKey(Keys.Enter)
+                    SelectMenu(shell, tilt, 2) : shell.HandleKey(Keys.Enter)
                     SelectMenu(shell, tilt, 3) : shell.HandleKey(Keys.Enter)
                     Expect(shell, ShellScreen.DungeonBriefing)
                     Tick(shell, 40)

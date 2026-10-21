@@ -177,6 +177,14 @@ Namespace UI
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
         Public Property BallBlink As Boolean
 
+        ' Overdrive barriers: the engine's standing-barrier lookup (Nothing = draw all) and the 0..1 speed charge.
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property BarrierStanding As Func(Of Integer, Integer, Boolean)
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property BarrierCharge As Single
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property GhostPosition As PointF?
+
         ' True while a fall or goal transition replaces the normal engine marble.
         Public ReadOnly Property IsBallHidden As Boolean
             Get
@@ -344,12 +352,14 @@ Namespace UI
                             renderer.Draw(g, area, currentMaze, _ballX, _ballY,
                                           currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
                                           If(completedMarbleHidden, 0.0F, 1.0F),
-                                          motion:=marble, boardTilt:=tilt, deferMarbles:=True, dungeon:=DungeonState)
+                                          motion:=marble, boardTilt:=tilt, deferMarbles:=True, dungeon:=DungeonState,
+                                          barrierStanding:=BarrierStanding, barrierCharge:=BarrierCharge, ghost:=GhostPosition)
                         End Sub, paintSpheres:=AddressOf renderer.DrawMarbles)
                 Else
                     renderer.Draw(e.Graphics, boardArea, currentMaze, _ballX, _ballY,
                                   currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
-                                  If(completedMarbleHidden, 0.0F, 1.0F), motion:=marble, boardTilt:=tilt, dungeon:=DungeonState)
+                                  If(completedMarbleHidden, 0.0F, 1.0F), motion:=marble, boardTilt:=tilt, dungeon:=DungeonState,
+                                  barrierStanding:=BarrierStanding, barrierCharge:=BarrierCharge, ghost:=GhostPosition)
                 End If
                 e.Graphics.Restore(state)
                 If _flashMs > 0.0F Then
@@ -387,7 +397,8 @@ Namespace UI
                     Sub(cg, bounds)
                         renderer.Draw(cg, bounds, currentMaze, bx, by, currentTheme,
                                       goalEffect:=goalCelebration, pickupTaken:=PickupTaken, ballScale:=shrink,
-                                      motion:=marble, boardTilt:=tilt, deferMarbles:=True, dungeon:=DungeonState)
+                                      motion:=marble, boardTilt:=tilt, deferMarbles:=True, dungeon:=DungeonState,
+                                      barrierStanding:=BarrierStanding)
                     End Sub, 1 - lift, -area.Height * 0.28F * lift, 1.0F + 0.06F * lift, AddressOf renderer.DrawMarbles)
             End If
         End Sub

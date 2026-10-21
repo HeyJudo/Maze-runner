@@ -43,18 +43,18 @@ Module Program
         Public ReadOnly Sound As New SoundManager()
         Public ReadOnly Scores As ScoreManager
         Public ReadOnly Shell As GameShell
-        Public Sub New(Optional includeDungeon As Boolean = False, Optional includeExtraLevel As Boolean = False)
+        Public Sub New(Optional includeDungeon As Boolean = False, Optional includeExtraLevel As Boolean = False, Optional barrierLevel As Boolean = False, Optional board As ArduinoController = Nothing)
             Directory.CreateDirectory(Dir)
             Dim levels As New List(Of LevelConfig)()
             For i As Integer = 1 To 3
                 Dim file As String = Path.Combine(Dir, $"level{i}.txt")
-                IO.File.WriteAllLines(file, {"111111", "1S00G1", "111111"})
-                levels.Add(New LevelConfig(i, {"Wooden Workshop", "Frozen Labyrinth", "Neon Velocity"}(i - 1), file, If(i = 3, 57, 0), 5))
+                IO.File.WriteAllLines(file, If(barrierLevel AndAlso i = 1, {"1111111", "1S00BG1", "1111111"}, {"111111", "1S00G1", "111111"}))
+                levels.Add(New LevelConfig(i, {"Wooden Workshop", "Frozen Labyrinth", "Neon Velocity"}(i - 1), file, 0, 5))
             Next
             If includeDungeon Then levels.Add(New LevelConfig(4, "Forgotten Keep", Path.Combine(AppContext.BaseDirectory, "Mazes", "Level4.txt"), 0, 180))
             If includeExtraLevel Then levels.Add(New LevelConfig(5, "Wooden Workshop", Path.Combine(Dir, "level1.txt"), 0, 5))
             Scores = New ScoreManager(Path.Combine(Dir, "records.xml")) With {.PlayerName = "TEST"}
-            Shell = New GameShell(Canvas, New InputManager(Tilt), Sound, Scores, levels)
+            Shell = New GameShell(Canvas, New InputManager(Tilt, board), Sound, Scores, levels)
         End Sub
         Public Sub Ticks(count As Integer)
             For i As Integer = 1 To count : Shell.Tick() : Next
@@ -134,11 +134,54 @@ Module Program
         TestRetry()
         TestCancel()
         TestIntroPause()
+        TestBoardUnplug()
+        TestRunJournal()
+        TestContinueCampaign()
+        TestLevelLocks()
+        TestBarrierFeedback()
+        TestPlayers()
+        TestGhost()
+        TestCalibration()
+        TestRecenterWaitsForLevel()
         Console.WriteLine($"PASS: {_checks} transition and real-shell flow checks (headless presentation adapters)")
     End Sub
 
+    Private Sub TestCalibration()
+        Dim board As New ArduinoController With {.IsConnected = True}
+        Using f As New Fixture(board:=board)
+            f.Menu(6) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Calibrate, "calibrate opens from the title")
+            f.Shell.HandleKey(Keys.Enter)                                            ' RECENTER
+            Check(board.Calibrations = 1, "recenter zeroes the board")
+            f.Menu(3) : f.Shell.HandleKey(Keys.Enter)                                ' INVERT X
+            Check(board.InvertX AndAlso f.Scores.Calibration.InvertX, "invert X applies to the board and is saved")
+            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)                                ' SENSITIVITY 20 -> 25
+            Check(board.FullTiltDegrees = 25 AndAlso New ScoreManager(Path.Combine(f.Dir, "records.xml")).Calibration.FullTiltDegrees = 25,
+                  "sensitivity steps and persists")
+        End Using
+    End Sub
+
+    Private Sub TestRecenterWaitsForLevel()
+        Dim board As New ArduinoController With {.IsConnected = True}
+        Using f As New Fixture(board:=board)
+            f.Menu(6) : f.Shell.HandleKey(Keys.Enter)
+            f.Menu(0)
+            f.Tilt.X = 1 : f.Ticks(70)                                               ' board-style hold right = confirm
+            Check(board.Calibrations = 0, "recenter must not zero a tipped board")
+            f.Ticks(100)
+            Check(board.Calibrations = 0, "recenter keeps waiting while the board stays tipped")
+            f.Tilt.X = 0 : f.Ticks(50)
+            Check(board.Calibrations = 0, "recenter needs a full second of level")
+            f.Ticks(20)
+            Check(board.Calibrations = 1, "recenter zeroes once the board has been level for a second")
+            f.Ticks(100)
+            Check(board.Calibrations = 1, "recenter fires only once")
+        End Using
+    End Sub
+
     Private Sub EnterDungeon(f As Fixture)
-        f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+        f.Scores.Unlock(4)
+        f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
         f.Menu(3) : f.Shell.HandleKey(Keys.Enter)
         Check(f.Shell.Screen = ShellScreen.DungeonBriefing, "Level select must enter dungeon briefing")
     End Sub
@@ -196,7 +239,8 @@ Module Program
             End Using
         Next
         Using f As New Fixture(True)
-            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            f.Scores.Unlock(3)
+            f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
             f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
             f.WaitFor(ShellScreen.Playing) : f.Goal() : f.WaitFor(ShellScreen.LevelComplete)
             f.Ticks(90) : f.Shell.HandleKey(Keys.Enter)
@@ -459,7 +503,6 @@ Module Program
                     Check(Not Object.ReferenceEquals(oldEngine, f.Shell.Engine), "next engine loaded automatically")
                     Check(f.Shell.Engine.ElapsedSeconds = 0 AndAlso f.Shell.Engine.Hearts = 3, "next level starts fresh after landing")
                     Check(f.Shell.Engine.BallX = 1.5F, "marble begins at next start")
-                    If level = 2 Then Check(f.Shell.Engine.TimeRemainingSeconds = 57, "timed level keeps its full countdown during landing")
                 Else
                     f.WaitFor(ShellScreen.Victory)
                 End If
@@ -510,7 +553,7 @@ Module Program
 
     Private Sub TestPractice()
         Using f As New Fixture()
-            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
             f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
             f.Goal() : f.WaitFor(ShellScreen.LevelComplete)
             Dim engine = f.Shell.Engine
@@ -550,6 +593,114 @@ Module Program
         End Using
     End Sub
 
+    Private Sub TestGhost()
+        Using f As New Fixture()
+            f.Campaign() : f.Goal()
+            Dim ghost As GhostRun = f.Scores.GhostFor(1)
+            Check(ghost IsNot Nothing AndAlso ghost.Points.Count >= 2, "the first clear saves a ghost")
+            f.WaitFor(ShellScreen.Playing)
+            Check(Not f.Canvas.GhostPosition.HasValue, "no ghost on a level never cleared")
+            f.Shell.HandleKey(Keys.Escape) : f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
+            f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing) : f.Ticks(2)
+            Check(f.Canvas.GhostPosition.HasValue, "the ghost races a cleared level")
+            f.Shell.HandleKey(Keys.G) : f.Ticks(1)
+            Check(Not f.Canvas.GhostPosition.HasValue AndAlso Not f.Scores.GhostEnabled, "G hides the ghost and remembers it")
+        End Using
+    End Sub
+
+    Private Sub TestBarrierFeedback()
+        Using f As New Fixture(barrierLevel:=True)
+            f.Campaign()
+            Check(f.Canvas.BarrierStanding IsNot Nothing AndAlso f.Canvas.BarrierStanding(1, 4), "canvas draws the engine's standing barriers")
+            f.Tilt.X = 1
+            For i As Integer = 1 To 120
+                If f.Sound.Played.Contains("barrier_slow") Then Exit For
+                f.Ticks(1)
+            Next
+            Check(f.Sound.Played.Contains("barrier_slow"), "a slow hit plays the too-slow cue")
+            Check(f.Shell.TooSlowVisible, "a slow hit shows TOO SLOW")
+            f.Tilt.X = 0 : f.Ticks(60)
+            Check(Not f.Shell.TooSlowVisible, "TOO SLOW fades after 900 ms")
+        End Using
+    End Sub
+
+    Private Sub TestRunJournal()
+        Using f As New Fixture()
+            f.Campaign() : f.Tilt.X = 1 : f.Ticks(5) : f.Tilt.X = 0
+            f.Shell.HandleKey(Keys.R)                                   ' restart mid-run
+            f.WaitFor(ShellScreen.Playing) : f.Ticks(5)
+            f.Shell.HandleKey(Keys.Escape) : f.Menu(2) : f.Shell.HandleKey(Keys.Enter)   ' pause → MAIN MENU
+            Dim runs = f.Scores.RunsFor("TEST", 1)
+            Check(runs.Count = 2 AndAlso runs(0).Outcome = RunOutcome.Restart AndAlso runs(1).Outcome = RunOutcome.Quit, "restart and quit are journaled")
+            Check(f.Scores.TopRecords(1, 10).Count = 0, "unfinished runs are not records")
+            f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
+            f.Shell.HandleKey(Keys.R)                                   ' never moved: nothing journaled
+            Check(f.Scores.RunsFor("TEST", 1).Count = 2, "a run with no time is not journaled")
+
+            ' Out of hearts, then R: exactly one more run, and it is the out-of-hearts one.
+            f.WaitFor(ShellScreen.Playing)
+            For hit As Integer = 1 To 12
+                f.Tilt.X = -1 : f.Ticks(94)
+                If hit < 12 Then f.Tilt.X = 1 : f.Ticks(12)
+            Next
+            f.Tilt.X = 0 : f.WaitFor(ShellScreen.OutOfHearts)
+            f.Shell.HandleKey(Keys.R)
+            runs = f.Scores.RunsFor("TEST", 1)
+            Check(runs.Count = 3 AndAlso runs(2).Outcome = RunOutcome.OutOfHearts AndAlso runs(2).WallHits = 12 AndAlso runs(2).HeartsLost = 3,
+                  "out of hearts is journaled once with its counters")
+        End Using
+    End Sub
+
+    Private Sub TestContinueCampaign()
+        Using f As New Fixture()
+            Check(Not f.Shell.TitleItemEnabled(1), "CONTINUE is disabled before any clear")
+            f.Campaign() : f.Goal() : f.WaitFor(ShellScreen.Playing)
+            f.Shell.HandleKey(Keys.Escape) : f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Scores.UnlockedLevel = 2 AndAlso f.Shell.TitleItemEnabled(1), "clearing level 1 unlocks level 2 and CONTINUE")
+            f.Menu(1) : f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing)
+            For level As Integer = 2 To 3
+                f.Goal() : f.WaitFor(If(level = 3, ShellScreen.Victory, ShellScreen.Playing))
+            Next
+            Check(f.Scores.TopRecords(1, 10).Count = 1 AndAlso f.Scores.TopRecords(2, 10).Count = 1 AndAlso f.Scores.TopRecords(3, 10).Count = 1,
+                  "continued run saves each level it played")
+            Check(f.Scores.TopRecords(0, 10).Count = 0, "a continued campaign posts no campaign record")
+        End Using
+    End Sub
+
+    Private Sub TestPlayers()
+        Using f As New Fixture()   ' current player: TEST
+            f.Menu(7) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.PlayerSelect AndAlso f.Shell.SelectedIndex = 0, "switch player lists the current player first")
+            f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.NameEntry, "+ NEW PLAYER opens name entry")
+            For Each ch As Char In "test" : f.Shell.HandleChar(ch) : Next
+            f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.NameEntry AndAlso f.Shell.NameNotice.Length > 0, "an existing name asks to continue")
+            f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Title AndAlso f.Scores.Players.Count = 1, "typing test again reuses TEST")
+            f.Menu(7) : f.Shell.HandleKey(Keys.Enter) : f.Menu(1) : f.Shell.HandleKey(Keys.Enter)
+            For Each ch As Char In "ana" : f.Shell.HandleChar(ch) : Next
+            f.Shell.HandleKey(Keys.Enter)
+            Check(f.Scores.Players.Count = 2 AndAlso f.Scores.PlayerName = "ANA", "a new name creates a profile")
+            f.Menu(5) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Profile, "profile screen opens")
+            f.Shell.HandleKey(Keys.Enter)   ' GHOST toggle
+            Check(Not f.Scores.GhostEnabled, "profile toggles the ghost")
+            f.Shell.HandleKey(Keys.Escape)
+            f.Menu(3) : f.Shell.HandleKey(Keys.Enter) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.Records AndAlso f.Shell.RecordsMineOnly, "records filter toggles to just me")
+        End Using
+    End Sub
+
+    Private Sub TestLevelLocks()
+        Using f As New Fixture()
+            f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
+            Check(f.Shell.Screen = ShellScreen.LevelSelect AndAlso f.Shell.SelectedIndex = 0, "level select opens on level 1")
+            f.Tilt.Y = 0 : f.Ticks(3) : f.Tilt.Y = 1 : f.Ticks(1) : f.Tilt.Y = 0
+            Check(f.Shell.SelectedIndex = 3, "locked levels 2-3 are skipped straight to BACK")
+        End Using
+    End Sub
+
     Private Sub TestIntroPause()
         Using f As New Fixture()
             f.Shell.HandleKey(Keys.Enter) : f.Ticks(50)
@@ -558,6 +709,22 @@ Module Program
             Check(f.Shell.Screen = ShellScreen.Intro AndAlso f.Shell.Engine.ElapsedSeconds = 0, "intro pause must resume the countdown")
             f.WaitFor(ShellScreen.Playing)
             Check(f.Shell.Engine.ElapsedSeconds = 0, "countdown ends before physics resumes")
+        End Using
+    End Sub
+
+    Private Sub TestBoardUnplug()
+        Dim board As New ArduinoController With {.IsConnected = True}
+        Using f As New Fixture(board:=board)
+            board.IsConnected = False : f.Ticks(5) : board.IsConnected = True : f.Ticks(5)
+            Check(f.Shell.Screen = ShellScreen.Title, "unplugging on a menu does nothing")
+            f.Campaign() : f.Ticks(30)
+            board.IsConnected = False : f.Ticks(1)
+            Check(f.Shell.Screen = ShellScreen.Paused AndAlso f.Shell.DisconnectPaused, "unplugging mid-run pauses")
+            Dim t As Single = f.Shell.Engine.ElapsedSeconds
+            board.IsConnected = True : f.Ticks(200)
+            Check(f.Shell.Screen = ShellScreen.Paused AndAlso f.Shell.Engine.ElapsedSeconds = t, "reconnecting never resumes by itself")
+            f.Shell.HandleKey(Keys.Escape)
+            Check(f.Shell.Screen = ShellScreen.Playing AndAlso Not f.Shell.DisconnectPaused, "the player resumes explicitly")
         End Using
     End Sub
 End Module

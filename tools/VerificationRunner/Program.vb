@@ -3,6 +3,7 @@ Option Explicit On
 
 Imports System
 Imports System.IO
+Imports System.Linq
 Imports System.Drawing
 Imports System.Drawing.Drawing2D
 Imports System.Drawing.Imaging
@@ -12,6 +13,7 @@ Imports GravityMaze.Engine
 Imports GravityMaze.Levels
 Imports GravityMaze.Rendering
 Imports GravityMaze.UI
+Imports GravityMaze.UI.Screens
 Imports GravityMaze.Data
 
 Namespace VerificationRunner
@@ -21,6 +23,11 @@ Namespace VerificationRunner
 
         <STAThread>
         Public Sub Main()
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--data-only") >= 0 Then
+                TestScoreManager()
+                TestProfilesAndJournal()
+                Return
+            End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--dungeon-perf") >= 0 Then
                 DungeonPerformance.Run()
                 Return
@@ -43,6 +50,11 @@ Namespace VerificationRunner
             End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--transition-only") >= 0 Then
                 GoalTransitionTour.Run(Path.Combine(AppContext.BaseDirectory, "transition-checks"))
+                Return
+            End If
+            If Array.IndexOf(Environment.GetCommandLineArgs(), "--barrier-only") >= 0 Then
+                BarrierChecks.Run()
+                TestLevel3(MazeManager.LoadFromFile(Path.Combine(ProjectRoot, "GravityMaze\Mazes\Level3.txt")))
                 Return
             End If
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--hearts-only") >= 0 Then
@@ -87,6 +99,7 @@ Namespace VerificationRunner
             ' --- TEST 5: Collision Detection and Impact Suppression ---
             TestCollisionAndImpact(New MazeDefinition({"11111", "1S001", "10001", "100G1", "11111"}))
             GravityMaze.Verification.HealthScenarios.Run()
+            BarrierChecks.Run()
 
             ' --- TEST 6: Goal Completion Single-Trigger & Timer Stop ---
             TestGoalCompletion(maze2)
@@ -99,6 +112,7 @@ Namespace VerificationRunner
             TestWidePitSeam()
 
             TestScoreManager()
+            TestProfilesAndJournal()
             TestFonts()
 
             ' --- TEST 7: Screenshot Generation ---
@@ -150,6 +164,85 @@ Namespace VerificationRunner
                 Check(sm3.BestRecord(1) Is Nothing AndAlso System.IO.File.Exists(xmlPath & ".bak"), "corrupt file recovery + .bak")
                 Check(sm3.AddRecord(mk("X", 1, 9.0F)), "works after recovery")
                 Console.WriteLine("  -> add/best/top/reload/corrupt recovery OK")
+            Finally
+                Try
+                    Directory.Delete(dir, True)
+                Catch
+                End Try
+            End Try
+        End Sub
+
+        Private Sub TestProfilesAndJournal()
+            Console.WriteLine("[TEST] Profiles, run journal, ghosts, calibration, v1 upgrade...")
+            Dim dir As String = Path.Combine(Path.GetTempPath(), "gm_profiles_" & Guid.NewGuid().ToString("N"))
+            Dim xmlPath As String = Path.Combine(dir, "records.xml")
+            Try
+                Check(ScoreManager.KeyOf("  Jude  ") = "jude" AndAlso ScoreManager.KeyOf("JUDE") = "jude" AndAlso
+                      ScoreManager.KeyOf("Mary   Ann") = "mary ann", "KeyOf trims, collapses spaces, ignores case")
+                Dim sm As New ScoreManager(xmlPath)
+                sm.PlayerName = "Jude"
+                sm.PlayerName = " jude "
+                Check(sm.Players.Count = 1 AndAlso sm.PlayerName = "Jude", "same name in any case is one player, first spelling kept")
+
+                Dim run = Function(lvl As Integer, outcome As String, t As Single) New ScoreRecord With {
+                    .PlayerName = "JUDE", .LevelNumber = lvl, .Outcome = outcome, .TimeSeconds = t, .Attempts = 1,
+                    .WallHits = 3, .Falls = 1, .HeartsLost = 1.75F, .BarriersBroken = 2, .Date = DateTime.Now}
+                Check(Not sm.AddRecord(run(1, RunOutcome.Quit, 12.0F)), "a quit is never a best")
+                sm.AddRecord(run(1, RunOutcome.Quit, 0.0F))
+                Check(sm.RunsFor("jude", 1).Count = 1, "a run with no time is not journaled")
+                Check(sm.TopRecords(1, 10).Count = 0 AndAlso sm.BestRecordFor("Jude", 1) Is Nothing, "unfinished runs are not records")
+                Check(sm.UnlockedLevel = 1, "nothing unlocked before a clear")
+                Check(sm.AddRecord(run(1, RunOutcome.Cleared, 9.5F)), "first clear is a best")
+                Check(sm.UnlockedLevel = 2, "clearing level 1 unlocks level 2")
+                sm.AddRecord(run(2, RunOutcome.OutOfHearts, 20.0F))
+                Check(sm.UnlockedLevel = 2, "failing level 2 unlocks nothing")
+                sm.Unlock(1)
+                Check(sm.UnlockedLevel = 2, "Unlock never lowers progress")
+
+                Dim st As LevelStats = sm.StatsFor("JUDE", 1)
+                Check(st.Attempts = 2 AndAlso st.Clears = 1 AndAlso Math.Abs(st.BestTime - 9.5F) < 0.001F AndAlso
+                      st.Outcomes(RunOutcome.Quit) = 1 AndAlso st.Outcomes(RunOutcome.Cleared) = 1, "stats derive from the journal")
+                Check(sm.StatsFor("JUDE", 3).BestTime < 0, "never-cleared level has no best time")
+
+                sm.SaveGhost(1, New GhostRun(9.5F, 96.0F, {New PointF(1.5F, 2.5F), New PointF(2.5F, 2.5F)}))
+                sm.GhostEnabled = False
+                sm.Calibration.InvertX = True
+                sm.Calibration.FullTiltDegrees = 15.0F
+                sm.SaveSettings()
+
+                Dim sm2 As New ScoreManager(xmlPath)
+                Check(sm2.PlayerName = "Jude" AndAlso sm2.UnlockedLevel = 2, "player and progress reload")
+                Check(sm2.RunsFor("Jude", 1).Count = 2 AndAlso sm2.RunsFor("Jude", 1)(0).Outcome = RunOutcome.Quit AndAlso
+                      sm2.RunsFor("Jude", 1)(0).WallHits = 3 AndAlso sm2.RunsFor("Jude", 1)(0).HeartsLost = 1.75F, "journal fields reload")
+                Dim ghost As GhostRun = sm2.GhostFor(1)
+                Check(ghost IsNot Nothing AndAlso ghost.Points.Count = 2, "ghost reloads")
+                Dim mid As PointF = ghost.PositionAt(0.048F)
+                Check(Math.Abs(mid.X - 2.0F) < 0.01F AndAlso mid.Y = 2.5F, "ghost interpolates between samples")
+                Check(ghost.PositionAt(99.0F) = ghost.Points(1), "ghost waits at its last point")
+                Check(Not sm2.GhostEnabled AndAlso sm2.Calibration.InvertX AndAlso sm2.Calibration.FullTiltDegrees = 15.0F, "settings reload")
+                Check(GhostRun.Decode(1.0F, 96.0F, "1.5,2.5;oops") Is Nothing AndAlso GhostRun.Decode(1.0F, 96.0F, "1.5,2.5") Is Nothing,
+                      "malformed or one-point ghosts are rejected")
+
+                ' v1 upgrade: mixed-case names merge, first spelling wins, progress is derived from clears.
+                File.WriteAllText(xmlPath,
+                    "<GravityMazeRecords version=""1""><Settings PlayerName=""jude""/>" &
+                    "<Record player=""Jude"" level=""1"" time=""9.00"" attempts=""1"" stars=""3"" score=""100"" date=""2026-09-30T10:00:00""/>" &
+                    "<Record player=""jude"" level=""2"" time=""40.00"" attempts=""2"" stars=""2"" score=""100"" date=""2026-09-30T10:05:00""/>" &
+                    "<Record player=""ANA"" level=""1"" time=""8.00"" attempts=""1"" stars=""3"" score=""100"" date=""2026-09-30T11:00:00""/>" &
+                    "<Record player=""jude"" level=""0"" time=""90.00"" attempts=""1"" stars=""8"" score=""0"" date=""2026-09-30T11:30:00""/>" &
+                    "</GravityMazeRecords>")
+                Dim v1 As New ScoreManager(xmlPath)
+                Check(v1.Players.Count = 2 AndAlso v1.PlayerName = "Jude", "v1 names merge regardless of case")
+                Check(v1.UnlockedLevel = 3, "v1 progress derived from clears")
+                Check(v1.RunsFor("JUDE", 2)(0).PlayerName = "Jude" AndAlso v1.RunsFor("jude", 2)(0).Cleared, "v1 records become cleared runs under the profile name")
+                Check(v1.BestRecord(0, 3) IsNot Nothing, "v1 campaign stays a three-level record")
+                File.WriteAllText(xmlPath, "<GravityMazeRecords version=""1""><Settings PlayerName=""Solo""/></GravityMazeRecords>")
+                Dim v1b As New ScoreManager(xmlPath)
+                Check(v1b.PlayerName = "Solo" AndAlso v1b.Players.Count = 1, "v1 PlayerName with no records still becomes a profile")
+                v1.SaveSettings()
+                Dim text As String = File.ReadAllText(xmlPath)
+                Check(text.Contains("version=""2""") AndAlso text.Contains("<Run ") AndAlso Not text.Contains("<Record "), "file rewritten as v2")
+                Console.WriteLine("  -> case-insensitive profiles, journal, stats, progress, ghosts, settings, v1 upgrade OK")
             Finally
                 Try
                     Directory.Delete(dir, True)
@@ -275,44 +368,23 @@ Namespace VerificationRunner
             Return vis
         End Function
 
-        ' Keyboard-only bot: each axis is -1, 0 or +1, like a player holding/releasing keys.
-        ' It steers toward a target velocity and brakes early on ice.
+        ' Keyboard-only bot = the attract-mode pilot (-1/0/+1 per axis), so the demo and this proof share one controller.
         Private Function KeyboardBotRun(maze As MazeDefinition) As Integer
-            Dim path As List(Of Point) = FindShortestPath(maze)
             Dim engine As New GameEngine(maze, 0) With {.HeartsEnabled = False}
+            Dim pilot As New AttractPilot(maze)
             Dim falls As Integer = 0
             AddHandler engine.BallFell, Sub(s As Object, e As BallFellEventArgs) falls += 1
-            Dim waypointIndex As Integer = 1
             Dim ticks As Integer = 0
-
             While ticks < 20000 AndAlso engine.State = GameState.Playing AndAlso falls = 0
-                Dim target As Point = path(Math.Min(waypointIndex, path.Count - 1))
-                Dim dx As Single = target.X + 0.5F - engine.BallX
-                Dim dy As Single = target.Y + 0.5F - engine.BallY
-                If Math.Abs(dx) < 0.25F AndAlso Math.Abs(dy) < 0.25F AndAlso waypointIndex < path.Count - 1 Then
-                    waypointIndex += 1
-                    Continue While
-                End If
-                Dim tile As Char = maze.GetTile(CInt(Math.Floor(engine.BallY)), CInt(Math.Floor(engine.BallX)))
-                Dim cap As Single = If(tile = "I"c, 0.05F, If(tile = "F"c, 0.14F, 0.09F))
-                engine.Update(Key(dx, engine.VelocityX, cap), Key(dy, engine.VelocityY, cap))
+                Dim t As PointF = pilot.NextTilt(engine)
+                engine.Update(t.X, t.Y)
                 ticks += 1
             End While
-
-            If falls > 0 Then
-                Throw New Exception($"Keyboard bot fell into a hole near waypoint {waypointIndex}/{path.Count} ({path(waypointIndex)}).")
-            End If
+            If falls > 0 Then Throw New Exception($"Keyboard bot fell into a hole at ({engine.BallX:F1}, {engine.BallY:F1}) after {ticks} ticks.")
             If engine.State <> GameState.LevelComplete Then
-                Throw New Exception($"Keyboard bot stalled at waypoint {waypointIndex}/{path.Count} ({path(waypointIndex)}) after {ticks} ticks.")
+                Throw New Exception($"Keyboard bot stalled at ({engine.BallX:F1}, {engine.BallY:F1}) after {ticks} ticks.")
             End If
             Return ticks
-        End Function
-
-        Private Function Key(distance As Single, velocity As Single, cap As Single) As Single
-            Dim desired As Single = Math.Max(-cap, Math.Min(cap, distance * 0.2F))
-            If velocity < desired - 0.004F Then Return 1.0F
-            If velocity > desired + 0.004F Then Return -1.0F
-            Return 0.0F
         End Function
 
         Private Sub TestFullTraversalSimulation(maze As MazeDefinition)
@@ -402,9 +474,38 @@ Namespace VerificationRunner
             If reach <> open Then Throw New Exception($"Unreachable tiles (holes treated as blocked): open={open}, reachable={reach}")
             Console.WriteLine($"  -> 37x37, {holes} holes, {fast} fast tiles, all {open} floor tiles reachable without crossing a hole.")
 
+            ' Overdrive barriers: required (no way round), and each has a straight 3+ tile boost run-up.
+            Check(New GameEngine(maze, 0).BarriersTotal = 4, "Level 3 must have 4 Overdrive barriers")
+            Check(Not Flood(maze, Function(t) t <> "1"c AndAlso t <> "H"c AndAlso t <> "B"c).Contains(New Point(maze.GoalColumn, maze.GoalRow)),
+                  "barriers must block every route to the goal")
+            Dim dirs As Point() = {New Point(1, 0), New Point(-1, 0), New Point(0, 1), New Point(0, -1)}
+            Dim seenB As New HashSet(Of Point)()
+            For r As Integer = 0 To maze.RowCount - 1
+                For c As Integer = 0 To maze.ColumnCount - 1
+                    If maze.GetTile(r, c) <> "B"c OrElse seenB.Contains(New Point(c, r)) Then Continue For
+                    Dim group As New List(Of Point) From {New Point(c, r)}
+                    seenB.Add(group(0))
+                    Dim gi As Integer = 0
+                    While gi < group.Count
+                        For Each d As Point In dirs
+                            Dim n As New Point(group(gi).X + d.X, group(gi).Y + d.Y)
+                            If n.X >= 0 AndAlso n.Y >= 0 AndAlso n.X < maze.ColumnCount AndAlso n.Y < maze.RowCount AndAlso
+                               maze.GetTile(n.Y, n.X) = "B"c AndAlso seenB.Add(n) Then group.Add(n)
+                        Next
+                        gi += 1
+                    End While
+                    Dim guarded As Boolean = group.Any(Function(p) dirs.Any(Function(d) Enumerable.Range(1, 3).All(Function(k)
+                        Dim fx As Integer = p.X - k * d.X, fy As Integer = p.Y - k * d.Y
+                        Return fx >= 0 AndAlso fy >= 0 AndAlso fx < maze.ColumnCount AndAlso fy < maze.RowCount AndAlso maze.GetTile(fy, fx) = "F"c
+                    End Function)))
+                    Check(guarded, $"barrier at ({c},{r}) has no straight 3-tile boost run-up")
+                Next
+            Next
+            Console.WriteLine("  -> 4 barriers, all required, each with a boost run-up.")
+
             Dim ticks As Integer = KeyboardBotRun(maze)
             Dim secs As Single = ticks * 0.016F
-            Console.WriteLine($"  -> Keyboard bot cleared Level 3 in {ticks} ticks (~{secs:F1}s) without falling; suggested limit {Math.Ceiling(secs * 1.4F / 5.0F) * 5.0F}s.")
+            Console.WriteLine($"  -> Keyboard bot cleared Level 3 in {ticks} ticks (~{secs:F1}s) without falling; par = {secs:F1}s.")
         End Sub
 
         Private Sub TestIceFrictionReductionAndRestoration(maze As MazeDefinition)
@@ -689,50 +790,6 @@ Namespace VerificationRunner
                 SaveImage(bmp, fileName, localDir, artifactDir)
             End Using
         End Sub
-
-        Private Function FindShortestPath(maze As MazeDefinition) As List(Of Point)
-            Dim start As New Point(maze.StartColumn, maze.StartRow)
-            Dim goal As New Point(maze.GoalColumn, maze.GoalRow)
-            Dim q As New Queue(Of Point)()
-            Dim visited As New Dictionary(Of Point, Point)()
-
-            q.Enqueue(start)
-            visited(start) = New Point(-1, -1)
-
-            Dim deltas As Point() = {New Point(0, -1), New Point(0, 1), New Point(-1, 0), New Point(1, 0)}
-
-            While q.Count > 0
-                Dim curr As Point = q.Dequeue()
-                If curr = goal Then Exit While
-
-                For Each d In deltas
-                    Dim nx As Integer = curr.X + d.X
-                    Dim ny As Integer = curr.Y + d.Y
-                    If nx >= 0 AndAlso nx < maze.ColumnCount AndAlso ny >= 0 AndAlso ny < maze.RowCount Then
-                        Dim tile As Char = maze.GetTile(ny, nx)
-                        If tile <> "1"c AndAlso tile <> "H"c Then
-                            Dim nextPt As New Point(nx, ny)
-                            If Not visited.ContainsKey(nextPt) Then
-                                visited(nextPt) = curr
-                                q.Enqueue(nextPt)
-                            End If
-                        End If
-                    End If
-                Next
-            End While
-
-            Dim result As New List(Of Point)()
-            If Not visited.ContainsKey(goal) Then Return result
-
-            Dim p As Point = goal
-            While p.X <> -1 AndAlso p.Y <> -1
-                result.Add(p)
-                p = visited(p)
-            End While
-
-            result.Reverse()
-            Return result
-        End Function
 
         Private Sub DrawHudOverlay(g As Graphics, w As Integer, h As Integer,
                                    title As String, level As String, status As String,

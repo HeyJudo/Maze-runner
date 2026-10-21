@@ -5,6 +5,7 @@ Imports System
 Imports System.Collections.Generic
 Imports System.Drawing
 Imports System.Drawing.Drawing2D
+Imports System.Linq
 Imports GravityMaze.Data
 Imports GravityMaze.Engine
 Imports GravityMaze.Levels
@@ -27,6 +28,9 @@ Namespace UI.Screens
                 Case ShellScreen.Records : DrawRecords(g, b, s, pal)
                 Case ShellScreen.HowToPlay : DrawHowToPlay(g, b, s, pal)
                 Case ShellScreen.NameEntry : DrawNameEntry(g, b, s, pal)
+                Case ShellScreen.PlayerSelect : DrawPlayerSelect(g, b, s, pal)
+                Case ShellScreen.Profile : DrawProfile(g, b, s, pal)
+                Case ShellScreen.Calibrate : DrawCalibrate(g, b, s, pal)
                 Case ShellScreen.DungeonBriefing : DrawDungeonBriefing(g, b, s, pal)
                 Case ShellScreen.DungeonRules : DrawDungeonRules(g, b, s, pal)
                 Case ShellScreen.DungeonReveal : DrawHud(g, b, s, pal) : DrawDungeonReveal(g, b, s, pal)
@@ -182,7 +186,7 @@ Namespace UI.Screens
             Dim x As Single = b.Width * 0.065F
             Dim intro As Single = UiDraw.EaseOut(_screenMs / 600.0F)
             DrawLogo(g, x - (1 - intro) * 40 * s, b.Height * 0.12F, s, pal)
-            DrawMenu(g, _titleMenu, x + 8 * s, b.Height * 0.52F, s, pal)
+            DrawMenu(g, _titleMenu, x + 8 * s, b.Height * 0.46F, s, pal, spacing:=44)
             DrawFooter(g, b, s, pal, {("UP/DOWN", "Navigate"), ("ENTER", "Select")}, _titleMenu)
         End Sub
 
@@ -200,16 +204,22 @@ Namespace UI.Screens
                 Dim lv As LevelConfig = _levels(i)
                 Dim lp As ThemePalette = ThemePalette.ForTheme(lv.ThemeName)
                 Dim sel As Boolean = _levelMenu.Selected = i
+                Dim locked As Boolean = Not _levelMenu.Enabled(i)
                 Dim r As New RectangleF(x + If(sel, 16 * s, 0), y + i * (cardH + 18 * s), cardW, cardH)
-                UiDraw.Panel(g, r, Color.FromArgb(If(sel, 235, 190), lp.Backdrop), If(sel, lp.Accent, Color.FromArgb(70, lp.TextDim)), 12 * s)
+                UiDraw.Panel(g, r, Color.FromArgb(If(locked, 120, If(sel, 235, 190)), lp.Backdrop), If(sel, lp.Accent, Color.FromArgb(70, lp.TextDim)), 12 * s)
                 If sel Then
                     Using bar As New SolidBrush(lp.Accent)
                         g.FillRectangle(bar, r.X, r.Y + 14 * s, 4 * s, r.Height - 28 * s)
                     End Using
                 End If
                 UiDraw.Text(g, (i + 1).ToString("00"), GameFonts.Display(76 * s), If(sel, lp.Accent, UiDraw.WithAlpha(lp.Accent, 0.55F)), r.X + 26 * s, r.Y + 22 * s)
-                UiDraw.Text(g, lv.ThemeName.ToUpperInvariant(), GameFonts.Display(46 * s), lp.Text, r.X + 116 * s, r.Y + 20 * s, 0, 2 * s)
-                UiDraw.Text(g, lp.Tagline, GameFonts.Body(20 * s), lp.TextDim, r.X + 118 * s, r.Y + 72 * s)
+                UiDraw.Text(g, lv.ThemeName.ToUpperInvariant(), GameFonts.Display(46 * s), If(locked, UiDraw.WithAlpha(lp.Text, 0.45F), lp.Text), r.X + 116 * s, r.Y + 20 * s, 0, 2 * s)
+                UiDraw.Text(g, lp.Tagline, GameFonts.Body(20 * s), If(locked, UiDraw.WithAlpha(lp.TextDim, 0.45F), lp.TextDim), r.X + 118 * s, r.Y + 72 * s)
+                If locked Then
+                    UiDraw.Text(g, $"LOCKED  ·  CLEAR LEVEL {i}", GameFonts.Body(18 * s, GameFonts.FontWeight.Bold), lp.TextDim,
+                                r.Right - 24 * s, r.Y + 48 * s, 1, 3 * s)
+                    Continue For
+                End If
                 Dim best As ScoreRecord = _scores.BestRecordFor(_scores.PlayerName, lv.LevelNumber)
                 Dim starCount As Integer = BestStars(lv.LevelNumber)
                 For k As Integer = 1 To 3
@@ -230,10 +240,95 @@ Namespace UI.Screens
         Private Function BestStars(levelNumber As Integer) As Integer
             Dim best As Integer = 0
             For Each r As ScoreRecord In _scores.TopRecords(levelNumber, 1000)
-                If String.Equals(r.PlayerName, _scores.PlayerName, StringComparison.OrdinalIgnoreCase) Then best = Math.Max(best, r.Stars)
+                If ScoreManager.KeyOf(r.PlayerName) = ScoreManager.KeyOf(_scores.PlayerName) Then best = Math.Max(best, r.Stars)
             Next
             Return best
         End Function
+
+        ' ── Who's playing? ──────────────────────────────────────────────────
+        Private Sub DrawPlayerSelect(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Scrim(g, b, pal, 0.66F)
+            Dim x As Single = b.Width * 0.065F
+            UiDraw.Text(g, "PICK YOUR PROFILE", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), pal.Accent, x, b.Height * 0.1F, 0, 6 * s)
+            UiDraw.GlowText(g, "WHO'S PLAYING?", GameFonts.Display(110 * s), pal.Text, pal.AccentSoft, x, b.Height * 0.1F + 34 * s, 0, 3 * s, 4 * s)
+            Dim top As Single = b.Height * 0.33F
+            DrawMenu(g, _playerMenu, x + 8 * s, top, s, pal, 0, 34, 58)
+            For i As Integer = 0 To _playerList.Count - 1
+                Dim p As PlayerProfile = _playerList(i)
+                Dim stars As Integer = 0
+                For Each lv As LevelConfig In _levels
+                    stars += _scores.StatsFor(p.Name, lv.LevelNumber).BestStars
+                Next
+                Dim meta As String = $"{stars} STARS   ·   LEVEL {Math.Min(p.UnlockedLevel, _levels.Count)}"
+                Dim metaFont As Font = GameFonts.Body(20 * s)
+                ' Keep the date only while it still clears the board preview (narrow windows drop it).
+                Dim withDate As String = meta & $"   ·   {p.LastPlayed:MMM d}"
+                If x + 420 * s + UiDraw.Measure(g, withDate, metaFont).Width < b.Width * 0.46F Then meta = withDate
+                UiDraw.Text(g, meta, metaFont, pal.TextDim, x + 420 * s, top + i * 58 * s + 8 * s)
+            Next
+            DrawFooter(g, b, s, pal, MenuHints, _playerMenu)
+        End Sub
+
+        ' ── Calibrate ───────────────────────────────────────────────────────
+        Private Sub DrawCalibrate(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim_(g, b, 238)
+            Dim x As Single = b.Width * 0.065F
+            UiDraw.Text(g, "CONTROLLER", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), pal.Accent, x, b.Height * 0.08F, 0, 6 * s)
+            UiDraw.GlowText(g, "CALIBRATE", GameFonts.Display(110 * s), pal.Text, pal.AccentSoft, x, b.Height * 0.08F + 34 * s, 0, 3 * s, 4 * s)
+            DrawMenu(g, _calibrateMenu, x + 8 * s, b.Height * 0.32F, s, pal, 0, 30, 52)
+            UiDraw.Text(g, BoardStatus(), GameFonts.Body(20 * s, GameFonts.FontWeight.Bold), If(BoardConnected(), pal.Accent, pal.TextDim),
+                        x, b.Height * 0.32F + 8 * 52 * s + 16 * s, 0, 2 * s)
+
+            ' Live tilt: outer ring = full tilt, dot = current input, ball = TEST TILT physics.
+            Dim radius As Single = Math.Min(b.Height * 0.28F, b.Width * 0.2F)
+            Dim c As New PointF(b.Width * 0.7F, b.Height * 0.55F)
+            Using ring As New Pen(Color.FromArgb(120, pal.Accent), 3 * s), dead As New Pen(Color.FromArgb(60, pal.TextDim), 1.5F * s),
+                  dot As New SolidBrush(pal.Accent), ball As New SolidBrush(pal.Text)
+                g.DrawEllipse(ring, c.X - radius, c.Y - radius, radius * 2, radius * 2)
+                Dim dz As Single = radius * _scores.Calibration.Deadzone
+                g.DrawEllipse(dead, c.X - dz, c.Y - dz, dz * 2, dz * 2)
+                Dim tx As Single = _input.TiltX, ty As Single = _input.TiltY
+                g.FillEllipse(dot, c.X + tx * radius - 8 * s, c.Y + ty * radius - 8 * s, 16 * s, 16 * s)
+                If _testingTilt Then g.FillEllipse(ball, c.X + _testBall.X * radius - 18 * s, c.Y + _testBall.Y * radius - 18 * s, 36 * s, 36 * s)
+            End Using
+            Dim hint As String = If(_testingTilt, "Tilt to roll the ball  ·  ENTER, ESC or hold left 2 s to finish",
+                                    If(_recenterPending, "Hold the board level… recentering  ·  ENTER or ESC cancels",
+                                       "RECENTER after changing a setting  ·  the dot shows your tilt"))
+            UiDraw.Text(g, hint, GameFonts.Body(20 * s), pal.TextDim, c.X, c.Y + radius + 24 * s, 0.5F)
+            DrawFooter(g, b, s, pal, MenuHints, _calibrateMenu)
+        End Sub
+
+        ' ── Profile ─────────────────────────────────────────────────────────
+        Private Sub DrawProfile(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
+            Dim_(g, b, 238)
+            Dim x As Single = b.Width * 0.065F
+            UiDraw.Text(g, "PLAYER PROFILE", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), pal.Accent, x, b.Height * 0.08F, 0, 6 * s)
+            UiDraw.GlowText(g, _scores.PlayerName, GameFonts.Display(110 * s), pal.Text, pal.AccentSoft, x, b.Height * 0.08F + 34 * s, 0, 3 * s, 4 * s)
+            Dim head As Font = GameFonts.Body(18 * s, GameFonts.FontWeight.Bold)
+            Dim cell As Font = GameFonts.Body(24 * s, GameFonts.FontWeight.SemiBold)
+            Dim cols As Single() = {0, 380, 540, 680, 820, 1000, 1140}
+            Dim headers As String() = {"LEVEL", "ATTEMPTS", "CLEARS", "CLEAR %", "BEST", "STARS", "HOW RUNS ENDED"}
+            Dim top As Single = b.Height * 0.32F
+            For i As Integer = 0 To headers.Length - 1
+                UiDraw.Text(g, headers(i), head, pal.TextDim, x + cols(i) * s, top, 0, 3 * s)
+            Next
+            For li As Integer = 0 To _levels.Count - 1
+                Dim lv As LevelConfig = _levels(li)
+                Dim st As LevelStats = _scores.StatsFor(_scores.PlayerName, lv.LevelNumber)
+                Dim y As Single = top + (44 + li * 52) * s
+                Dim ended As String = String.Join("  ·  ", st.Outcomes.Where(Function(kv) kv.Key <> RunOutcome.Cleared).
+                    Select(Function(kv) $"{kv.Value} {kv.Key.Replace("-", " ").ToUpperInvariant()}"))
+                Dim values As String() = {lv.ThemeName.ToUpperInvariant(), st.Attempts.ToString(), st.Clears.ToString(),
+                    If(st.Attempts = 0, "--", $"{100 * st.Clears \ st.Attempts}%"),
+                    If(st.BestTime < 0, "--:--.--", UiDraw.FormatTime(st.BestTime)), $"{st.BestStars}/3", If(ended = "", "--", ended)}
+                For i As Integer = 0 To values.Length - 1
+                    UiDraw.Text(g, values(i), If(i = values.Length - 1, GameFonts.Body(18 * s), cell),
+                                If(i = 0, pal.Accent, pal.Text), x + cols(i) * s, y, 0, 1 * s)
+                Next
+            Next
+            DrawMenu(g, _profileMenu, x + 8 * s, top + (60 + _levels.Count * 52) * s, s, pal, 0, 30, 52)
+            DrawFooter(g, b, s, pal, MenuHints, _profileMenu)
+        End Sub
 
         ' ── Records ─────────────────────────────────────────────────────────
         Private Sub DrawRecords(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
@@ -249,10 +344,12 @@ Namespace UI.Screens
             cols.Add(("FULL RUN", 0, ThemePalette.Brand))
             Dim gap As Single = 24 * s
             Dim colW As Single = (b.Width - x * 2 - gap * (cols.Count - 1)) / cols.Count
+            Dim mineKey As String = ScoreManager.KeyOf(_scores.PlayerName)
             Dim top As Single = b.Height * 0.3F
             For ci As Integer = 0 To cols.Count - 1
                 Dim c = cols(ci)
-                Dim rows As List(Of ScoreRecord) = _scores.TopRecords(c.Item2, 8, If(c.Item2 = 0, _levels.Count, 0))
+                Dim rows As List(Of ScoreRecord) = _scores.TopRecords(c.Item2, 1000, If(c.Item2 = 0, _levels.Count, 0)).
+                    Where(Function(r0) Not _recordsMineOnly OrElse ScoreManager.KeyOf(r0.PlayerName) = mineKey).Take(8).ToList()
                 Dim r As New RectangleF(x + ci * (colW + gap), top, colW, (110 + Math.Max(5, rows.Count) * 44) * s)
                 UiDraw.Panel(g, r, Color.FromArgb(230, c.Item3.Backdrop), Color.FromArgb(90, c.Item3.Accent), 12 * s)
                 Dim heading = GameFonts.Display(40 * s)
@@ -265,7 +362,7 @@ Namespace UI.Screens
                 For ri As Integer = 0 To rows.Count - 1
                     Dim ry As Single = r.Y + 84 * s + ri * 44 * s
                     Dim rec As ScoreRecord = rows(ri)
-                    Dim mine As Boolean = String.Equals(rec.PlayerName, _scores.PlayerName, StringComparison.OrdinalIgnoreCase)
+                    Dim mine As Boolean = ScoreManager.KeyOf(rec.PlayerName) = mineKey
                     Dim rowColor As Color = If(mine, c.Item3.Text, c.Item3.TextDim)
                     UiDraw.Text(g, (ri + 1).ToString(), GameFonts.Display(30 * s), If(ri = 0, c.Item3.Accent, rowColor), r.X + 24 * s, ry)
                     Dim nameFont = GameFonts.Body(22 * s, GameFonts.FontWeight.SemiBold)
@@ -280,7 +377,8 @@ Namespace UI.Screens
                     UiDraw.Text(g, UiDraw.FormatTime(rec.TimeSeconds), GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), rowColor, r.Right - 24 * s, ry + 3 * s, 1)
                 Next
             Next
-            DrawFooter(g, b, s, pal, {("ESC", "Back")}, _backMenu)
+            DrawMenu(g, _recordsMenu, x + 8 * s, b.Height - 170 * s, s, pal, 0, 28, 46)
+            DrawFooter(g, b, s, pal, MenuHints, _recordsMenu)
         End Sub
 
         ' ── How to play ─────────────────────────────────────────────────────
@@ -327,9 +425,10 @@ Namespace UI.Screens
                 ("heart", "Walls cost 1/4 heart; pits cost one"),
                 ("star", "Stars: beat the par time for up to three"),
                 ("seal", "Dungeon: 3 keys. The last one wakes the keep. Run!"),
-                ("trap", "Traps cost one heart. Watch amber warnings")}
+                ("trap", "Traps cost one heart. Watch amber warnings"),
+                ("barrier", "Neon barriers: hit them on a boost strip to smash through")}
             For i As Integer = 0 To items.Length - 1
-                Dim iy As Single = right.Y + 96 * s + i * 52 * s
+                Dim iy As Single = right.Y + 96 * s + i * 46 * s
                 DrawLegendIcon(g, items(i).Item1, right.X + 50 * s, iy + 14 * s, 20 * s, pal)
                 UiDraw.Text(g, items(i).Item2, body, pal.Text, right.X + 92 * s, iy)
             Next
@@ -365,6 +464,11 @@ Namespace UI.Screens
                     Using brush As New SolidBrush(Color.FromArgb(183, 137, 255))
                         g.FillPolygon(brush, {New PointF(cx, cy - r), New PointF(cx + r * 0.7F, cy), New PointF(cx, cy + r), New PointF(cx - r * 0.7F, cy)})
                     End Using
+                Case "barrier"
+                    Using br As New SolidBrush(Color.FromArgb(200, 255, 60, 200)), p As New Pen(Color.FromArgb(120, 240, 255), r * 0.16F)
+                        g.FillRectangle(br, cx - r, cy - r, r * 2, r * 2)
+                        g.DrawRectangle(p, cx - r, cy - r, r * 2, r * 2)
+                    End Using
                 Case "trap"
                     Using brush As New SolidBrush(Color.FromArgb(255, 174, 77))
                         g.FillPolygon(brush, {New PointF(cx, cy - r), New PointF(cx + r, cy + r), New PointF(cx - r, cy + r)})
@@ -385,7 +489,7 @@ Namespace UI.Screens
             Dim r As New RectangleF(b.Width / 2.0F - w / 2, b.Height / 2.0F - h / 2, w, h)
             UiDraw.Panel(g, r, pal.Panel, pal.Accent, 16 * s)
             Dim cx As Single = r.X + w / 2
-            UiDraw.Text(g, "WHO'S ROLLING?", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), pal.Accent, cx, r.Y + 40 * s, 0.5F, 6 * s)
+            UiDraw.Text(g, "NEW PLAYER", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), pal.Accent, cx, r.Y + 40 * s, 0.5F, 6 * s)
             UiDraw.Text(g, "ENTER YOUR NAME", GameFonts.Display(64 * s), pal.Text, cx, r.Y + 74 * s, 0.5F, 2 * s)
 
             Dim box As New RectangleF(r.X + 60 * s, r.Y + 170 * s, w - 120 * s, 96 * s)
@@ -402,7 +506,11 @@ Namespace UI.Screens
                     g.FillRectangle(caret, cx + nameSize.Width / 2 + 8 * s, box.Y + 18 * s, 4 * s, box.Height - 36 * s)
                 End Using
             End If
-            UiDraw.Text(g, "Type with the keyboard  ·  up to 12 letters", GameFonts.Body(20 * s), pal.TextDim, cx, box.Bottom + 16 * s, 0.5F)
+            If _nameNotice <> "" Then
+                UiDraw.Text(g, _nameNotice, GameFonts.Body(20 * s, GameFonts.FontWeight.Bold), pal.Accent, cx, box.Bottom + 16 * s, 0.5F)
+            Else
+                UiDraw.Text(g, "Type with the keyboard  ·  up to 12 letters", GameFonts.Body(20 * s), pal.TextDim, cx, box.Bottom + 16 * s, 0.5F)
+            End If
             DrawMenu(g, _nameMenu, cx, box.Bottom + 56 * s, s, pal, 0.5F, 30)
             DrawFooter(g, b, s, pal, {("ENTER", "Confirm"), ("BACKSPACE", "Delete"), ("ESC", "Back")}, _nameMenu)
         End Sub
@@ -457,6 +565,15 @@ Namespace UI.Screens
                     g.FillRectangle(fg, cx - barW / 2, 116 * s, barW * frac, 4 * s)
                 End Using
             End If
+            If _engine.BarriersTotal > 0 Then
+                UiDraw.Text(g, $"BARRIERS  {_engine.BarriersBroken}/{_engine.BarriersTotal}", GameFonts.Body(18 * s, GameFonts.FontWeight.Bold),
+                            If(_engine.BarriersBroken = _engine.BarriersTotal, pal.Accent, pal.TextDim), cx, 122 * s, 0.5F, 4 * s)
+            End If
+            If _tooSlowMs >= 0 Then
+                Dim a As Single = 1.0F - _tooSlowMs / 900.0F
+                UiDraw.GlowText(g, "TOO SLOW  ·  HIT IT ON A BOOST", GameFonts.Display(56 * s), UiDraw.WithAlpha(Danger, a),
+                                UiDraw.WithAlpha(pal.AccentSoft, a), cx, b.Height * 0.22F, 0.5F, 2 * s, 4 * s)
+            End If
 
             ' Right: best + attempt
             Dim rx As Single = b.Width - 40 * s
@@ -468,14 +585,18 @@ Namespace UI.Screens
             UiDraw.Text(g, If(best Is Nothing, "--:--.--", UiDraw.FormatTime(best.TimeSeconds)), big,
                         If(best Is Nothing, pal.TextDim, pal.Text), bx, 44 * s, 1, 1 * s)
 
-            ' Bottom hints
+            ' Bottom hints: fixed-size chips, so stop before the right-aligned status (measured) instead of overlapping it.
             Dim hy As Single = b.Bottom - 44 * s
             Dim x As Single = 40 * s
-            For Each h In {("ESC", "Pause"), ("R", "Restart"), ("M", If(_sound.Muted, "Sound off", "Sound on")), ("F9", "Camera"), ("TAB", "Overview")}
+            Dim status As String = _scores.PlayerName & "   ·   " & BoardStatus()
+            Dim statusFont As Font = GameFonts.Body(18 * s, GameFonts.FontWeight.Bold)
+            Dim limit As Single = b.Width - 40 * s - UiDraw.Measure(g, status, statusFont, 2 * s).Width - 24 * s
+            For Each h In {("ESC", "Pause"), ("R", "Restart"), ("G", If(_scores.GhostEnabled, "Ghost on", "Ghost off")), ("M", If(_sound.Muted, "Sound off", "Sound on")), ("F9", "Camera"), ("TAB", "Overview")}
+                Dim w As Single = UiDraw.KeyHintWidth(g, h.Item1, h.Item2)
+                If x + w - 26 > limit Then Exit For   ' 26 = trailing gap inside the returned width
                 x += UiDraw.KeyHint(g, h.Item1, h.Item2, x, hy, pal.Accent, pal.TextDim)
             Next
-            UiDraw.Text(g, _scores.PlayerName & "   ·   " & BoardStatus(), GameFonts.Body(18 * s, GameFonts.FontWeight.Bold),
-                        If(BoardConnected(), pal.Accent, pal.TextDim), b.Width - 40 * s, hy + 2 * s, 1, 2 * s)
+            UiDraw.Text(g, status, statusFont, If(BoardConnected(), pal.Accent, pal.TextDim), b.Width - 40 * s, hy + 2 * s, 1, 2 * s)
         End Sub
 
         Private Sub DrawWrapped(g As Graphics, text As String, font As Font, color As Color, rect As RectangleF)
@@ -624,6 +745,10 @@ Namespace UI.Screens
                     UiDraw.Text(g, $"BEAT THE CLOCK  ·  {cfg.TimeLimitSecs} SECONDS", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold),
                                 UiDraw.WithAlpha(Danger, a), cx, y + 300 * s, 0.5F, 5 * s)
                 End If
+                If _engine.BarriersTotal > 0 Then
+                    UiDraw.Text(g, "BREAK THE BARRIERS  ·  HIT THEM AT FULL BOOST", GameFonts.Body(22 * s, GameFonts.FontWeight.Bold),
+                                UiDraw.WithAlpha(pal.Accent, a), cx, y + 300 * s, 0.5F, 5 * s)
+                End If
                 Return
             End If
 
@@ -645,6 +770,7 @@ Namespace UI.Screens
         Private Sub DrawPaused(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
             If _engine.Dungeon IsNot Nothing Then
                 DrawDungeonPaused(g, b, s, pal)
+                DrawDisconnectBanner(g, b, s, pal, 0.08F)
                 Return
             End If
             Dim_(g, b, 185)
@@ -653,6 +779,18 @@ Namespace UI.Screens
             DrawMenu(g, _pauseMenu, cx, b.Height * 0.46F, s, pal, 0.5F, 38, 64)
             UiDraw.Text(g, "F9  CAMERA ZOOM     HOLD TAB  OVERVIEW", GameFonts.Body(22 * s, GameFonts.FontWeight.Medium),
                         pal.TextDim, cx, b.Height * 0.85F, 0.5F)
+            DrawDisconnectBanner(g, b, s, pal, 0.15F)   ' below the HUD that stays visible under this dimmer
+        End Sub
+
+        Private Sub DrawDisconnectBanner(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette, topFraction As Single)
+            If Not _disconnectPaused Then Return
+            Dim back As Boolean = BoardConnected()
+            Dim text As String = If(back, "CONTROLLER RECONNECTED  ·  HOLD THE BOARD LEVEL, THEN RESUME",
+                                    "CONTROLLER DISCONNECTED  ·  RECONNECT IT, OR PRESS ESC TO PLAY ON THE KEYBOARD")
+            Dim r As New RectangleF(b.Width * 0.15F, b.Height * topFraction, b.Width * 0.7F, 64 * s)
+            UiDraw.Panel(g, r, Color.FromArgb(230, pal.Backdrop), If(back, pal.Accent, Danger), 12 * s)
+            UiDraw.Text(g, text, GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), If(back, pal.Accent, Danger),
+                        r.X + r.Width / 2, r.Y + 18 * s, 0.5F, 3 * s)
         End Sub
 
         ' ── Level complete ──────────────────────────────────────────────────
@@ -780,6 +918,10 @@ Namespace UI.Screens
                 UiDraw.Text(g, stats(i).Item1, GameFonts.Body(18 * s, GameFonts.FontWeight.Bold), brand.TextDim, sx, y + 360 * s, 0.5F, 5 * s)
                 UiDraw.Text(g, stats(i).Item2, GameFonts.Display(64 * s), brand.Text, sx, y + 386 * s, 0.5F, 1 * s)
             Next
+            If Not _campaignFromStart Then
+                UiDraw.Text(g, "CONTINUED RUN  ·  START FROM LEVEL 1 TO POST A CAMPAIGN TIME", GameFonts.Body(18 * s, GameFonts.FontWeight.Bold),
+                            brand.TextDim, cx, y + 460 * s, 0.5F, 4 * s)
+            End If
             If _screenMs > 1500 Then DrawMenu(g, _victoryMenu, cx, y + 500 * s, s, brand, 0.5F, 34, 56)
         End Sub
 
