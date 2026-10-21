@@ -134,6 +134,7 @@ Module Program
         TestRetry()
         TestCancel()
         TestIntroPause()
+        TestBoardUnplug()
         TestRunJournal()
         TestContinueCampaign()
         TestLevelLocks()
@@ -708,6 +709,22 @@ Module Program
             Check(f.Shell.Screen = ShellScreen.Intro AndAlso f.Shell.Engine.ElapsedSeconds = 0, "intro pause must resume the countdown")
             f.WaitFor(ShellScreen.Playing)
             Check(f.Shell.Engine.ElapsedSeconds = 0, "countdown ends before physics resumes")
+        End Using
+    End Sub
+
+    Private Sub TestBoardUnplug()
+        Dim board As New ArduinoController With {.IsConnected = True}
+        Using f As New Fixture(board:=board)
+            board.IsConnected = False : f.Ticks(5) : board.IsConnected = True : f.Ticks(5)
+            Check(f.Shell.Screen = ShellScreen.Title, "unplugging on a menu does nothing")
+            f.Campaign() : f.Ticks(30)
+            board.IsConnected = False : f.Ticks(1)
+            Check(f.Shell.Screen = ShellScreen.Paused AndAlso f.Shell.DisconnectPaused, "unplugging mid-run pauses")
+            Dim t As Single = f.Shell.Engine.ElapsedSeconds
+            board.IsConnected = True : f.Ticks(200)
+            Check(f.Shell.Screen = ShellScreen.Paused AndAlso f.Shell.Engine.ElapsedSeconds = t, "reconnecting never resumes by itself")
+            f.Shell.HandleKey(Keys.Escape)
+            Check(f.Shell.Screen = ShellScreen.Playing AndAlso Not f.Shell.DisconnectPaused, "the player resumes explicitly")
         End Using
     End Sub
 End Module

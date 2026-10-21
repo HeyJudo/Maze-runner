@@ -766,6 +766,7 @@ Namespace UI.Screens
         Private Sub DrawPaused(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette)
             If _engine.Dungeon IsNot Nothing Then
                 DrawDungeonPaused(g, b, s, pal)
+                DrawDisconnectBanner(g, b, s, pal, 0.08F)
                 Return
             End If
             Dim_(g, b, 185)
@@ -774,6 +775,18 @@ Namespace UI.Screens
             DrawMenu(g, _pauseMenu, cx, b.Height * 0.46F, s, pal, 0.5F, 38, 64)
             UiDraw.Text(g, "F9  CAMERA ZOOM     HOLD TAB  OVERVIEW", GameFonts.Body(22 * s, GameFonts.FontWeight.Medium),
                         pal.TextDim, cx, b.Height * 0.85F, 0.5F)
+            DrawDisconnectBanner(g, b, s, pal, 0.15F)   ' below the HUD that stays visible under this dimmer
+        End Sub
+
+        Private Sub DrawDisconnectBanner(g As Graphics, b As Rectangle, s As Single, pal As ThemePalette, topFraction As Single)
+            If Not _disconnectPaused Then Return
+            Dim back As Boolean = BoardConnected()
+            Dim text As String = If(back, "CONTROLLER RECONNECTED  ·  HOLD THE BOARD LEVEL, THEN RESUME",
+                                    "CONTROLLER DISCONNECTED  ·  RECONNECT IT, OR PRESS ESC TO PLAY ON THE KEYBOARD")
+            Dim r As New RectangleF(b.Width * 0.15F, b.Height * topFraction, b.Width * 0.7F, 64 * s)
+            UiDraw.Panel(g, r, Color.FromArgb(230, pal.Backdrop), If(back, pal.Accent, Danger), 12 * s)
+            UiDraw.Text(g, text, GameFonts.Body(22 * s, GameFonts.FontWeight.Bold), If(back, pal.Accent, Danger),
+                        r.X + r.Width / 2, r.Y + 18 * s, 0.5F, 3 * s)
         End Sub
 
         ' ── Level complete ──────────────────────────────────────────────────

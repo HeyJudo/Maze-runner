@@ -70,6 +70,8 @@ Namespace UI.Screens
         Private _goalTransition As GoalDropTransition
         Private _pausedScreen As ShellScreen = ShellScreen.Playing
         Private _pausedScreenMs As Single
+        Private _boardWasConnected As Boolean
+        Private _disconnectPaused As Boolean
         Private _lastTile As Char = "0"c
         Private _heartLostAgoMs As Single = 99999.0F   ' time since the last heart loss (HUD drain animation)
         Private _heartsBeforeDamage As Single           ' health before the most recent damage animation
@@ -176,7 +178,35 @@ Namespace UI.Screens
         End Property
 
         ' ── Loop ────────────────────────────────────────────────────────────
+        Public ReadOnly Property DisconnectPaused As Boolean
+            Get
+                Return _disconnectPaused
+            End Get
+        End Property
+
+        ' Screens where the clock or hazards run, so losing focus or the board must pause them.
+        Private Function PausableScreen() As Boolean
+            Select Case _screen
+                Case ShellScreen.Playing, ShellScreen.Intro, ShellScreen.GoalTransition,
+                     ShellScreen.DungeonBriefing, ShellScreen.DungeonRules, ShellScreen.DungeonReveal
+                    Return True
+            End Select
+            Return False
+        End Function
+
+        ' An unplugged board pauses live play; it never resumes on its own.
+        Private Sub WatchBoard()
+            Dim connected As Boolean = _input.Board IsNot Nothing AndAlso _input.Board.IsConnected
+            If _boardWasConnected AndAlso Not connected AndAlso PausableScreen() Then
+                Pause()
+                _disconnectPaused = True
+                _sound.Play("menu_back")
+            End If
+            _boardWasConnected = connected
+        End Sub
+
         Public Sub Tick()
+            WatchBoard()
             _screenMs += TickMs
             If _screen <> ShellScreen.Paused AndAlso _screen <> ShellScreen.DungeonReveal Then _heartLostAgoMs += TickMs
             Dim tx As Single = _input.TiltX
@@ -465,6 +495,7 @@ Namespace UI.Screens
 
         Private Sub ToMainMenu()
             LogUnfinishedRun(RunOutcome.Quit)
+            _disconnectPaused = False
             RestoreDungeonPreferences()
             _engine = Nothing
             _campaign = False
@@ -538,6 +569,7 @@ Namespace UI.Screens
 
         Private Sub Retry()
             LogUnfinishedRun(RunOutcome.Restart)
+            _disconnectPaused = False
             If _campaign AndAlso _completedAtMs >= 0 Then
                 _campaignTime -= _resultTime
                 _campaignStars -= _resultStars
@@ -735,6 +767,7 @@ Namespace UI.Screens
         End Sub
 
         Private Sub ResumeGame()
+            _disconnectPaused = False
             _screen = _pausedScreen
             _screenMs = _pausedScreenMs
         End Sub
@@ -975,8 +1008,7 @@ Namespace UI.Screens
             _canvas.CameraOverviewHeld = False
             If _screen = ShellScreen.DungeonReveal OrElse
                (_screen = ShellScreen.Paused AndAlso _pausedScreen = ShellScreen.DungeonReveal) Then ApplyDungeonRevealFrame()
-            If _screen = ShellScreen.Playing OrElse _screen = ShellScreen.Intro OrElse _screen = ShellScreen.GoalTransition OrElse
-               _screen = ShellScreen.DungeonBriefing OrElse _screen = ShellScreen.DungeonRules OrElse _screen = ShellScreen.DungeonReveal Then Pause()
+            If PausableScreen() Then Pause()
         End Sub
 
         Private Function CurrentPalette() As ThemePalette
