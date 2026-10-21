@@ -104,11 +104,13 @@ void loop() {
    - Hold a **left** tilt for about 1 second to go back.
 4. **In a level:** tilt in each of the four directions and confirm the ball rolls the same way. Check the diagonals and small, gentle tilts as well. Level 1 is the easiest to test on. You have 3 hearts: each new wall contact costs **1/4 heart**, while a pit costs **one full heart** and respawns the ball. Wall damage grants 1 second of protection from another wall hit; pits still cost health during this protection. Holding against a wall does not drain health continuously. Floating hearts restore one full heart, capped at 3; the HUD shows partially filled hearts.
 5. **Keyboard override:** while the board is connected, hold an arrow key. The keyboard should take control. When you let go, the board takes over again.
-6. **Unplug test:** unplug the USB cable mid-game. The footer should go back to `NO BOARD` and the keyboard should still work. Plug it back in, and within a few seconds it reconnects and the footer shows `BOARD COMx` again.
+6. **Unplug test:** unplug the USB cable mid-game. The game pauses with a banner (it never resumes by itself; choose RESUME), the footer goes back to `NO BOARD` and the keyboard should still work. Plug it back in, and within a few seconds it reconnects and the footer shows `BOARD COMx` again.
 
 ## 5. Troubleshooting
 
-All tuning happens in **`GravityMaze/Form1.vb`**, on the line `board = New ArduinoController()`. Add the settings you need with `With { }`, for example:
+Tuning is done in the game: pick **CALIBRATE** on the title menu to recenter, change sensitivity and dead zone, invert X/Y, swap axes and run **TEST TILT**. Changes are saved to `%AppData%\GravityMaze\records.xml`. RECENTER waits until the board is held level for about a second. **C** still re-centers at any time.
+
+The values in **`GravityMaze/Form1.vb`** are only the defaults. They live on the line `board = New ArduinoController()`. Add the settings you need with `With { }`, for example:
 
 ```vb
 board = New ArduinoController() With {.InvertX = True, .FullTiltDegrees = 25.0F}

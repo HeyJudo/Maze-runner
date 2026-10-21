@@ -259,8 +259,12 @@ Namespace UI.Screens
                 For Each lv As LevelConfig In _levels
                     stars += _scores.StatsFor(p.Name, lv.LevelNumber).BestStars
                 Next
-                UiDraw.Text(g, $"{stars} STARS   ·   LEVEL {Math.Min(p.UnlockedLevel, _levels.Count)}   ·   {p.LastPlayed:MMM d}",
-                            GameFonts.Body(20 * s), pal.TextDim, x + 420 * s, top + i * 58 * s + 8 * s)
+                Dim meta As String = $"{stars} STARS   ·   LEVEL {Math.Min(p.UnlockedLevel, _levels.Count)}"
+                Dim metaFont As Font = GameFonts.Body(20 * s)
+                ' Keep the date only while it still clears the board preview (narrow windows drop it).
+                Dim withDate As String = meta & $"   ·   {p.LastPlayed:MMM d}"
+                If x + 420 * s + g.MeasureString(withDate, metaFont).Width < b.Width * 0.46F Then meta = withDate
+                UiDraw.Text(g, meta, metaFont, pal.TextDim, x + 420 * s, top + i * 58 * s + 8 * s)
             Next
             DrawFooter(g, b, s, pal, MenuHints, _playerMenu)
         End Sub
