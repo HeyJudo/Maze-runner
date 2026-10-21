@@ -317,7 +317,7 @@ Namespace UI.Screens
                 Dim st As LevelStats = _scores.StatsFor(_scores.PlayerName, lv.LevelNumber)
                 Dim y As Single = top + (44 + li * 52) * s
                 Dim ended As String = String.Join("  ·  ", st.Outcomes.Where(Function(kv) kv.Key <> RunOutcome.Cleared).
-                    Select(Function(kv) $"{kv.Value} {kv.Key.Replace("-", " ")}"))
+                    Select(Function(kv) $"{kv.Value} {kv.Key.Replace("-", " ").ToUpperInvariant()}"))
                 Dim values As String() = {lv.ThemeName.ToUpperInvariant(), st.Attempts.ToString(), st.Clears.ToString(),
                     If(st.Attempts = 0, "--", $"{100 * st.Clears \ st.Attempts}%"),
                     If(st.BestTime < 0, "--:--.--", UiDraw.FormatTime(st.BestTime)), $"{st.BestStars}/3", If(ended = "", "--", ended)}
@@ -426,7 +426,7 @@ Namespace UI.Screens
                 ("star", "Stars: beat the par time for up to three"),
                 ("seal", "Dungeon: 3 keys. The last one wakes the keep. Run!"),
                 ("trap", "Traps cost one heart. Watch amber warnings"),
-                ("barrier", "Neon barriers: hit them on a boost strip to smash through.")}
+                ("barrier", "Neon barriers: hit them on a boost strip to smash through")}
             For i As Integer = 0 To items.Length - 1
                 Dim iy As Single = right.Y + 96 * s + i * 46 * s
                 DrawLegendIcon(g, items(i).Item1, right.X + 50 * s, iy + 14 * s, 20 * s, pal)

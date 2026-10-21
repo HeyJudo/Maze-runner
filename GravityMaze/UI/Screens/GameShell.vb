@@ -130,15 +130,15 @@ Namespace UI.Screens
         End Sub
 
         ' Current level's engine (Nothing on menus). Read-only; used by the verification tour's bot.
-        Public ReadOnly Property TooSlowVisible As Boolean
-            Get
-                Return _tooSlowMs >= 0
-            End Get
-        End Property
-
         Public ReadOnly Property Engine As GameEngine
             Get
                 Return _engine
+            End Get
+        End Property
+
+        Public ReadOnly Property TooSlowVisible As Boolean
+            Get
+                Return _tooSlowMs >= 0
             End Get
         End Property
 
@@ -306,7 +306,7 @@ Namespace UI.Screens
                 _canvas.DungeonState = _engine.Dungeon
                 _canvas.PickupTaken = AddressOf _engine.IsPickupTaken
                 _canvas.BarrierStanding = AddressOf _engine.IsBarrierStanding
-                Dim speed As Single = CSng(Math.Sqrt(_engine.VelocityX * _engine.VelocityX + _engine.VelocityY * _engine.VelocityY))
+                Dim speed As Single = CSng(Math.Max(Math.Abs(_engine.VelocityX), Math.Abs(_engine.VelocityY)))
                 _canvas.BarrierCharge = If(_screen = ShellScreen.Playing, Math.Min(1.0F, speed / _engine.BarrierBreakSpeed), 0.0F)
                 _canvas.BallBlink = _engine.IsInvulnerable AndAlso _screen = ShellScreen.Playing
                 _canvas.GhostPosition = If(_ghost IsNot Nothing AndAlso (_screen = ShellScreen.Playing OrElse _screen = ShellScreen.Paused),

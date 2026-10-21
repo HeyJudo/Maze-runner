@@ -202,7 +202,7 @@ Namespace Data
         End Function
 
         Public Sub SaveGhost(levelNumber As Integer, ghost As GhostRun)
-            If current Is Nothing OrElse ghost Is Nothing OrElse ghost.Points.Count < 2 Then Return
+            If current Is Nothing OrElse ghost Is Nothing OrElse ghost.Points.Count < 2 OrElse ghost.StepMs <= 0 Then Return
             current.Ghosts(levelNumber) = ghost
             Save()
         End Sub
@@ -365,7 +365,7 @@ Namespace Data
                     r.PlayerName = p.Name
                     If r.Cleared AndAlso r.LevelNumber > 0 Then p.UnlockedLevel = Math.Max(p.UnlockedLevel, r.LevelNumber + 1)
                 Next
-                current = FindPlayer(last)
+                current = If(KeyOf(last).Length = 0, Nothing, EnsurePlayer(last))
             Catch
                 ' corrupt file: keep a backup, start empty
                 runs.Clear()

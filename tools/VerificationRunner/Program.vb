@@ -236,6 +236,9 @@ Namespace VerificationRunner
                 Check(v1.UnlockedLevel = 3, "v1 progress derived from clears")
                 Check(v1.RunsFor("JUDE", 2)(0).PlayerName = "Jude" AndAlso v1.RunsFor("jude", 2)(0).Cleared, "v1 records become cleared runs under the profile name")
                 Check(v1.BestRecord(0, 3) IsNot Nothing, "v1 campaign stays a three-level record")
+                File.WriteAllText(xmlPath, "<GravityMazeRecords version=""1""><Settings PlayerName=""Solo""/></GravityMazeRecords>")
+                Dim v1b As New ScoreManager(xmlPath)
+                Check(v1b.PlayerName = "Solo" AndAlso v1b.Players.Count = 1, "v1 PlayerName with no records still becomes a profile")
                 v1.SaveSettings()
                 Dim text As String = File.ReadAllText(xmlPath)
                 Check(text.Contains("version=""2""") AndAlso text.Contains("<Run ") AndAlso Not text.Contains("<Record "), "file rewritten as v2")
@@ -787,50 +790,6 @@ Namespace VerificationRunner
                 SaveImage(bmp, fileName, localDir, artifactDir)
             End Using
         End Sub
-
-        Private Function FindShortestPath(maze As MazeDefinition) As List(Of Point)
-            Dim start As New Point(maze.StartColumn, maze.StartRow)
-            Dim goal As New Point(maze.GoalColumn, maze.GoalRow)
-            Dim q As New Queue(Of Point)()
-            Dim visited As New Dictionary(Of Point, Point)()
-
-            q.Enqueue(start)
-            visited(start) = New Point(-1, -1)
-
-            Dim deltas As Point() = {New Point(0, -1), New Point(0, 1), New Point(-1, 0), New Point(1, 0)}
-
-            While q.Count > 0
-                Dim curr As Point = q.Dequeue()
-                If curr = goal Then Exit While
-
-                For Each d In deltas
-                    Dim nx As Integer = curr.X + d.X
-                    Dim ny As Integer = curr.Y + d.Y
-                    If nx >= 0 AndAlso nx < maze.ColumnCount AndAlso ny >= 0 AndAlso ny < maze.RowCount Then
-                        Dim tile As Char = maze.GetTile(ny, nx)
-                        If tile <> "1"c AndAlso tile <> "H"c Then
-                            Dim nextPt As New Point(nx, ny)
-                            If Not visited.ContainsKey(nextPt) Then
-                                visited(nextPt) = curr
-                                q.Enqueue(nextPt)
-                            End If
-                        End If
-                    End If
-                Next
-            End While
-
-            Dim result As New List(Of Point)()
-            If Not visited.ContainsKey(goal) Then Return result
-
-            Dim p As Point = goal
-            While p.X <> -1 AndAlso p.Y <> -1
-                result.Add(p)
-                p = visited(p)
-            End While
-
-            result.Reverse()
-            Return result
-        End Function
 
         Private Sub DrawHudOverlay(g As Graphics, w As Integer, h As Integer,
                                    title As String, level As String, status As String,

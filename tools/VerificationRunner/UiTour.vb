@@ -65,7 +65,7 @@ Namespace VerificationRunner
             If Not _canvas.TiltViewEnabled Then Throw New Exception("F8 must re-enable tilt view")
             Shot("ui_01_title")
 
-            ' Level select (menu index 1) – preview + cards
+            ' Level select (menu index 2) – preview + cards
             MoveTo(2) : Key(Keys.Enter) : Ticks(20)
             Expect(ShellScreen.NameEntry)   ' no player yet: ask for one first
             For i As Integer = 1 To 12 : Key(Keys.Back) : Next
