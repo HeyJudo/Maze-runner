@@ -59,7 +59,7 @@ after the goal-drop animation. Pause and focus loss freeze the transition.
 
 Instant restart: R restarts the level at once (keyboard only); the abandoned attempt is still recorded.
 
-Unplugging the Arduino mid-run pauses the game; play resumes only when the player chooses RESUME.
+Unplugging the Arduino mid-run pauses the game; play never resumes on its own; the player resumes it.
 
 ------------------------------------------------------------------------
 
@@ -162,8 +162,8 @@ XML (format v2) stores: - Player profiles (case-insensitive names, unlocked
 level, ghost setting) - One `<Run>` per attempt with its outcome
 (`cleared`/`out-of-hearts`/`restart`/`quit`), time, wall hits, falls, hearts
 lost, barriers broken, stars and score - The best-run ghost per level -
-Controller calibration (recenter, sensitivity, dead zone, invert X/Y, swap
-axes). Older v1 files are upgraded automatically. Campaign records are written
+Controller calibration (sensitivity, dead zone, invert X/Y, swap axes; the
+zero point is re-taken each session). Older v1 files are upgraded automatically. Campaign records are written
 only for unbroken Level 1 to end runs. The Who's Playing? screen lists the seven
 most recent profiles.
 

@@ -263,7 +263,7 @@ Namespace UI.Screens
                 Dim metaFont As Font = GameFonts.Body(20 * s)
                 ' Keep the date only while it still clears the board preview (narrow windows drop it).
                 Dim withDate As String = meta & $"   ·   {p.LastPlayed:MMM d}"
-                If x + 420 * s + g.MeasureString(withDate, metaFont).Width < b.Width * 0.46F Then meta = withDate
+                If x + 420 * s + UiDraw.Measure(g, withDate, metaFont).Width < b.Width * 0.46F Then meta = withDate
                 UiDraw.Text(g, meta, metaFont, pal.TextDim, x + 420 * s, top + i * 58 * s + 8 * s)
             Next
             DrawFooter(g, b, s, pal, MenuHints, _playerMenu)

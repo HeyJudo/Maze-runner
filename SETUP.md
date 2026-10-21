@@ -108,7 +108,7 @@ void loop() {
 
 ## 5. Troubleshooting
 
-Tuning is done in the game: pick **CALIBRATE** on the title menu to recenter, change sensitivity and dead zone, invert X/Y, swap axes and run **TEST TILT**. Changes are saved to `%AppData%\GravityMaze\records.xml`. RECENTER waits until the board is held level for about a second. **C** still re-centers at any time.
+Tuning is done in the game: pick **CALIBRATE** on the title menu to recenter, change sensitivity and dead zone, invert X/Y, swap axes and run **TEST TILT**. Sensitivity, dead zone, invert and swap are saved to `%AppData%\GravityMaze\records.xml`; the zero point is not saved, so re-take it each session with RECENTER or **C**. Confirmed with the board, RECENTER waits until the board is held level for about a second; with the keyboard, Enter recenters at once. **C** still re-centers at any time.
 
 The values in **`GravityMaze/Form1.vb`** are only the defaults. They live on the line `board = New ArduinoController()`. Add the settings you need with `With { }`, for example:
 
