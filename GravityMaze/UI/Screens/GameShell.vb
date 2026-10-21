@@ -82,6 +82,8 @@ Namespace UI.Screens
         Private _resultStars As Integer
         Private _resultScore As Integer
         Private _resultNewBest As Boolean
+        Private ReadOnly _ghostTrail As New List(Of PointF)()
+        Private _ghost As GhostRun   ' best run being raced (Nothing = none or hidden)
         Private _resultPrevBest As ScoreRecord
         Private _victoryRank As Integer
 
@@ -271,6 +273,8 @@ Namespace UI.Screens
                 Dim speed As Single = CSng(Math.Sqrt(_engine.VelocityX * _engine.VelocityX + _engine.VelocityY * _engine.VelocityY))
                 _canvas.BarrierCharge = If(_screen = ShellScreen.Playing, Math.Min(1.0F, speed / _engine.BarrierBreakSpeed), 0.0F)
                 _canvas.BallBlink = _engine.IsInvulnerable AndAlso _screen = ShellScreen.Playing
+                _canvas.GhostPosition = If(_ghost IsNot Nothing AndAlso (_screen = ShellScreen.Playing OrElse _screen = ShellScreen.Paused),
+                                           _ghost.PositionAt(_engine.ElapsedSeconds), CType(Nothing, PointF?))
                 If _screen <> ShellScreen.Paused AndAlso _screen <> ShellScreen.DungeonReveal Then
                     _canvas.UpdateBallPosition(_engine.BallX, _engine.BallY)
                     _canvas.UpdateBallMotion(If(_screen = ShellScreen.Playing, _engine.VelocityX, 0.0F),
@@ -283,6 +287,7 @@ Namespace UI.Screens
                 _canvas.PickupTaken = Nothing
                 _canvas.BarrierStanding = AddressOf _attractEngine.IsBarrierStanding
                 _canvas.BarrierCharge = 0.0F
+                _canvas.GhostPosition = Nothing
                 _canvas.BallBlink = False
                 _canvas.UpdateBallPosition(_attractEngine.BallX, _attractEngine.BallY)
                 _canvas.UpdateBallMotion(_attractEngine.VelocityX, _attractEngine.VelocityY, TileUnder(_attractEngine))
@@ -519,6 +524,8 @@ Namespace UI.Screens
             _tooSlowMs = -1
             _heartLostAgoMs = 99999.0F
             _canvas.ClearEffects()
+            _ghostTrail.Clear()
+            _ghost = If(_scores.GhostEnabled, _scores.GhostFor(_levels(_levelIndex).LevelNumber), Nothing)
             ResetDungeonPresentation()
             GoTo_(ShellScreen.Intro)
         End Sub
@@ -550,6 +557,9 @@ Namespace UI.Screens
             TickDungeonMessages()
             If _completedAtMs < 0 Then
                 _engine.Update(tx, ty)
+                While _ghostTrail.Count * GhostRun.DefaultStepMs <= _engine.ElapsedSeconds * 1000.0F
+                    _ghostTrail.Add(New PointF(_engine.BallX, _engine.BallY))
+                End While
                 If TryBeginDungeonReveal() Then Return
             End If
 
@@ -635,6 +645,8 @@ Namespace UI.Screens
                 .PlayerName = _scores.PlayerName, .LevelNumber = cfg.LevelNumber, .TimeSeconds = _resultTime,
                 .Attempts = _resultAttempts, .Stars = _resultStars, .Score = _resultScore, .Date = DateTime.Now,
                 .WallHits = _engine.WallHits, .Falls = _engine.Falls, .HeartsLost = _engine.HeartsLost, .BarriersBroken = _engine.BarriersBroken})
+            _ghostTrail.Add(New PointF(_engine.BallX, _engine.BallY))
+            If _resultNewBest Then _scores.SaveGhost(cfg.LevelNumber, New GhostRun(_resultTime, GhostRun.DefaultStepMs, _ghostTrail))
             _runLogged = True
             If _campaign Then
                 _campaignTime += _resultTime
@@ -835,6 +847,13 @@ Namespace UI.Screens
             End If
             If key = Keys.M Then
                 _sound.Muted = Not _sound.Muted
+                Return True
+            End If
+            If key = Keys.G AndAlso (_screen = ShellScreen.Playing OrElse _screen = ShellScreen.Paused OrElse _screen = ShellScreen.Intro) Then
+                _scores.GhostEnabled = Not _scores.GhostEnabled
+                _ghost = If(_scores.GhostEnabled, _scores.GhostFor(_levels(_levelIndex).LevelNumber), Nothing)
+                RefreshProfileLabels()
+                _sound.Play("menu_move", 0.6F)
                 Return True
             End If
             Select Case _screen

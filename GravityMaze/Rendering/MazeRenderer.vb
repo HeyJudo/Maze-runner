@@ -61,7 +61,8 @@ Namespace Rendering
                         Optional deferMarbles As Boolean = False,
                         Optional dungeon As DungeonRun = Nothing,
                         Optional barrierStanding As Func(Of Integer, Integer, Boolean) = Nothing,
-                        Optional barrierCharge As Single = 0.0F)
+                        Optional barrierCharge As Single = 0.0F,
+                        Optional ghost As PointF? = Nothing)
             _marbles.Clear()
             _deferMarbles = deferMarbles
             _orientation = If(motion Is Nothing, Quaternion.Identity, motion.Orientation)
@@ -111,6 +112,17 @@ Namespace Rendering
                 ' 4. Expanding Goal Celebration Ring Effect (if active)
                 If goalEffect IsNot Nothing AndAlso goalEffect.IsActive Then
                     DrawGoalCelebration(graphics, left, top, tileSize, goalEffect, themeName)
+                End If
+
+                ' Ghost of the player's best run: a translucent marble the real one races.
+                If ghost.HasValue Then
+                    Dim gc As New PointF(left + ghost.Value.X * tileSize, top + ghost.Value.Y * tileSize)
+                    Dim gr As Single = tileSize * 0.27F
+                    Using fill As New SolidBrush(Color.FromArgb(70, 220, 235, 255)),
+                          ring As New Pen(Color.FromArgb(150, 220, 235, 255), Math.Max(1.0F, tileSize * 0.04F))
+                        graphics.FillEllipse(fill, gc.X - gr, gc.Y - gr, gr * 2, gr * 2)
+                        graphics.DrawEllipse(ring, gc.X - gr, gc.Y - gr, gr * 2, gr * 2)
+                    End Using
                 End If
 
                 ' 5. Metallic Silver Marble (same ball across all levels)

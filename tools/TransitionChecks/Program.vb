@@ -139,6 +139,7 @@ Module Program
         TestLevelLocks()
         TestBarrierFeedback()
         TestPlayers()
+        TestGhost()
         Console.WriteLine($"PASS: {_checks} transition and real-shell flow checks (headless presentation adapters)")
     End Sub
 
@@ -553,6 +554,21 @@ Module Program
             f.Ticks(200)
             Check(f.Shell.Screen = ShellScreen.Title AndAlso f.Canvas.Transition Is Nothing, "main menu cancels pending advancement")
             Check(f.Scores.TopRecords(0, 10).Count = 0, "abandoned campaign is not recorded")
+        End Using
+    End Sub
+
+    Private Sub TestGhost()
+        Using f As New Fixture()
+            f.Campaign() : f.Goal()
+            Dim ghost As GhostRun = f.Scores.GhostFor(1)
+            Check(ghost IsNot Nothing AndAlso ghost.Points.Count >= 2, "the first clear saves a ghost")
+            f.WaitFor(ShellScreen.Playing)
+            Check(Not f.Canvas.GhostPosition.HasValue, "no ghost on a level never cleared")
+            f.Shell.HandleKey(Keys.Escape) : f.Menu(2) : f.Shell.HandleKey(Keys.Enter)
+            f.Shell.HandleKey(Keys.Enter) : f.WaitFor(ShellScreen.Playing) : f.Ticks(2)
+            Check(f.Canvas.GhostPosition.HasValue, "the ghost races a cleared level")
+            f.Shell.HandleKey(Keys.G) : f.Ticks(1)
+            Check(Not f.Canvas.GhostPosition.HasValue AndAlso Not f.Scores.GhostEnabled, "G hides the ghost and remembers it")
         End Using
     End Sub
 

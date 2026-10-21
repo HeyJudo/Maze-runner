@@ -554,7 +554,7 @@ Namespace UI.Screens
             ' Bottom hints
             Dim hy As Single = b.Bottom - 44 * s
             Dim x As Single = 40 * s
-            For Each h In {("ESC", "Pause"), ("R", "Restart"), ("M", If(_sound.Muted, "Sound off", "Sound on")), ("F9", "Camera"), ("TAB", "Overview")}
+            For Each h In {("ESC", "Pause"), ("R", "Restart"), ("G", If(_scores.GhostEnabled, "Ghost on", "Ghost off")), ("M", If(_sound.Muted, "Sound off", "Sound on")), ("F9", "Camera"), ("TAB", "Overview")}
                 x += UiDraw.KeyHint(g, h.Item1, h.Item2, x, hy, pal.Accent, pal.TextDim)
             Next
             UiDraw.Text(g, _scores.PlayerName & "   ·   " & BoardStatus(), GameFonts.Body(18 * s, GameFonts.FontWeight.Bold),

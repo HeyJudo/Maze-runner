@@ -182,6 +182,8 @@ Namespace UI
         Public Property BarrierStanding As Func(Of Integer, Integer, Boolean)
         <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
         Public Property BarrierCharge As Single
+        <DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)>
+        Public Property GhostPosition As PointF?
 
         ' True while a fall or goal transition replaces the normal engine marble.
         Public ReadOnly Property IsBallHidden As Boolean
@@ -351,13 +353,13 @@ Namespace UI
                                           currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
                                           If(completedMarbleHidden, 0.0F, 1.0F),
                                           motion:=marble, boardTilt:=tilt, deferMarbles:=True, dungeon:=DungeonState,
-                                          barrierStanding:=BarrierStanding, barrierCharge:=BarrierCharge)
+                                          barrierStanding:=BarrierStanding, barrierCharge:=BarrierCharge, ghost:=GhostPosition)
                         End Sub, paintSpheres:=AddressOf renderer.DrawMarbles)
                 Else
                     renderer.Draw(e.Graphics, boardArea, currentMaze, _ballX, _ballY,
                                   currentTheme, impactSnapshot, goalCelebration, fx, PickupTaken, BallBlink,
                                   If(completedMarbleHidden, 0.0F, 1.0F), motion:=marble, boardTilt:=tilt, dungeon:=DungeonState,
-                                  barrierStanding:=BarrierStanding, barrierCharge:=BarrierCharge)
+                                  barrierStanding:=BarrierStanding, barrierCharge:=BarrierCharge, ghost:=GhostPosition)
                 End If
                 e.Graphics.Restore(state)
                 If _flashMs > 0.0F Then

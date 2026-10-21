@@ -18,6 +18,7 @@ Namespace Global.System.Windows.Forms
         P
         R
         M
+        G
         F8
         F9
         Tab
@@ -74,6 +75,7 @@ Namespace UI
         Public Property BallBlink As Boolean
         Public Property BarrierStanding As Func(Of Integer, Integer, Boolean)
         Public Property BarrierCharge As Single
+        Public Property GhostPosition As PointF?
         Private ReadOnly Camera As New BoardCamera()
         Public Property CameraEnabled As Boolean
         Public Property CameraOverviewHeld As Boolean
