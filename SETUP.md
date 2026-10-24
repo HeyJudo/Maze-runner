@@ -3,6 +3,13 @@
 This guide takes you from a fresh Windows PC to playing Gravity Maze with the MPU6050 tilt board.
 It takes about 30 to 60 minutes, and most of that is installing Visual Studio.
 
+**Already set up an older version?** You don't need to reinstall anything:
+
+1. Download the newest ZIP (section 2, "No Git?") and extract it to a **new** folder, for example `C:\Maze-runner-new`. If you use Git, run `git pull` in your `Maze-runner` folder instead.
+2. Open `GravityMaze\GravityMaze.slnx` from the new folder in Visual Studio and press **F5**. Your old records carry over by themselves, because they live in `%AppData%\GravityMaze`, not in the game folder.
+3. The Arduino sketch hasn't changed. If the board already works, leave it as it is, and if it doesn't, see section 3.
+4. Set up MySQL with section 5.
+
 ---
 
 ## 1. Install the tools
@@ -28,7 +35,7 @@ git clone https://github.com/HeyJudo/Maze-runner.git
 1. Go to https://github.com/HeyJudo/Maze-runner
 2. Click the green **Code** button, then **Download ZIP**.
 3. Right-click the ZIP and choose **Extract All…**. Extract it somewhere simple like `C:\Maze-runner`, not inside OneDrive. The extracted folder is called `Maze-runner-main`, so use that name in place of `Maze-runner` below.
-4. If Jude sends a newer version, download and extract a fresh ZIP. Copy your `board = New ArduinoController() ...` line across from the old `Form1.vb` first so you don't lose your settings.
+4. If Jude sends a newer version, download and extract a fresh ZIP. Your records and CALIBRATE settings are kept in `%AppData%\GravityMaze`, so they carry over by themselves.
 
 Then:
 
@@ -145,6 +152,6 @@ Tuning is done in the game: pick **CALIBRATE** on the title menu to recenter, ch
 
 Send Jude:
 
-1. **The settings you changed**, by copying your `board = New ArduinoController() ...` line from `Form1.vb`.
+1. **The settings you changed** in CALIBRATE (sensitivity, dead zone, invert, swap), and whether the title screen says `MYSQL SYNCED`.
 2. **A short screen recording**, about 30 to 60 seconds. Press F11 for windowed mode and record with Win+Alt+R (Game Bar) or Win+Shift+R (Snipping Tool). Show the footer with `BOARD COMx`, moving through the menus with the board, and the ball rolling in all four directions in Level 1. If you can, film the board in your hand too, on a phone.
 3. Anything that felt wrong, such as drift, lag, a direction that's off, or disconnects, and which COM port and board you used (genuine Uno or a CH340 clone).
