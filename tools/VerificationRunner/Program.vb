@@ -25,6 +25,7 @@ Namespace VerificationRunner
         Public Sub Main()
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--data-only") >= 0 Then
                 TestScoreManager()
+                TestSavedHook()
                 TestProfilesAndJournal()
                 Return
             End If
@@ -112,6 +113,7 @@ Namespace VerificationRunner
             TestWidePitSeam()
 
             TestScoreManager()
+            TestSavedHook()
             TestProfilesAndJournal()
             TestFonts()
 
@@ -130,6 +132,32 @@ Namespace VerificationRunner
 
         Private Sub Check(cond As Boolean, msg As String)
             If Not cond Then Throw New Exception(msg)
+        End Sub
+
+        Private Sub TestSavedHook()
+            Console.WriteLine("[TEST] ScoreManager.Saved hook...")
+            Dim dir As String = Path.Combine(Path.GetTempPath(), "gm_saved_" & Guid.NewGuid().ToString("N"))
+            Dim xmlPath As String = Path.Combine(dir, "records.xml")
+            Try
+                Dim got As System.Xml.Linq.XElement = Nothing
+                Dim sm As New ScoreManager(xmlPath)
+                sm.Saved = Sub(root) got = root
+                sm.PlayerName = "JUDE"
+                Check(got IsNot Nothing AndAlso got.Name.LocalName = "GravityMazeRecords" AndAlso CStr(got.Attribute("version")) = "2", "Saved fires with v2 root")
+                Check(got.Element("Settings").Attribute("LastPlayer").Value = "JUDE", "Saved root carries current data")
+                Check(System.Xml.Linq.XDocument.Load(xmlPath).Root.ToString() = got.ToString(), "Saved root equals file on disk")
+                ' failing write: the target path is a directory
+                Dim badPath As String = Path.Combine(dir, "isadir") : Directory.CreateDirectory(badPath)
+                Dim bad As New ScoreManager(badPath) : got = Nothing
+                bad.Saved = Sub(root) got = root
+                bad.PlayerName = "X"
+                Check(got Is Nothing, "Saved not fired when write fails")
+            Finally
+                Try
+                    Directory.Delete(dir, True)
+                Catch
+                End Try
+            End Try
         End Sub
 
         Private Sub TestScoreManager()
