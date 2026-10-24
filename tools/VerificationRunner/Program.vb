@@ -25,6 +25,9 @@ Namespace VerificationRunner
         Public Sub Main()
             If Array.IndexOf(Environment.GetCommandLineArgs(), "--data-only") >= 0 Then
                 TestScoreManager()
+                TestSavedHook()
+                TestMySqlMirror()
+                TestMySqlLive()
                 TestProfilesAndJournal()
                 Return
             End If
@@ -112,6 +115,9 @@ Namespace VerificationRunner
             TestWidePitSeam()
 
             TestScoreManager()
+            TestSavedHook()
+            TestMySqlMirror()
+            TestMySqlLive()
             TestProfilesAndJournal()
             TestFonts()
 
@@ -130,6 +136,165 @@ Namespace VerificationRunner
 
         Private Sub Check(cond As Boolean, msg As String)
             If Not cond Then Throw New Exception(msg)
+        End Sub
+
+        Private Sub TestSavedHook()
+            Console.WriteLine("[TEST] ScoreManager.Saved hook...")
+            Dim dir As String = Path.Combine(Path.GetTempPath(), "gm_saved_" & Guid.NewGuid().ToString("N"))
+            Dim xmlPath As String = Path.Combine(dir, "records.xml")
+            Try
+                Dim got As System.Xml.Linq.XElement = Nothing
+                Dim sm As New ScoreManager(xmlPath)
+                sm.Saved = Sub(root) got = root
+                sm.PlayerName = "JUDE"
+                Check(got IsNot Nothing AndAlso got.Name.LocalName = "GravityMazeRecords" AndAlso CStr(got.Attribute("version")) = "2", "Saved fires with v2 root")
+                Check(got.Element("Settings").Attribute("LastPlayer").Value = "JUDE", "Saved root carries current data")
+                Check(System.Xml.Linq.XDocument.Load(xmlPath).Root.ToString() = got.ToString(), "Saved root equals file on disk")
+                ' failing write: the target path is a directory
+                Dim badPath As String = Path.Combine(dir, "isadir") : Directory.CreateDirectory(badPath)
+                Dim bad As New ScoreManager(badPath) : got = Nothing
+                bad.Saved = Sub(root) got = root
+                bad.PlayerName = "X"
+                Check(got Is Nothing, "Saved not fired when write fails")
+            Finally
+                Try
+                    Directory.Delete(dir, True)
+                Catch
+                End Try
+            End Try
+        End Sub
+
+        ' Builds a small journal and returns the root ScoreManager saved last.
+        Private Function MirrorSampleRoot(dir As String) As System.Xml.Linq.XElement
+            Dim got As System.Xml.Linq.XElement = Nothing
+            Dim sm As New ScoreManager(Path.Combine(dir, "records.xml"))
+            sm.Saved = Sub(r) got = r
+            sm.PlayerName = "Jude"
+            sm.AddRecord(New ScoreRecord With {.PlayerName = "Jude", .LevelNumber = 1, .TimeSeconds = 20.0F, .Attempts = 1, .Stars = 2,
+                .WallHits = 3, .HeartsLost = 0.5F, .BarriersBroken = 2, .Date = New DateTime(2026, 9, 30, 14, 2, 11)})
+            sm.AddRecord(New ScoreRecord With {.PlayerName = "Jude", .LevelNumber = 0, .CampaignLevels = 4, .TimeSeconds = 90.0F, .Attempts = 1,
+                .Date = New DateTime(2026, 9, 30, 15, 0, 0)})
+            sm.AddRecord(New ScoreRecord With {.PlayerName = "Jude", .LevelNumber = 1, .Outcome = RunOutcome.Quit, .TimeSeconds = 5.0F,
+                .Date = New DateTime(2026, 9, 30, 16, 0, 0)})
+            sm.SaveGhost(1, New GhostRun(12.5F, 96, {New PointF(1, 2), New PointF(3, 4)}))
+            sm.Calibration.InvertX = True
+            sm.SaveSettings()
+            Return got
+        End Function
+
+        Private Sub TestMySqlMirror()
+            Console.WriteLine("[TEST] MySqlMirror...")
+            Dim dir As String = Path.Combine(Path.GetTempPath(), "gm_mysql_" & Guid.NewGuid().ToString("N"))
+            Try
+                Dim root = MirrorSampleRoot(dir)
+                Dim t = MySqlMirror.Tables(root)
+                Check(t("players").Count = 1 AndAlso CStr(t("players")(0)("playerKey")) = "jude" AndAlso CStr(t("players")(0)("name")) = "Jude", "players row")
+                Check(t("runs").Count = 3 AndAlso CInt(t("runs")(0)("id")) = 1 AndAlso CInt(t("runs")(2)("id")) = 3, "runs keep journal order")
+                Check(CInt(t("runs")(0)("wallHits")) = 3 AndAlso CSng(t("runs")(0)("heartsLost")) = 0.5F AndAlso CInt(t("runs")(0)("barriersBroken")) = 2, "run counters")
+                Check(CDate(t("runs")(0)("date")) = New DateTime(2026, 9, 30, 14, 2, 11), "run date")
+                Check(t("runs")(0)("campaignLevels") Is DBNull.Value AndAlso CInt(t("runs")(1)("campaignLevels")) = 4, "campaignLevels only for level 0")
+                Check(CStr(t("runs")(2)("outcome")) = RunOutcome.Quit, "outcome kept")
+                Check(t("ghosts").Count = 1 AndAlso CStr(t("ghosts")(0)("points")) = "1.00,2.00;3.00,4.00" AndAlso CDec(t("ghosts")(0)("time")) = 12.5D, "ghost row")
+                Check(t("settings").Count = 1 AndAlso CBool(t("settings")(0)("InvertX")) AndAlso CStr(t("settings")(0)("LastPlayer")) = "Jude", "settings row")
+                ' a legacy run with no player still maps (no FK)
+                Dim legacy As New System.Xml.Linq.XElement(root)
+                legacy.Add(New System.Xml.Linq.XElement("Run", New System.Xml.Linq.XAttribute("player", ""), New System.Xml.Linq.XAttribute("level", "1"),
+                    New System.Xml.Linq.XAttribute("outcome", "cleared"), New System.Xml.Linq.XAttribute("time", "9.00"), New System.Xml.Linq.XAttribute("attempts", "1"),
+                    New System.Xml.Linq.XAttribute("stars", "0"), New System.Xml.Linq.XAttribute("score", "0"), New System.Xml.Linq.XAttribute("wallHits", "0"),
+                    New System.Xml.Linq.XAttribute("falls", "0"), New System.Xml.Linq.XAttribute("heartsLost", "0"), New System.Xml.Linq.XAttribute("barriersBroken", "0"),
+                    New System.Xml.Linq.XAttribute("date", "2026-09-30T14:02:11")))
+                Dim lt = MySqlMirror.Tables(legacy)
+                Check(lt("runs").Count = 4 AndAlso CStr(lt("runs")(3)("playerKey")) = "", "legacy run without player")
+
+                ' queue: slow sink, non-blocking, coalescing, single writer, never throws
+                Dim calls As New List(Of System.Xml.Linq.XElement)() : Dim active As Integer = 0 : Dim overlap As Boolean = False
+                Dim m As New MySqlMirror(Sub(r)
+                                             If System.Threading.Interlocked.Increment(active) > 1 Then overlap = True
+                                             System.Threading.Thread.Sleep(300) : SyncLock calls : calls.Add(r) : End SyncLock
+                                             System.Threading.Interlocked.Decrement(active)
+                                         End Sub)
+                Dim sw = System.Diagnostics.Stopwatch.StartNew()
+                Dim a As New System.Xml.Linq.XElement("A"), b As New System.Xml.Linq.XElement("B"), c As New System.Xml.Linq.XElement("C")
+                m.Push(a) : m.Push(b) : m.Push(c)
+                Check(sw.ElapsedMilliseconds < 100, "Push never blocks")
+                Check(m.WaitIdle(5000) AndAlso Not overlap, "one write at a time")
+                Check(calls.Count <= 2 AndAlso calls.Last() Is c, "latest snapshot wins")
+                Check(MySqlMirror.Status.StartsWith("MYSQL SYNCED"), "synced status")
+                Dim boom As New MySqlMirror(Sub(r) Throw New InvalidOperationException("no server"))
+                boom.Push(a)
+                Check(boom.WaitIdle(2000) AndAlso MySqlMirror.Status.StartsWith("MYSQL OFFLINE " & ChrW(183) & " XML ONLY " & ChrW(183) & " no server"), "failure -> offline status, no throw")
+
+                ' config: missing file -> template written, FromConfig Nothing; template parses; bad port -> Nothing + CONFIG ERROR
+                Dim ini As String = Path.Combine(dir, "mysql.ini")
+                Check(MySqlMirror.FromConfig(ini) Is Nothing AndAlso File.Exists(ini) AndAlso MySqlMirror.Status = "MYSQL OFF " & ChrW(183) & " EDIT mysql.ini", "missing config")
+                Check(MySqlMirror.ConnectionStringFrom(ini).Contains("Server=localhost"), "template parses")
+                File.WriteAllText(ini, "port=abc")
+                Check(MySqlMirror.FromConfig(ini) Is Nothing AndAlso MySqlMirror.Status.StartsWith("MYSQL CONFIG ERROR"), "bad port")
+            Finally
+                MySqlMirror.Status = ""   ' keep UiTour screenshots free of mirror text
+                Try
+                    Directory.Delete(dir, True)
+                Catch
+                End Try
+            End Try
+        End Sub
+
+        ' Needs a real server: set GM_MYSQL_INI to an ini whose database is a throwaway.
+        Private Sub TestMySqlLive()
+            Dim ini As String = Environment.GetEnvironmentVariable("GM_MYSQL_INI")
+            If String.IsNullOrEmpty(ini) Then
+                Console.WriteLine("  -> MySQL live check SKIPPED (set GM_MYSQL_INI to an ini whose database is a throwaway, not gravitymaze)")
+                Return
+            End If
+            Console.WriteLine("[TEST] MySqlMirror live...")
+            Dim cs As New MySqlConnector.MySqlConnectionStringBuilder(MySqlMirror.ConnectionStringFrom(ini))
+            Dim db As String = cs.Database
+            Check(Not String.Equals(db, "gravitymaze", StringComparison.OrdinalIgnoreCase), "live check needs a throwaway database")
+            Dim dir As String = Path.Combine(Path.GetTempPath(), "gm_mysqllive_" & Guid.NewGuid().ToString("N"))
+            Try
+                Dim root = MirrorSampleRoot(dir)
+                Dim script As String = System.Text.RegularExpressions.Regex.Replace(
+                    File.ReadAllText(Path.Combine(ProjectRoot, "GravityMaze\Data\gravitymaze.sql")), "\bgravitymaze\b", db)
+                cs.Database = ""
+                Using con As New MySqlConnector.MySqlConnection(cs.ConnectionString)
+                    con.Open()
+                    ' MySqlScript is not in the package: run statement by statement (the script has no ; in comments or strings)
+                    For Each stmt As String In System.Text.RegularExpressions.Regex.Replace(script, "--[^\r\n]*", "").Split(";"c)
+                        If stmt.Trim().Length = 0 Then Continue For
+                        Using cmd As New MySqlConnector.MySqlCommand(stmt, con)
+                            cmd.ExecuteNonQuery()
+                        End Using
+                    Next
+                End Using
+                cs.Database = db
+                MySqlMirror.WriteAll(cs.ConnectionString, root)
+                MySqlMirror.WriteAll(cs.ConnectionString, root)
+                Using con As New MySqlConnector.MySqlConnection(cs.ConnectionString)
+                    con.Open()
+                    Dim count = Function(sql As String) Convert.ToInt32(New MySqlConnector.MySqlCommand(sql, con).ExecuteScalar())
+                    Check(count("SELECT COUNT(*) FROM runs") = 3, "live runs")
+                    Check(count("SELECT COUNT(*) FROM players") = 1, "live players")
+                    Check(count("SELECT COUNT(*) FROM ghosts") = 1, "live ghosts")
+                    Check(count("SELECT COUNT(*) FROM settings") = 1, "live settings")
+                    Check(count("SELECT wallHits FROM runs WHERE id = 1") = 3, "live wallHits")
+                End Using
+            Finally
+                Try
+                    cs.Database = ""
+                    Using con As New MySqlConnector.MySqlConnection(cs.ConnectionString)
+                        con.Open()
+                        Using cmd As New MySqlConnector.MySqlCommand("DROP DATABASE IF EXISTS `" & db & "`", con)
+                            cmd.ExecuteNonQuery()
+                        End Using
+                    End Using
+                Catch
+                End Try
+                MySqlMirror.Status = ""
+                Try
+                    Directory.Delete(dir, True)
+                Catch
+                End Try
+            End Try
         End Sub
 
         Private Sub TestScoreManager()

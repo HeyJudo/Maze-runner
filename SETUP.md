@@ -3,6 +3,13 @@
 This guide takes you from a fresh Windows PC to playing Gravity Maze with the MPU6050 tilt board.
 It takes about 30 to 60 minutes, and most of that is installing Visual Studio.
 
+**Already set up an older version?** You don't need to reinstall anything:
+
+1. Download the newest ZIP (section 2, "No Git?") and extract it to a **new** folder, for example `C:\Maze-runner-new`. If you use Git, run `git pull` in your `Maze-runner` folder instead.
+2. Open `GravityMaze\GravityMaze.slnx` from the new folder in Visual Studio and press **F5**. Your old records carry over by themselves, because they live in `%AppData%\GravityMaze`, not in the game folder.
+3. The Arduino sketch hasn't changed. If the board already works, leave it as it is, and if it doesn't, see section 3.
+4. Set up MySQL with section 5.
+
 ---
 
 ## 1. Install the tools
@@ -28,12 +35,12 @@ git clone https://github.com/HeyJudo/Maze-runner.git
 1. Go to https://github.com/HeyJudo/Maze-runner
 2. Click the green **Code** button, then **Download ZIP**.
 3. Right-click the ZIP and choose **Extract All…**. Extract it somewhere simple like `C:\Maze-runner`, not inside OneDrive. The extracted folder is called `Maze-runner-main`, so use that name in place of `Maze-runner` below.
-4. If Jude sends a newer version, download and extract a fresh ZIP. Copy your `board = New ArduinoController() ...` line across from the old `Form1.vb` first so you don't lose your settings.
+4. If Jude sends a newer version, download and extract a fresh ZIP. Your records and CALIBRATE settings are kept in `%AppData%\GravityMaze`, so they carry over by themselves.
 
 Then:
 
 1. In Visual Studio, use **File → Open → Project/Solution** and open `Maze-runner\GravityMaze\GravityMaze.slnx`.
-2. NuGet packages restore on their own. The project's only package is `System.IO.Ports`. If you get restore errors, right-click the solution and choose **Restore NuGet Packages**.
+2. NuGet packages restore on their own. The project's only packages are `System.IO.Ports` and `MySqlConnector`. If you get restore errors, right-click the solution and choose **Restore NuGet Packages**.
 3. Build with **Ctrl+Shift+B**, then run with **F5**.
 
 **What you should see:** a **fullscreen** title screen with the menu PLAY / LEVEL SELECT / RECORDS / HOW TO PLAY / CHANGE PLAYER / QUIT.
@@ -106,7 +113,22 @@ void loop() {
 5. **Keyboard override:** while the board is connected, hold an arrow key. The keyboard should take control. When you let go, the board takes over again.
 6. **Unplug test:** unplug the USB cable mid-game. The game pauses with a banner (it never resumes by itself; choose RESUME), the footer goes back to `NO BOARD` and the keyboard should still work. Plug it back in, and within a few seconds it reconnects and the footer shows `BOARD COMx` again.
 
-## 5. Troubleshooting
+## 5. MySQL records mirror (optional)
+
+The game can also copy your records into a MySQL database. This is optional: the game works the same without it, and `%AppData%\GravityMaze\records.xml` is still the main save.
+
+1. If MySQL 8 is already installed, skip this step. Otherwise install **MySQL Server** and **MySQL Workbench** from https://dev.mysql.com/downloads/mysql/ (MySQL Server 8.4 LTS, Windows MSI) and https://dev.mysql.com/downloads/workbench/, and note the `root` password you choose.
+2. Open Workbench and connect to your local server.
+3. Choose **File → Open SQL Script** and open `Maze-runner\GravityMaze\Data\gravitymaze.sql`. Click the ⚡ button to run it. This creates the `gravitymaze` database and its tables.
+4. Start the game once. It creates `%AppData%\GravityMaze\mysql.ini`. Close the game, press **Win+R**, type `%AppData%\GravityMaze`, press Enter, open `mysql.ini` in Notepad, fill in `user` and `password` (and `host`/`port` if yours are different), save, and start the game again.
+5. Look at the top-right of the title screen. `MYSQL SYNCED hh:mm` means it works. If it doesn't, the text says why (for example `MYSQL OFFLINE · XML ONLY · ...` or `MYSQL OFF · EDIT mysql.ini`, or `MYSQL CONFIG ERROR · ...`).
+6. To see the data, run this in Workbench: `SELECT * FROM gravitymaze.runs;`
+
+Every save sends a full copy of your records, so if MySQL was off for a while it catches up the next time you save or start the game.
+
+Optional live check for developers: make an ini file whose `database` is `gravitymaze_check`, then from the repo folder in PowerShell run `$env:GM_MYSQL_INI='C:\path\to\check.ini'; $env:GM_ROOT="$PWD"; dotnet run --project tools/VerificationRunner -- --data-only`.
+
+## 6. Troubleshooting
 
 Tuning is done in the game: pick **CALIBRATE** on the title menu to recenter, change sensitivity and dead zone, invert X/Y, swap axes and run **TEST TILT**. Sensitivity, dead zone, invert and swap are saved to `%AppData%\GravityMaze\records.xml`; the zero point is not saved, so re-take it each session with RECENTER or **C**. Confirmed with the board, RECENTER waits until the board is held level for about a second; with the keyboard, Enter recenters at once. **C** still re-centers at any time.
 
@@ -126,10 +148,10 @@ Tuning is done in the game: pick **CALIBRATE** on the title menu to recenter, ch
 
 > Pressing **C** on the name-entry screen types the letter C. Re-center from any other screen.
 
-## 6. Report back
+## 7. Report back
 
 Send Jude:
 
-1. **The settings you changed**, by copying your `board = New ArduinoController() ...` line from `Form1.vb`.
+1. **The settings you changed** in CALIBRATE (sensitivity, dead zone, invert, swap), and whether the title screen says `MYSQL SYNCED`.
 2. **A short screen recording**, about 30 to 60 seconds. Press F11 for windowed mode and record with Win+Alt+R (Game Bar) or Win+Shift+R (Snipping Tool). Show the footer with `BOARD COMx`, moving through the menus with the board, and the ball rolling in all four directions in Level 1. If you can, film the board in your hand too, on a phone.
 3. Anything that felt wrong, such as drift, lag, a direction that's off, or disconnects, and which COM port and board you used (genuine Uno or a CH340 clone).

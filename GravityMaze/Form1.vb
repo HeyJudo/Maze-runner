@@ -22,6 +22,7 @@ Public Class Form1
     Private sound As SoundManager
     Private canvas As GameCanvas
     Private shell As GameShell
+    Private mirror As MySqlMirror
     Private gameLoopTimer As Timer
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
@@ -52,7 +53,13 @@ Public Class Form1
         Controls.Add(canvas)
 
         Try
-            shell = New GameShell(canvas, inputManager, sound, New ScoreManager(ScoreManager.DefaultPath()), levels)
+            Dim scores As New ScoreManager(ScoreManager.DefaultPath())
+            mirror = MySqlMirror.FromConfig(MySqlMirror.DefaultConfigPath())
+            If mirror IsNot Nothing Then
+                scores.Saved = AddressOf mirror.Push
+                mirror.Push(scores.ToXml())   ' backfill whatever records.xml already holds
+            End If
+            shell = New GameShell(canvas, inputManager, sound, scores, levels)
         Catch ex As Exception
             MessageBox.Show(Me, "Gravity Maze could not start." & Environment.NewLine & ex.Message,
                             "Gravity Maze", MessageBoxButtons.OK, MessageBoxIcon.Error)
@@ -115,6 +122,7 @@ Public Class Form1
 
     Protected Overrides Sub OnFormClosed(e As FormClosedEventArgs)
         shell?.OnClosing()
+        mirror?.WaitIdle(2000)   'Quit run is pushed on a worker; the process would otherwise exit mid-sync
         gameLoopTimer?.Stop()
         gameLoopTimer?.Dispose()
         sound?.Dispose()

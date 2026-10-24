@@ -383,47 +383,55 @@ Namespace Data
             Return If(value, "true", "false")
         End Function
 
+        ' Raised with the saved root after each successful write (used by mirrors).
+        Public Property Saved As Action(Of XElement)
+
+        Friend Function ToXml() As XElement
+            Dim c As CalibrationSettings = _calibration
+            Dim root As New XElement("GravityMazeRecords", New XAttribute("version", "2"),
+                New XElement("Settings",
+                    New XAttribute("LastPlayer", PlayerName),
+                    New XAttribute("FullTiltDegrees", c.FullTiltDegrees.ToString(Inv)),
+                    New XAttribute("Deadzone", c.Deadzone.ToString(Inv)),
+                    New XAttribute("Smoothing", c.Smoothing.ToString(Inv)),
+                    New XAttribute("SwapAxes", Bool(c.SwapAxes)),
+                    New XAttribute("InvertX", Bool(c.InvertX)),
+                    New XAttribute("InvertY", Bool(c.InvertY))))
+            For Each p As PlayerProfile In profiles
+                root.Add(New XElement("Player",
+                    New XAttribute("name", p.Name),
+                    New XAttribute("created", p.Created.ToString("s", Inv)),
+                    New XAttribute("lastPlayed", p.LastPlayed.ToString("s", Inv)),
+                    New XAttribute("unlockedLevel", p.UnlockedLevel.ToString(Inv)),
+                    New XAttribute("ghost", Bool(p.GhostEnabled)),
+                    p.Ghosts.OrderBy(Function(kv) kv.Key).Select(Function(kv) New XElement("Ghost",
+                        New XAttribute("level", kv.Key.ToString(Inv)),
+                        New XAttribute("time", kv.Value.TimeSeconds.ToString("0.00", Inv)),
+                        New XAttribute("stepMs", kv.Value.StepMs.ToString(Inv)),
+                        kv.Value.Encode()))))
+            Next
+            For Each r As ScoreRecord In runs
+                root.Add(New XElement("Run",
+                    New XAttribute("player", r.PlayerName),
+                    New XAttribute("level", r.LevelNumber.ToString(Inv)),
+                    If(r.LevelNumber = 0, New XAttribute("campaignLevels", r.CampaignLevels.ToString(Inv)), Nothing),
+                    New XAttribute("outcome", r.Outcome),
+                    New XAttribute("time", r.TimeSeconds.ToString("0.00", Inv)),
+                    New XAttribute("attempts", r.Attempts.ToString(Inv)),
+                    New XAttribute("stars", r.Stars.ToString(Inv)),
+                    New XAttribute("score", r.Score.ToString(Inv)),
+                    New XAttribute("wallHits", r.WallHits.ToString(Inv)),
+                    New XAttribute("falls", r.Falls.ToString(Inv)),
+                    New XAttribute("heartsLost", r.HeartsLost.ToString(Inv)),
+                    New XAttribute("barriersBroken", r.BarriersBroken.ToString(Inv)),
+                    New XAttribute("date", r.[Date].ToString("s", Inv))))
+            Next
+            Return root
+        End Function
+
         Private Sub Save()
             Try
-                Dim c As CalibrationSettings = _calibration
-                Dim root As New XElement("GravityMazeRecords", New XAttribute("version", "2"),
-                    New XElement("Settings",
-                        New XAttribute("LastPlayer", PlayerName),
-                        New XAttribute("FullTiltDegrees", c.FullTiltDegrees.ToString(Inv)),
-                        New XAttribute("Deadzone", c.Deadzone.ToString(Inv)),
-                        New XAttribute("Smoothing", c.Smoothing.ToString(Inv)),
-                        New XAttribute("SwapAxes", Bool(c.SwapAxes)),
-                        New XAttribute("InvertX", Bool(c.InvertX)),
-                        New XAttribute("InvertY", Bool(c.InvertY))))
-                For Each p As PlayerProfile In profiles
-                    root.Add(New XElement("Player",
-                        New XAttribute("name", p.Name),
-                        New XAttribute("created", p.Created.ToString("s", Inv)),
-                        New XAttribute("lastPlayed", p.LastPlayed.ToString("s", Inv)),
-                        New XAttribute("unlockedLevel", p.UnlockedLevel.ToString(Inv)),
-                        New XAttribute("ghost", Bool(p.GhostEnabled)),
-                        p.Ghosts.OrderBy(Function(kv) kv.Key).Select(Function(kv) New XElement("Ghost",
-                            New XAttribute("level", kv.Key.ToString(Inv)),
-                            New XAttribute("time", kv.Value.TimeSeconds.ToString("0.00", Inv)),
-                            New XAttribute("stepMs", kv.Value.StepMs.ToString(Inv)),
-                            kv.Value.Encode()))))
-                Next
-                For Each r As ScoreRecord In runs
-                    root.Add(New XElement("Run",
-                        New XAttribute("player", r.PlayerName),
-                        New XAttribute("level", r.LevelNumber.ToString(Inv)),
-                        If(r.LevelNumber = 0, New XAttribute("campaignLevels", r.CampaignLevels.ToString(Inv)), Nothing),
-                        New XAttribute("outcome", r.Outcome),
-                        New XAttribute("time", r.TimeSeconds.ToString("0.00", Inv)),
-                        New XAttribute("attempts", r.Attempts.ToString(Inv)),
-                        New XAttribute("stars", r.Stars.ToString(Inv)),
-                        New XAttribute("score", r.Score.ToString(Inv)),
-                        New XAttribute("wallHits", r.WallHits.ToString(Inv)),
-                        New XAttribute("falls", r.Falls.ToString(Inv)),
-                        New XAttribute("heartsLost", r.HeartsLost.ToString(Inv)),
-                        New XAttribute("barriersBroken", r.BarriersBroken.ToString(Inv)),
-                        New XAttribute("date", r.[Date].ToString("s", Inv))))
-                Next
+                Dim root As XElement = ToXml()
                 Dim dir As String = Path.GetDirectoryName(filePath)
                 If Not String.IsNullOrEmpty(dir) Then Directory.CreateDirectory(dir)
                 Dim tmp As String = filePath & ".tmp"
@@ -434,6 +442,8 @@ Namespace Data
                 Else
                     File.Move(tmp, filePath)
                 End If
+                ' must not block: the caller is the UI thread
+                If Saved IsNot Nothing Then Saved.Invoke(root)
             Catch
                 ' disk problems must never crash the game
             End Try
