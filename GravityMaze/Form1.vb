@@ -52,7 +52,13 @@ Public Class Form1
         Controls.Add(canvas)
 
         Try
-            shell = New GameShell(canvas, inputManager, sound, New ScoreManager(ScoreManager.DefaultPath()), levels)
+            Dim scores As New ScoreManager(ScoreManager.DefaultPath())
+            Dim mirror As MySqlMirror = MySqlMirror.FromConfig(MySqlMirror.DefaultConfigPath())
+            If mirror IsNot Nothing Then
+                scores.Saved = AddressOf mirror.Push
+                mirror.Push(scores.ToXml())   ' backfill whatever records.xml already holds
+            End If
+            shell = New GameShell(canvas, inputManager, sound, scores, levels)
         Catch ex As Exception
             MessageBox.Show(Me, "Gravity Maze could not start." & Environment.NewLine & ex.Message,
                             "Gravity Maze", MessageBoxButtons.OK, MessageBoxIcon.Error)

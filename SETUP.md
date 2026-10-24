@@ -33,7 +33,7 @@ git clone https://github.com/HeyJudo/Maze-runner.git
 Then:
 
 1. In Visual Studio, use **File → Open → Project/Solution** and open `Maze-runner\GravityMaze\GravityMaze.slnx`.
-2. NuGet packages restore on their own. The project's only package is `System.IO.Ports`. If you get restore errors, right-click the solution and choose **Restore NuGet Packages**.
+2. NuGet packages restore on their own. The project's only packages are `System.IO.Ports` and `MySqlConnector`. If you get restore errors, right-click the solution and choose **Restore NuGet Packages**.
 3. Build with **Ctrl+Shift+B**, then run with **F5**.
 
 **What you should see:** a **fullscreen** title screen with the menu PLAY / LEVEL SELECT / RECORDS / HOW TO PLAY / CHANGE PLAYER / QUIT.
@@ -106,7 +106,22 @@ void loop() {
 5. **Keyboard override:** while the board is connected, hold an arrow key. The keyboard should take control. When you let go, the board takes over again.
 6. **Unplug test:** unplug the USB cable mid-game. The game pauses with a banner (it never resumes by itself; choose RESUME), the footer goes back to `NO BOARD` and the keyboard should still work. Plug it back in, and within a few seconds it reconnects and the footer shows `BOARD COMx` again.
 
-## 5. Troubleshooting
+## 5. MySQL records mirror (optional)
+
+The game can also copy your records into a MySQL database. This is optional: the game works the same without it, and `%AppData%\GravityMaze\records.xml` is still the main save.
+
+1. If MySQL 8 is already installed, skip this step. Otherwise install **MySQL Server** and **MySQL Workbench** from https://dev.mysql.com/downloads/installer/ and note the `root` password you choose.
+2. Open Workbench and connect to your local server.
+3. Choose **File → Open SQL Script** and open `Maze-runner\GravityMaze\Data\gravitymaze.sql`. Click the ⚡ button to run it. This creates the `gravitymaze` database and its tables.
+4. Start the game once. It creates `%AppData%\GravityMaze\mysql.ini`. Close the game, open that file in Notepad, fill in `user` and `password` (and `host`/`port` if yours are different), save, and start the game again.
+5. Look at the top-right of the title screen. `MYSQL SYNCED hh:mm` means it works. If it doesn't, the text says why (for example `MYSQL OFFLINE · XML ONLY · ...` or `MYSQL OFF · EDIT mysql.ini`).
+6. To see the data, run this in Workbench: `SELECT * FROM gravitymaze.runs;`
+
+Every save sends a full copy of your records, so if MySQL was off for a while it catches up the next time you save or start the game.
+
+Optional live check for developers: make an ini file whose `database` is `gravitymaze_check`, then run `GM_MYSQL_INI=<that ini> GM_ROOT="$PWD" dotnet run --project tools/VerificationRunner -- --data-only`.
+
+## 6. Troubleshooting
 
 Tuning is done in the game: pick **CALIBRATE** on the title menu to recenter, change sensitivity and dead zone, invert X/Y, swap axes and run **TEST TILT**. Sensitivity, dead zone, invert and swap are saved to `%AppData%\GravityMaze\records.xml`; the zero point is not saved, so re-take it each session with RECENTER or **C**. Confirmed with the board, RECENTER waits until the board is held level for about a second; with the keyboard, Enter recenters at once. **C** still re-centers at any time.
 
@@ -126,7 +141,7 @@ Tuning is done in the game: pick **CALIBRATE** on the title menu to recenter, ch
 
 > Pressing **C** on the name-entry screen types the letter C. Re-center from any other screen.
 
-## 6. Report back
+## 7. Report back
 
 Send Jude:
 

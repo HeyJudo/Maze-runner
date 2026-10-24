@@ -167,6 +167,10 @@ zero point is re-taken each session). Older v1 files are upgraded automatically.
 only for unbroken Level 1 to end runs. The Who's Playing? screen lists the seven
 most recent profiles.
 
+Every successful XML save is also mirrored to a local MySQL database (players,
+runs, ghosts and settings tables, same fields). XML stays the primary store, and
+the game works the same without MySQL.
+
 ------------------------------------------------------------------------
 
 ## 10. Software Architecture

@@ -188,6 +188,11 @@ Namespace UI.Screens
             DrawLogo(g, x - (1 - intro) * 40 * s, b.Height * 0.12F, s, pal)
             DrawMenu(g, _titleMenu, x + 8 * s, b.Height * 0.46F, s, pal, spacing:=44)
             DrawFooter(g, b, s, pal, {("UP/DOWN", "Navigate"), ("ENTER", "Select")}, _titleMenu)
+            Dim mysql As String = MySqlMirror.Status
+            If mysql <> "" Then
+                UiDraw.Text(g, mysql, GameFonts.Body(16 * s, GameFonts.FontWeight.Bold),
+                            If(mysql.StartsWith("MYSQL SYNCED"), pal.Accent, pal.TextDim), b.Right - 48 * s, 48 * s, 1, 2 * s)
+            End If
         End Sub
 
         ' ── Level select ────────────────────────────────────────────────────
