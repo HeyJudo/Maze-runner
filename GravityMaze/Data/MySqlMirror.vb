@@ -120,6 +120,7 @@ Namespace Data
                 .Database = v("database", "gravitymaze"),
                 .UserID = v("user", "root"),
                 .Password = v("password", ""),
+                .AllowPublicKeyRetrieval = True,   'localhost only; lets password logins work when TLS is off
                 .ConnectionTimeout = 3UI,
                 .DefaultCommandTimeout = 10UI}
             Return b.ConnectionString

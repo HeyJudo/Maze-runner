@@ -110,16 +110,16 @@ void loop() {
 
 The game can also copy your records into a MySQL database. This is optional: the game works the same without it, and `%AppData%\GravityMaze\records.xml` is still the main save.
 
-1. If MySQL 8 is already installed, skip this step. Otherwise install **MySQL Server** and **MySQL Workbench** from https://dev.mysql.com/downloads/installer/ and note the `root` password you choose.
+1. If MySQL 8 is already installed, skip this step. Otherwise install **MySQL Server** and **MySQL Workbench** from https://dev.mysql.com/downloads/mysql/ (MySQL Server 8.4 LTS, Windows MSI) and https://dev.mysql.com/downloads/workbench/, and note the `root` password you choose.
 2. Open Workbench and connect to your local server.
 3. Choose **File → Open SQL Script** and open `Maze-runner\GravityMaze\Data\gravitymaze.sql`. Click the ⚡ button to run it. This creates the `gravitymaze` database and its tables.
-4. Start the game once. It creates `%AppData%\GravityMaze\mysql.ini`. Close the game, open that file in Notepad, fill in `user` and `password` (and `host`/`port` if yours are different), save, and start the game again.
-5. Look at the top-right of the title screen. `MYSQL SYNCED hh:mm` means it works. If it doesn't, the text says why (for example `MYSQL OFFLINE · XML ONLY · ...` or `MYSQL OFF · EDIT mysql.ini`).
+4. Start the game once. It creates `%AppData%\GravityMaze\mysql.ini`. Close the game, press **Win+R**, type `%AppData%\GravityMaze`, press Enter, open `mysql.ini` in Notepad, fill in `user` and `password` (and `host`/`port` if yours are different), save, and start the game again.
+5. Look at the top-right of the title screen. `MYSQL SYNCED hh:mm` means it works. If it doesn't, the text says why (for example `MYSQL OFFLINE · XML ONLY · ...` or `MYSQL OFF · EDIT mysql.ini`, or `MYSQL CONFIG ERROR · ...`).
 6. To see the data, run this in Workbench: `SELECT * FROM gravitymaze.runs;`
 
 Every save sends a full copy of your records, so if MySQL was off for a while it catches up the next time you save or start the game.
 
-Optional live check for developers: make an ini file whose `database` is `gravitymaze_check`, then run `GM_MYSQL_INI=<that ini> GM_ROOT="$PWD" dotnet run --project tools/VerificationRunner -- --data-only`.
+Optional live check for developers: make an ini file whose `database` is `gravitymaze_check`, then from the repo folder in PowerShell run `$env:GM_MYSQL_INI='C:\path\to\check.ini'; $env:GM_ROOT="$PWD"; dotnet run --project tools/VerificationRunner -- --data-only`.
 
 ## 6. Troubleshooting
 

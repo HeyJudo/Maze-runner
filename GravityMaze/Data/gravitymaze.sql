@@ -6,7 +6,7 @@ CREATE DATABASE IF NOT EXISTS gravitymaze CHARACTER SET utf8mb4;
 USE gravitymaze;
 
 CREATE TABLE IF NOT EXISTS players (
-    playerKey     VARCHAR(100) NOT NULL,
+    playerKey     VARCHAR(100) COLLATE utf8mb4_bin NOT NULL,
     name          VARCHAR(100) NOT NULL,
     created       DATETIME     NOT NULL,
     lastPlayed    DATETIME     NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS players (
 CREATE TABLE IF NOT EXISTS runs (
     id             INT           NOT NULL,   -- 1-based position in the journal
     player         VARCHAR(100)  NOT NULL,
-    playerKey      VARCHAR(100)  NOT NULL,
+    playerKey      VARCHAR(100) COLLATE utf8mb4_bin NOT NULL,
     level          INT           NOT NULL,   -- 0 = full campaign
     campaignLevels INT           NULL,       -- only for level 0
     outcome        VARCHAR(20)   NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS runs (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS ghosts (
-    playerKey VARCHAR(100)  NOT NULL,
+    playerKey VARCHAR(100) COLLATE utf8mb4_bin NOT NULL,
     level     INT           NOT NULL,
     time      DECIMAL(10,2) NOT NULL,
     stepMs    FLOAT         NOT NULL,
