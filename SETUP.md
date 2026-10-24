@@ -2,6 +2,7 @@
 
 This guide takes you from a fresh Windows PC to playing Gravity Maze with the MPU6050 tilt board.
 It takes about 30 to 60 minutes, and most of that is installing Visual Studio.
+To learn how the code works, read [STUDY_GUIDE.md](STUDY_GUIDE.md).
 
 **Already set up an older version?** You don't need to reinstall anything:
 
